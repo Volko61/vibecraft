@@ -1,0 +1,26 @@
+name: VibeCraft
+version: 0.1.0
+main: dev.vibecraft.VibeCraftPlugin
+api-version: "26.3"
+description: Live AI coding - hot-reloadable Java modules with crash guards, plus Claude Code jobs.
+author: VibeCraft
+commands:
+  vibe:
+    description: Manage hot-reloadable modules and AI coding jobs.
+    usage: /vibe help
+    aliases: [vc]
+    permission: vibecraft.admin
+  idea:
+    description: Suggest a feature to the live coders.
+    usage: /idea <your idea>
+    permission: vibecraft.idea
+permissions:
+  vibecraft.admin:
+    description: Manage modules and start AI jobs.
+    default: op
+  vibecraft.idea:
+    description: Submit feature ideas with /idea.
+    default: true
+  vibecraft.notify:
+    description: Receive detailed module / AI notifications (errors, progress).
+    default: op

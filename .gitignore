@@ -1,0 +1,15 @@
+runtime/
+downloads/
+server/
+!server/.keep
+vibecraft-plugin/out/
+workspace/data/
+workspace/modules/*/.vibe/
+node_modules/
+proxy/**/*.jar
+proxy/**/libraries/
+proxy/**/logs/
+proxy/**/world*/
+proxy/**/cache/
+tests/**/reports/
+*.log

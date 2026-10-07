@@ -1,0 +1,63 @@
+# VibeCraft configuration
+# Paths are relative to the server directory.
+modules-dir: ../workspace/modules
+data-dir: ../workspace/data
+
+# Reload a module automatically when its .java / config.yml / module.yml files change.
+auto-reload: true
+# How often module directories are scanned for changes, and how long files must be stable before reloading.
+poll-interval-ms: 750
+debounce-ms: 1200
+
+guard:
+  # Max main-thread time for one guarded call (event handler, command, scheduled task) before it is interrupted.
+  handler-budget-ms: 250
+  # Max time for VibeModule.enable()/disable().
+  enable-budget-ms: 5000
+  # Fallback for module code running on the main thread outside a guarded call: max time since the tick started.
+  tick-budget-ms: 2000
+  # Circuit breaker: that many runtime errors within the window disables (TRIPS) the module.
+  error-burst-limit: 25
+  error-burst-window-ms: 10000
+
+api:
+  enabled: true
+  host: 127.0.0.1
+  port: 8765
+  # If non-empty, every /api request must send the header "X-Vibe-Token: <token>" (the dashboard asks for it).
+  token: ""
+
+notify:
+  # Tell everyone in chat when a module is (re)loaded - nice for live demos.
+  broadcast-reloads: true
+  # Send errors / rollbacks to players with vibecraft.notify (ops).
+  errors-to-ops: true
+
+ai:
+  enabled: true
+  # "auto" = search PATH, then %APPDATA%/Claude/claude-code/<version>/<hash>/claude.exe (newest).
+  claude-path: auto
+  # Empty = Claude Code default model. E.g. "sonnet" for faster live demos, "opus" for harder features.
+  model: ""
+  # Claude Code permission mode for headless jobs.
+  permission-mode: acceptEdits
+  # Tools the headless agent may use without asking (Bash is restricted to curl calls to the local API).
+  allowed-tools:
+    - Read
+    - Write
+    - Edit
+    - MultiEdit
+    - Glob
+    - Grep
+    - Bash(curl:*)
+  max-concurrent-jobs: 4
+  timeout-seconds: 900
+  # Show AI progress lines to everyone (true) or only to ops (false).
+  broadcast-progress: true
+  # Keep one Claude conversation per module so follow-up requests have context.
+  resume-sessions: true
+
+ideas:
+  enabled: true
+  # Cooldown between two /idea from the same player.
+  cooldown-seconds: 20

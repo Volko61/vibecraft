@@ -13,3 +13,7 @@ proxy/**/world*/
 proxy/**/cache/
 tests/**/reports/
 *.log
+.sandbox*/
+**/.sandbox*/
+.claude/worktrees/
+vibecraft-plugin/out-*/

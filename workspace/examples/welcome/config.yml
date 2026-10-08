@@ -1,0 +1,6 @@
+# Live-editable: saving this file reloads the module (no restart, nobody is kicked).
+# MiniMessage format. Placeholders: <name> = player name, <visits> = number of visits.
+join-message: "<gray>[<green>+</green>]</gray> <yellow><name></yellow> <gray>a rejoint le serveur"
+title: "<gradient:gold:yellow><bold>Bienvenue !</bold></gradient>"
+subtitle: "<white><name></white><gray>, c'est ta visite n°<visits>"
+sound: true

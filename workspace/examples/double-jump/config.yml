@@ -1,0 +1,4 @@
+# Tweak live during the demo: saving this file hot-reloads the module.
+power: 0.9          # vertical boost
+forward: 0.6        # horizontal boost in the looking direction
+cooldown-ms: 1200   # minimum time between two double jumps

@@ -1,3 +1,1618 @@
 <!doctype html>
-<html lang="fr"><head><meta charset="utf-8"><title>VibeCraft</title></head>
-<body><p>Dashboard placeholder (to be implemented).</p></body></html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>VibeCraft</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%238b5a2b'/%3E%3Crect width='16' height='6' rx='2' fill='%2353c653'/%3E%3Crect y='4' width='16' height='2' fill='%233a9a3a'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #090d12;
+  --bg2: #0c1218;
+  --card: #141d27;
+  --card-hi: #1a2531;
+  --line: #273544;
+  --line-hi: #3b4e63;
+  --text: #f1f5f9;
+  --muted: #a9b8c8;
+  --dim: #7a8ca0;
+  --green: #3ddc84;
+  --blue: #4db2ff;
+  --red: #ff5c66;
+  --orange: #ff9f40;
+  --grey: #8a97a8;
+  --neutral: #cfd9e4;
+  --purple: #c4a0ff;
+  --yellow: #ffd166;
+  --r: 14px;
+  --banner-h: 0px;
+  --sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: clamp(15px, calc(10.5px + .5vw), 20px);
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body {
+  margin: 0; min-height: 100vh; overflow-x: hidden;
+  background: var(--bg); color: var(--text);
+  font-family: var(--sans); font-size: 1rem; line-height: 1.45;
+  padding-top: var(--banner-h);
+}
+body.offline { --banner-h: 3rem; }
+h1, h2, h3, p { margin: 0; }
+code, kbd, pre, .mono { font-family: var(--mono); }
+button, input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+
+/* ---------- header ---------- */
+.top {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.5rem;
+  padding: .8rem 1.25rem; background: rgba(12, 18, 24, .96);
+  border-bottom: 1px solid var(--line);
+}
+@media (min-width: 900px) { .top { position: sticky; top: var(--banner-h); z-index: 20; } }
+.brand { display: flex; align-items: center; gap: .8rem; min-width: 0; flex: 1 1 18rem; }
+.logo {
+  flex: none; width: 2.4rem; height: 2.4rem; border-radius: 7px;
+  background: linear-gradient(#5fd35f 0 30%, #3a9a3a 30% 40%, #8b5a2b 40% 100%);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .3), 0 0 1.2rem rgba(61, 220, 132, .25);
+}
+.brand h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: .01em; line-height: 1.1; }
+.brand h1 span { color: var(--green); }
+.sub { color: var(--muted); font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.metrics { display: flex; flex-wrap: wrap; align-items: stretch; gap: .6rem; }
+.metric {
+  display: flex; flex-direction: column; justify-content: center;
+  min-width: 6.2rem; padding: .3rem .85rem; border-radius: 10px;
+  background: var(--card); border: 1px solid var(--line);
+}
+.m-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+.m-value { font-size: 1.45rem; font-weight: 800; line-height: 1.15; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.m-value small { font-size: .62em; font-weight: 700; }
+.good { color: var(--green); }
+.warn { color: var(--orange); }
+.bad { color: var(--red); }
+.conn { flex-direction: row; align-items: center; gap: .5rem; font-weight: 700; }
+.conn .dot { width: .8rem; height: .8rem; border-radius: 50%; background: var(--grey); flex: none; }
+.conn[data-mode="live"] .dot { background: var(--green); box-shadow: 0 0 .6rem var(--green); }
+.conn[data-mode="down"] .dot { background: var(--red); animation: blink 1s steps(2) infinite; }
+.conn[data-mode="token"] .dot { background: var(--yellow); }
+
+.banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 40; height: 3rem;
+  display: flex; align-items: center; justify-content: center; gap: .6rem;
+  padding: 0 16px; background: var(--red); color: #1b0003; font-weight: 800;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  box-shadow: 0 4px 1.5rem rgba(255, 92, 102, .35);
+}
+.banner span { overflow: hidden; text-overflow: ellipsis; }
+body.offline main { opacity: .72; transition: opacity .3s; }
+
+/* ---------- layout ---------- */
+main.layout {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.1rem;
+  padding: 1.1rem 1.25rem 2rem; align-items: start;
+}
+@media (min-width: 1100px) { main.layout { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); } }
+.col-side { display: grid; gap: 1.1rem; min-width: 0; }
+/* single column: request form and live AI jobs first, then modules, then ideas */
+@media (max-width: 1099.98px) {
+  .col-side { display: contents; }
+  #p-form { order: 1; }
+  #p-jobs { order: 2; }
+  #p-mods { order: 3; }
+  #p-ideas { order: 4; }
+}
+.panel { min-width: 0; }
+.panel-head { display: flex; align-items: baseline; gap: .7rem; margin: 0 0 .7rem; flex-wrap: wrap; }
+.panel-head h2 { font-size: 1.3rem; font-weight: 800; }
+.count {
+  font-size: .85rem; font-weight: 700; color: var(--muted);
+  background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: .05rem .65rem;
+}
+.box { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 1rem 1.1rem; }
+.empty {
+  border: 2px dashed var(--line); border-radius: var(--r); padding: 1.2rem; color: var(--muted);
+  text-align: center; font-size: 1.05rem;
+}
+.empty code { color: var(--text); background: var(--bg2); padding: .05em .35em; border-radius: 5px; }
+
+/* ---------- badges / buttons ---------- */
+.badge {
+  display: inline-flex; align-items: center; gap: .4em; white-space: nowrap;
+  padding: .12em .65em; border-radius: 999px; font-weight: 800; font-size: .82rem; line-height: 1.5;
+  color: var(--st, var(--neutral)); border: 1px solid var(--st, var(--neutral));
+  background: rgba(255, 255, 255, .04);
+}
+.badge .dot { width: .6em; height: .6em; border-radius: 50%; background: currentColor; flex: none; }
+.badge.gen { --st: var(--text); font-family: var(--mono); }
+.badge.rb { --st: var(--purple); background: rgba(196, 160, 255, .12); }
+.badge.ai { --st: var(--blue); background: rgba(77, 178, 255, .12); }
+.badge.ai .dot { animation: blink 1s steps(2) infinite; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4em;
+  min-height: 2.4rem; padding: .35em .95em; border-radius: 10px; cursor: pointer;
+  background: var(--card-hi); border: 1px solid var(--line-hi); font-weight: 700; white-space: nowrap;
+  transition: background .15s, border-color .15s, transform .05s;
+}
+.btn:hover:not(:disabled) { border-color: var(--muted); background: #223040; }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.btn.busy { cursor: progress; }
+.btn.busy::before {
+  content: ""; width: .95em; height: .95em; border-radius: 50%; flex: none;
+  border: 2px solid currentColor; border-right-color: transparent; animation: spin .8s linear infinite;
+}
+.btn.primary { background: var(--blue); border-color: var(--blue); color: #04121f; }
+.btn.primary:hover:not(:disabled) { background: #79c6ff; border-color: #79c6ff; }
+.btn.ok { color: var(--green); border-color: rgba(61, 220, 132, .55); }
+.btn.danger { color: var(--red); border-color: rgba(255, 92, 102, .55); }
+.btn.armed { background: var(--red); border-color: var(--red); color: #1b0003; }
+.btn.small { min-height: 2rem; font-size: .85rem; padding: .2em .7em; }
+.btn.link { background: none; border: none; color: var(--muted); text-decoration: underline; min-height: 0; padding: 0; font-weight: 600; }
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+
+/* ---------- module cards ---------- */
+.mod-grid { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); }
+.mod {
+  --st: var(--neutral);
+  position: relative; overflow: hidden; min-width: 0;
+  display: flex; flex-direction: column; gap: .65rem;
+  background: var(--card); border: 1px solid var(--line); border-left: 7px solid var(--st);
+  border-radius: var(--r); padding: .9rem 1rem .95rem;
+}
+.mod[data-state="ENABLED"] { --st: var(--green); }
+.mod[data-state="COMPILING"] { --st: var(--blue); animation: pulse 1.3s ease-in-out infinite; }
+.mod[data-state="FAILED"] { --st: var(--red); background: linear-gradient(rgba(255, 92, 102, .07), rgba(255, 92, 102, 0) 60%), var(--card); }
+.mod[data-state="TRIPPED"] { --st: var(--orange); background: linear-gradient(rgba(255, 159, 64, .08), rgba(255, 159, 64, 0) 60%), var(--card); }
+.mod[data-state="DISABLED"] { --st: var(--grey); }
+.mod[data-state="DISABLED"] .mod-body { opacity: .6; }
+.mod[data-state="DISCOVERED"] { --st: var(--neutral); }
+.mod[data-state="COMPILING"]::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4px;
+  background: linear-gradient(90deg, transparent, var(--blue), transparent); background-size: 50% 100%;
+  background-repeat: no-repeat; animation: sweep 1.1s linear infinite;
+}
+.mod.flash-ok { animation: flashok 1.6s ease-out; }
+.mod.flash-err { animation: flasherr 1.6s ease-out; }
+.mod-body { display: flex; flex-direction: column; gap: .6rem; min-width: 0; }
+.mod-title { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem .6rem; }
+.mod-id { font-family: var(--mono); font-size: 1.3rem; font-weight: 800; word-break: break-all; margin-right: auto; }
+.badges { display: flex; flex-wrap: wrap; gap: .35rem; }
+.state { --st: inherit; }
+.mod .badge.state, .job .badge.state { color: var(--st); border-color: var(--st); }
+.mod[data-state="COMPILING"] .badge.state .dot { animation: blink .8s steps(2) infinite; }
+.mod-desc { color: var(--muted); font-size: .98rem; overflow-wrap: anywhere; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; }
+.stat { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: .3rem .55rem; min-width: 0; }
+.stat .k { display: block; font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--dim); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat .v { display: block; font-weight: 800; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.bar { height: .38rem; margin-top: .25rem; border-radius: 99px; background: #232f3c; overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 0; border-radius: 99px; background: var(--green); transition: width .6s ease, background-color .3s; }
+.bar.warn > i { background: var(--orange); }
+.bar.bad > i { background: var(--red); }
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .6rem; }
+.chips > .chips { gap: .35rem; }
+.reg { color: var(--dim); font-size: .88rem; font-weight: 600; }
+.chip {
+  font-family: var(--mono); font-size: .9rem; font-weight: 700; color: var(--yellow);
+  background: rgba(255, 209, 102, .09); border: 1px solid rgba(255, 209, 102, .35); border-radius: 8px; padding: .02rem .5rem;
+  overflow-wrap: anywhere;
+}
+.err-box {
+  border-radius: 10px; padding: .5rem .7rem; font-size: .95rem; overflow-wrap: anywhere;
+  background: rgba(255, 92, 102, .1); border: 1px solid rgba(255, 92, 102, .45);
+}
+.err-box.rb { background: rgba(196, 160, 255, .1); border-color: rgba(196, 160, 255, .45); }
+.err-box.trip { background: rgba(255, 159, 64, .1); border-color: rgba(255, 159, 64, .5); }
+.err-box b { margin-right: .35em; }
+details.x { border: 1px solid var(--line); border-radius: 10px; background: var(--bg2); }
+details.x > summary {
+  cursor: pointer; list-style: none; padding: .4rem .7rem; font-weight: 700; font-size: .92rem; color: var(--muted);
+  display: flex; align-items: center; gap: .5rem; user-select: none;
+}
+details.x > summary::-webkit-details-marker { display: none; }
+details.x > summary::before { content: "▸"; transition: transform .15s; display: inline-block; }
+details.x[open] > summary::before { transform: rotate(90deg); }
+details.x > summary:hover { color: var(--text); }
+details.x[open] > summary { border-bottom: 1px solid var(--line); }
+.x-body { padding: .5rem .7rem .6rem; max-height: 22rem; overflow: auto; }
+.diag-list, .rt-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .55rem; }
+.diag { border-left: 3px solid var(--red); padding-left: .6rem; }
+.diag.k-WARNING { border-left-color: var(--orange); }
+.diag.k-NOTE { border-left-color: var(--blue); }
+.diag-loc { font-family: var(--mono); font-size: .88rem; color: var(--yellow); font-weight: 700; overflow-wrap: anywhere; }
+.diag-kind { font-family: var(--sans); font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; padding: .05em .45em; border-radius: 5px; margin-right: .45em; background: var(--red); color: #1b0003; }
+.diag.k-WARNING .diag-kind { background: var(--orange); }
+.diag.k-NOTE .diag-kind { background: var(--blue); }
+.diag-msg { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .95rem; }
+.diag-src {
+  margin: .25rem 0 0; padding: .3rem .5rem; border-radius: 6px; background: #05080b; color: #e6edf3;
+  font-size: .85rem; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.rt-list li { font-family: var(--mono); font-size: .82rem; color: #ffc2c6; overflow-wrap: anywhere; }
+pre.logs { margin: 0; font-size: .8rem; white-space: pre-wrap; overflow-wrap: anywhere; color: #d6dee8; max-height: 18rem; overflow: auto; }
+
+/* ---------- AI form ---------- */
+.form { display: grid; gap: .55rem; }
+.form label { font-weight: 700; font-size: .92rem; color: var(--muted); }
+.input {
+  width: 100%; padding: .55rem .75rem; border-radius: 10px; background: var(--bg2);
+  border: 2px solid var(--line-hi); color: var(--text); font-size: 1.05rem;
+}
+.input:focus { border-color: var(--blue); outline: none; }
+.input.invalid { border-color: var(--red); }
+input.input { font-family: var(--mono); }
+textarea.input { resize: vertical; min-height: 5.2rem; line-height: 1.4; }
+.hint { font-size: .88rem; color: var(--dim); min-height: 1.3em; overflow-wrap: anywhere; }
+.hint.bad { color: var(--red); }
+.hint.warn { color: var(--orange); }
+.hint.good { color: var(--green); }
+.form-foot { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+.kbd-hint { color: var(--dim); font-size: .85rem; }
+kbd { background: var(--card-hi); border: 1px solid var(--line-hi); border-bottom-width: 3px; border-radius: 6px; padding: 0 .35em; font-size: .85em; color: var(--text); }
+.notice { border-radius: 10px; padding: .55rem .75rem; font-size: .95rem; margin-bottom: .7rem; overflow-wrap: anywhere; }
+.notice.warn { background: rgba(255, 159, 64, .12); border: 1px solid rgba(255, 159, 64, .5); color: #ffd3a6; }
+
+/* ---------- jobs ---------- */
+.job-list, .idea-list { display: grid; gap: .8rem; }
+.job {
+  --st: var(--grey);
+  background: var(--card); border: 1px solid var(--line); border-left: 7px solid var(--st);
+  border-radius: var(--r); padding: .8rem 1rem .9rem; display: grid; gap: .55rem; min-width: 0;
+}
+.job[data-state="RUNNING"] { --st: var(--blue); box-shadow: 0 0 0 1px rgba(77, 178, 255, .25), 0 0 1.6rem rgba(77, 178, 255, .12); }
+.job[data-state="QUEUED"] { --st: var(--neutral); }
+.job[data-state="SUCCEEDED"] { --st: var(--green); }
+.job[data-state="FAILED"] { --st: var(--red); }
+.job[data-state="STOPPED"] { --st: var(--orange); }
+.job[data-state="RUNNING"] .badge.state .dot { animation: blink .8s steps(2) infinite; }
+.job-head { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem .7rem; }
+.job-mod { font-family: var(--mono); font-weight: 800; font-size: 1.15rem; overflow-wrap: anywhere; }
+.job-time { margin-left: auto; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+.job[data-state="RUNNING"] .job-time { color: var(--blue); }
+.job-prompt { font-size: 1.08rem; font-weight: 600; overflow-wrap: anywhere; white-space: pre-wrap; }
+.job-meta { font-size: .85rem; color: var(--dim); overflow-wrap: anywhere; }
+.feed-toggle { justify-self: start; }
+.feed {
+  background: #070b0f; border: 1px solid var(--line); border-radius: 10px; padding: .45rem .7rem;
+  max-height: 16rem; overflow: auto; overscroll-behavior: contain; display: grid; gap: .15rem; align-content: start;
+}
+.ln { font-size: .95rem; overflow-wrap: anywhere; white-space: pre-wrap; color: #c9d5e2; padding: .05rem 0; }
+.ln.new { animation: lnIn .45s ease-out; }
+.job[data-state="RUNNING"] .ln:last-child { color: var(--text); font-weight: 700; }
+.ln.ph { color: var(--dim); font-style: italic; }
+.result { border-radius: 10px; padding: .55rem .75rem; font-size: 1.05rem; overflow-wrap: anywhere; white-space: pre-wrap; }
+.result.ok { background: rgba(61, 220, 132, .1); border: 1px solid rgba(61, 220, 132, .45); }
+.result.ko { background: rgba(255, 92, 102, .1); border: 1px solid rgba(255, 92, 102, .45); }
+.result.stop { background: rgba(255, 159, 64, .1); border: 1px solid rgba(255, 159, 64, .45); }
+
+/* ---------- ideas ---------- */
+.idea { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: .75rem 1rem; display: grid; gap: .45rem; min-width: 0; }
+.idea-text { font-size: 1.12rem; font-weight: 700; overflow-wrap: anywhere; }
+.idea-meta { font-size: .85rem; color: var(--dim); overflow-wrap: anywhere; }
+.idea.done { padding: .5rem .8rem; }
+.idea.done .idea-text { font-size: .98rem; font-weight: 600; color: var(--muted); }
+.idea.st-DISMISSED .idea-text { text-decoration: line-through; color: var(--dim); }
+.accept-row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+.accept-row .input { flex: 1 1 12rem; width: auto; padding: .35rem .6rem; font-size: 1rem; }
+#idea-done { margin-top: .8rem; }
+#idea-done .x-body { display: grid; gap: .5rem; max-height: 26rem; }
+
+/* ---------- toasts / modal / footer ---------- */
+.toasts {
+  position: fixed; right: 16px; bottom: 16px; z-index: 60; display: flex; flex-direction: column; gap: .5rem;
+  width: min(30rem, calc(100vw - 32px)); pointer-events: none;
+}
+.toast {
+  pointer-events: auto; cursor: pointer; border-radius: 12px; padding: .7rem .9rem; background: #1d2a37;
+  border: 1px solid var(--line-hi); border-left: 6px solid var(--blue); box-shadow: 0 .6rem 2rem rgba(0, 0, 0, .5);
+  animation: toastIn .25s ease-out; overflow-wrap: anywhere;
+}
+.toast.ok { border-left-color: var(--green); }
+.toast.warn { border-left-color: var(--orange); }
+.toast.error { border-left-color: var(--red); }
+.toast.out { opacity: 0; transform: translateX(1rem); transition: opacity .25s, transform .25s; }
+.toast-title { font-weight: 800; font-size: 1.02rem; }
+.toast-detail { font-size: .88rem; color: var(--muted); margin-top: .2rem; font-family: var(--mono); white-space: pre-wrap; }
+.modal { position: fixed; inset: 0; z-index: 80; background: rgba(0, 0, 0, .72); display: grid; place-items: center; padding: 16px; }
+.modal-box { width: min(28rem, 100%); background: var(--card); border: 1px solid var(--line-hi); border-radius: var(--r); padding: 1.3rem; display: grid; gap: .8rem; }
+.modal-box h2 { font-size: 1.3rem; }
+.modal-box p { color: var(--muted); }
+.modal-box .err { color: var(--red); font-weight: 700; }
+footer { padding: 0 1.25rem 1.5rem; color: var(--dim); font-size: .85rem; display: flex; gap: .4rem 1rem; flex-wrap: wrap; }
+
+/* ---------- animations ---------- */
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes blink { 50% { opacity: .25; } }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(77, 178, 255, .5); } 50% { box-shadow: 0 0 0 .45rem rgba(77, 178, 255, 0); } }
+@keyframes sweep { from { background-position: -50% 0; } to { background-position: 150% 0; } }
+@keyframes flashok { 0% { box-shadow: 0 0 0 3px var(--green), 0 0 2.2rem rgba(61, 220, 132, .7); } 100% { box-shadow: 0 0 0 0 transparent; } }
+@keyframes flasherr { 0% { box-shadow: 0 0 0 3px var(--red), 0 0 2.2rem rgba(255, 92, 102, .7); } 100% { box-shadow: 0 0 0 0 transparent; } }
+@keyframes lnIn { from { opacity: 0; transform: translateY(.35rem); background: rgba(77, 178, 255, .18); } to { opacity: 1; transform: none; background: transparent; } }
+@keyframes toastIn { from { opacity: 0; transform: translateY(.6rem); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
+}
+
+/* ---------- small screens ---------- */
+@media (max-width: 700px) {
+  .top { padding: .7rem 16px; gap: .6rem; }
+  .brand h1 { font-size: 1.35rem; }
+  .sub { white-space: normal; font-size: .85rem; }
+  .metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .metric { min-width: 0; }
+  .metric.conn { grid-column: 1 / -1; justify-content: center; padding: .35rem .85rem; }
+  .m-value { font-size: 1.2rem; overflow: hidden; text-overflow: ellipsis; }
+  main.layout { padding: .9rem 16px 1.5rem; }
+  footer { padding: 0 16px 1.2rem; }
+  .job-time { margin-left: 0; }
+  .banner { font-size: .9rem; justify-content: flex-start; }
+}
+</style>
+</head>
+<body>
+<div id="banner" class="banner" role="alert" hidden><span id="banner-text"></span></div>
+
+<header class="top">
+  <div class="brand">
+    <div class="logo" aria-hidden="true"></div>
+    <div style="min-width:0">
+      <h1>Vibe<span>Craft</span></h1>
+      <div class="sub" id="srv-sub">Connexion au serveur…</div>
+    </div>
+  </div>
+  <div class="metrics">
+    <div class="metric" id="m-tps" title="Ticks par seconde (20 = parfait)"><span class="m-label">TPS</span><span class="m-value" id="tps">—</span></div>
+    <div class="metric"><span class="m-label">Joueurs</span><span class="m-value" id="players">—</span></div>
+    <div class="metric" title="Modules actifs / total"><span class="m-label">Modules</span><span class="m-value" id="mods-sum">—</span></div>
+    <div class="metric" id="m-ai"><span class="m-label">IA</span><span class="m-value" id="ai-sum">—</span></div>
+    <div class="metric conn" id="conn" data-mode="init"><span class="dot"></span><span id="conn-text">connexion…</span></div>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="panel" id="p-mods" aria-labelledby="h-mods">
+    <div class="panel-head"><h2 id="h-mods">Modules</h2><span class="count" id="mod-count">0</span></div>
+    <div id="mod-empty" class="empty" hidden>Aucun module pour l'instant. Lancez une demande à l'IA : elle créera le module automatiquement.</div>
+    <div id="mod-list" class="mod-grid"></div>
+  </section>
+
+  <div class="col-side">
+    <section class="panel" id="p-form" aria-labelledby="h-form">
+      <div class="panel-head"><h2 id="h-form">Nouvelle demande à l'IA</h2></div>
+      <div class="box">
+        <div id="ai-unavail" class="notice warn" hidden></div>
+        <form id="ai-form" class="form" novalidate autocomplete="off">
+          <label for="f-module">Module</label>
+          <input id="f-module" class="input" list="dl-modules" maxlength="40" spellcheck="false" autocapitalize="off" placeholder="ex : pluie-de-cochons" aria-describedby="f-hint">
+          <datalist id="dl-modules"></datalist>
+          <div id="f-hint" class="hint" aria-live="polite"></div>
+          <label for="f-prompt">Demande</label>
+          <textarea id="f-prompt" class="input" rows="3" placeholder="ex : fais pleuvoir des cochons quand un joueur saute"></textarea>
+          <div class="form-foot">
+            <button type="submit" class="btn primary" id="f-submit">Envoyer à l'IA</button>
+            <span class="kbd-hint"><kbd>Ctrl</kbd> + <kbd>Entrée</kbd></span>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section class="panel" id="p-jobs" aria-labelledby="h-jobs">
+      <div class="panel-head"><h2 id="h-jobs">IA en direct</h2><span class="count" id="job-count">0</span></div>
+      <div id="job-empty" class="empty">Aucune tâche IA pour l'instant.</div>
+      <div id="job-list" class="job-list"></div>
+      <button type="button" class="btn small" id="job-more" style="margin-top:.7rem" hidden></button>
+    </section>
+
+    <section class="panel" id="p-ideas" aria-labelledby="h-ideas">
+      <div class="panel-head"><h2 id="h-ideas">Idées du public</h2><span class="count" id="idea-count">0</span></div>
+      <div id="idea-empty" class="empty">Les joueurs proposent leurs idées en jeu avec <code>/idea &lt;texte&gt;</code></div>
+      <div id="idea-list" class="idea-list"></div>
+      <details id="idea-done" class="x" hidden>
+        <summary>Déjà traitées (<span id="idea-done-count">0</span>)</summary>
+        <div class="x-body" id="idea-done-list"></div>
+      </details>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <span>VibeCraft — tableau de bord en direct (actualisé chaque seconde)</span>
+  <button type="button" class="btn link" id="btn-token">Jeton d'accès…</button>
+</footer>
+
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<div id="token-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="tk-title" hidden>
+  <form class="modal-box" id="token-form" autocomplete="off">
+    <h2 id="tk-title">Jeton d'accès requis</h2>
+    <p>Le serveur demande un jeton (<code>api.token</code> dans <code>plugins/VibeCraft/config.yml</code>).</p>
+    <input id="tk-input" class="input" type="password" spellcheck="false" placeholder="Jeton" aria-label="Jeton d'accès">
+    <p id="tk-error" class="err" hidden>Jeton refusé, réessayez.</p>
+    <div class="actions">
+      <button type="submit" class="btn primary">Valider</button>
+      <button type="button" class="btn" id="tk-cancel">Fermer</button>
+    </div>
+  </form>
+</div>
+
+<noscript><p style="padding:16px">Ce tableau de bord nécessite JavaScript.</p></noscript>
+
+<script>
+(() => {
+  'use strict';
+
+  // ======================================================================
+  // Constants & small helpers
+  // ======================================================================
+  const $ = (id) => document.getElementById(id);
+  const ID_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
+  const POLL_MS = 1000;
+  const HIDDEN_POLL_MS = 5000;
+  const TOKEN_KEY = 'vibecraft.token';
+  const DRAFT_KEY = 'vibecraft.draft';
+
+  const STATE_LABEL = {
+    DISCOVERED: 'Découvert', COMPILING: 'Compilation…', ENABLED: 'Actif',
+    DISABLED: 'Désactivé', FAILED: 'Échec', TRIPPED: 'Disjoncté'
+  };
+  const STATE_HELP = {
+    DISCOVERED: 'Trouvé sur le disque, jamais chargé',
+    COMPILING: 'Compilation et chargement en cours',
+    ENABLED: 'En fonctionnement',
+    DISABLED: 'Désactivé volontairement',
+    FAILED: "Le dernier essai a échoué et aucune version ne tourne",
+    TRIPPED: "Coupé par le disjoncteur (trop d'erreurs) : rechargez pour le réarmer"
+  };
+  const JOB_LABEL = { QUEUED: 'En file', RUNNING: 'En cours', SUCCEEDED: 'Terminé', FAILED: 'Échec', STOPPED: 'Arrêté' };
+  const ACTIVE_JOB = new Set(['QUEUED', 'RUNNING']);
+  const KIND_LABEL = { ERROR: 'erreur', WARNING: 'avertissement', NOTE: 'note' };
+
+  const storage = {
+    get(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { window.localStorage.setItem(k, v); } catch (e) { /* storage unavailable */ } },
+    del(k) { try { window.localStorage.removeItem(k); } catch (e) { /* storage unavailable */ } }
+  };
+
+  const nf1 = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const nf2 = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const nf0 = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
+
+  const arr = (x) => (Array.isArray(x) ? x : []);
+  const str = (x) => (x == null ? '' : String(x));
+  const num = (x) => (typeof x === 'number' && isFinite(x) ? x : 0);
+  const enc = encodeURIComponent;
+  const plural = (n, one, many) => `${nf0.format(n)} ${n === 1 || n === 0 ? one : many}`;
+
+  let skew = 0; // server clock - local clock (only applied when clearly off)
+  const now = () => Date.now() + skew;
+
+  function relTime(ts, t) {
+    if (!ts || ts <= 0) return 'jamais';
+    const s = Math.max(0, Math.floor((t - ts) / 1000));
+    if (s < 2) return "à l'instant";
+    if (s < 60) return `il y a ${s} s`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `il y a ${m} min`;
+    const hh = Math.floor(m / 60);
+    if (hh < 24) return `il y a ${hh} h`;
+    return `il y a ${Math.floor(hh / 24)} j`;
+  }
+  function fmtDur(ms) {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    if (s < 60) return `${s} s`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m} min ${String(s % 60).padStart(2, '0')} s`;
+    const hh = Math.floor(m / 60);
+    if (hh < 24) return `${hh} h ${String(m % 60).padStart(2, '0')} min`;
+    return `${Math.floor(hh / 24)} j ${hh % 24} h`;
+  }
+  function fmtMs(ms) {
+    ms = num(ms);
+    return ms < 1000 ? `${nf0.format(ms)} ms` : `${nf1.format(ms / 1000)} s`;
+  }
+  function fmtTickMs(ms) {
+    ms = num(ms);
+    if (ms <= 0) return '0';
+    if (ms < 0.01) return '< 0,01';
+    return ms < 10 ? nf2.format(ms) : nf1.format(ms);
+  }
+  function fmtCost(c) { return `${nf2.format(num(c))} $`; }
+  function clock(ts) {
+    const d = new Date(ts);
+    return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  // French-friendly slug for module ids (accept an idea -> module id).
+  const STOP = new Set(('le la les l un une des du de d et ou a au aux en dans sur sous pour par avec sans ' +
+    'qui que qu quoi dont ce c cet cette ces se s sa son ses leur leurs mon ma mes ton ta tes notre nos votre vos ' +
+    'il elle ils elles on y je j tu nous vous me m te t lui est sont etre avoir ai as faire fait fais faites ' +
+    'mettre met mets ajoute ajouter ajoutez rajoute rajouter cree creer creez peut pouvoir quand si plus tres ' +
+    'veux voudrais voulons serait svp stp please the an of to and for with when that add make some it is').split(' '));
+  function slugify(text, fallback) {
+    const base = str(text).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const words = base.split(/[^a-z0-9]+/).filter(Boolean);
+    let picked = words.filter((w) => !STOP.has(w));
+    if (!picked.length) picked = words;
+    let out = '';
+    for (const w of picked.slice(0, 4)) {
+      const next = out ? `${out}-${w}` : w;
+      if (next.length > 32) break;
+      out = next;
+    }
+    if (!out && picked.length) out = picked[0].slice(0, 32);
+    out = out.replace(/^[^a-z0-9]+/, '');
+    return ID_RE.test(out) ? out : (fallback || 'module');
+  }
+  // Gentle live normalisation of the module id field (keeps the same length so the caret stays put).
+  function softNormalizeId(v) {
+    return v.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s/g, '-');
+  }
+
+  // ---------- DOM helpers (no innerHTML with data anywhere) ----------
+  function h(tag, props, ...kids) {
+    const n = document.createElement(tag);
+    if (props) {
+      for (const k of Object.keys(props)) {
+        const v = props[k];
+        if (v == null || v === false) continue;
+        if (k === 'class') n.className = v;
+        else if (k === 'text') n.textContent = v;
+        else if (k === 'hidden') n.hidden = true;
+        else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
+        else n.setAttribute(k, v === true ? '' : String(v));
+      }
+    }
+    for (const c of kids) if (c != null) n.append(c);
+    return n;
+  }
+  function setText(n, t) { t = str(t); if (n.textContent !== t) n.textContent = t; }
+  function setHidden(n, hide) { hide = !!hide; if (n.hidden !== hide) n.hidden = hide; }
+  function setAttr(n, k, v) {
+    if (v == null) { if (n.hasAttribute(k)) n.removeAttribute(k); return; }
+    v = String(v);
+    if (n.getAttribute(k) !== v) n.setAttribute(k, v);
+  }
+  function setCls(n, c, on) { on = !!on; if (n.classList.contains(c) !== on) n.classList.toggle(c, on); }
+  function setData(n, k, v) { v = str(v); if (n.dataset[k] !== v) n.dataset[k] = v; }
+  function setDisabled(n, d) { d = !!d; if (n.disabled !== d) n.disabled = d; }
+  function nearBottom(el) { return el.scrollHeight - el.scrollTop - el.clientHeight < 40; }
+  function flash(n, cls) {
+    n.classList.remove('flash-ok', 'flash-err');
+    void n.offsetWidth; // restart the animation
+    n.classList.add(cls);
+  }
+
+  /**
+   * Keyed list patching: reuses existing nodes (keeps <details> open state, scroll positions,
+   * inputs and focus), removes stale ones first, then only moves nodes that are out of place.
+   */
+  function reconcile(container, items, keyOf, create, update) {
+    const map = container._views || (container._views = new Map());
+    const keys = items.map(keyOf);
+    const live = new Set(keys);
+    for (const [k, view] of map) {
+      if (!live.has(k)) {
+        map.delete(k);
+        view.node.remove();
+        if (view.destroy) view.destroy();
+      }
+    }
+    let prev = null;
+    items.forEach((item, i) => {
+      const k = keys[i];
+      let view = map.get(k);
+      if (!view) { view = create(item); map.set(k, view); }
+      try { update(view, item); } catch (e) { console.error('render error', k, e); }
+      const expected = prev ? prev.nextSibling : container.firstChild;
+      if (view.node !== expected) container.insertBefore(view.node, expected);
+      prev = view.node;
+    });
+    return map;
+  }
+
+  // ======================================================================
+  // HTTP
+  // ======================================================================
+  let token = storage.get(TOKEN_KEY) || '';
+
+  class HttpError extends Error {
+    constructor(status, message, data) { super(message); this.status = status; this.data = data; }
+  }
+
+  async function api(method, path, body, timeoutMs) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs || 15000);
+    const headers = {};
+    if (token) headers['X-Vibe-Token'] = token;
+    if (body != null) headers['Content-Type'] = 'text/plain; charset=utf-8';
+    let res, text;
+    try {
+      res = await fetch(path, { method, headers, body: body == null ? undefined : body, cache: 'no-store', signal: ctrl.signal });
+      text = await res.text();
+    } catch (e) {
+      throw new HttpError(0, e && e.name === 'AbortError' ? 'délai dépassé' : 'serveur injoignable');
+    } finally {
+      clearTimeout(timer);
+    }
+    noteServerDate(res.headers.get('Date'));
+    let data = null;
+    if (text) { try { data = JSON.parse(text); } catch (e) { data = null; } }
+    if (res.status === 401) {
+      askToken(true);
+      throw new HttpError(401, 'jeton requis', data);
+    }
+    if (!res.ok) {
+      const msg = (data && typeof data.error === 'string' && data.error) || `erreur HTTP ${res.status}`;
+      throw new HttpError(res.status, msg, data);
+    }
+    return data;
+  }
+
+  function noteServerDate(d) {
+    if (!d) return;
+    const t = Date.parse(d);
+    if (!isFinite(t)) return;
+    const diff = t - Date.now(); // Date header has 1 s precision: only correct obvious clock skew
+    if (Math.abs(diff) > 5000) { if (Math.abs(diff - skew) > 3000) skew = diff; } else if (skew !== 0) skew = 0;
+  }
+
+  // ======================================================================
+  // Toasts
+  // ======================================================================
+  function toast(title, kind, detail) {
+    const box = $('toasts');
+    const t = h('div', { class: `toast ${kind || 'info'}`, role: kind === 'error' ? 'alert' : 'status', title: 'Cliquer pour fermer' },
+      h('div', { class: 'toast-title', text: title }),
+      detail ? h('div', { class: 'toast-detail', text: detail }) : null);
+    let gone = false;
+    const close = () => {
+      if (gone) return;
+      gone = true;
+      t.classList.add('out');
+      setTimeout(() => t.remove(), 260);
+    };
+    t.addEventListener('click', close);
+    box.append(t);
+    while (box.children.length > 5) box.firstElementChild.remove();
+    setTimeout(close, kind === 'error' ? 11000 : kind === 'warn' ? 8000 : 5500);
+  }
+
+  function errorText(e) {
+    if (!e) return 'erreur inconnue';
+    if (e.status === 0) return 'serveur injoignable';
+    return e.message || String(e);
+  }
+
+  // ======================================================================
+  // Token prompt
+  // ======================================================================
+  let tokenModalOpen = false;
+  let tokenClosedAt = 0;
+  function askToken(auto) {
+    setConn('token');
+    if (tokenModalOpen) return;
+    if (auto && Date.now() - tokenClosedAt < 20000) return; // closed by hand: don't nag every second
+    tokenModalOpen = true;
+    setHidden($('tk-error'), !(auto && token));
+    $('tk-input').value = '';
+    setHidden($('token-modal'), false);
+    setTimeout(() => $('tk-input').focus(), 0);
+  }
+  function closeToken() {
+    tokenModalOpen = false;
+    setHidden($('token-modal'), true);
+  }
+  $('token-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    token = $('tk-input').value.trim();
+    if (token) storage.set(TOKEN_KEY, token); else storage.del(TOKEN_KEY);
+    closeToken();
+    pollNow();
+  });
+  const dismissToken = () => { tokenClosedAt = Date.now(); closeToken(); };
+  $('tk-cancel').addEventListener('click', dismissToken);
+  $('token-modal').addEventListener('keydown', (e) => { if (e.key === 'Escape') dismissToken(); });
+  $('btn-token').addEventListener('click', () => askToken(false));
+
+  // ======================================================================
+  // Connection state
+  // ======================================================================
+  let lastOkAt = 0; // server-clock ms of the last successful poll
+  let connMode = 'init';
+  function setConn(mode) {
+    connMode = mode;
+    const c = $('conn');
+    setData(c, 'mode', mode);
+    setText($('conn-text'), mode === 'live' ? 'en direct' : mode === 'down' ? 'hors ligne' : mode === 'token' ? 'jeton requis' : 'connexion…');
+    const offline = mode === 'down';
+    setCls(document.body, 'offline', offline);
+    setHidden($('banner'), !offline);
+    updateBanner();
+  }
+  function updateBanner() {
+    if (connMode !== 'down') return;
+    const t = lastOkAt
+      ? `⚠ Connexion au serveur perdue — nouvelle tentative… (dernière réponse ${relTime(lastOkAt, now())})`
+      : '⚠ Serveur injoignable — nouvelle tentative…';
+    setText($('banner-text'), t);
+  }
+
+  // ======================================================================
+  // Rendering: header
+  // ======================================================================
+  let lastStatus = null;
+  const moduleIndex = new Map(); // id -> ModuleInfo
+  const activeJobByModule = new Map(); // moduleId -> AiJob (QUEUED/RUNNING)
+
+  function renderHeader(st) {
+    const s = st.server || {};
+    const parts = [];
+    const nameVer = [str(s.name), str(s.version)].filter(Boolean).join(' ');
+    if (nameVer) parts.push(nameVer);
+    if (num(s.uptimeMs) > 0) parts.push(`en ligne depuis ${fmtDur(num(s.uptimeMs))}`);
+    setText($('srv-sub'), parts.join(' · ') || 'Serveur Minecraft');
+    setAttr($('srv-sub'), 'title', parts.join(' · '));
+
+    const tps = arr(s.tps).map(num);
+    const t1 = tps.length ? Math.min(20, tps[0]) : null;
+    const tpsEl = $('tps');
+    setText(tpsEl, t1 == null ? '—' : nf1.format(t1));
+    setCls(tpsEl, 'good', t1 != null && t1 >= 18);
+    setCls(tpsEl, 'warn', t1 != null && t1 >= 15 && t1 < 18);
+    setCls(tpsEl, 'bad', t1 != null && t1 < 15);
+    setAttr($('m-tps'), 'title', tps.length
+      ? `TPS sur 1 min / 5 min / 15 min : ${tps.map((x) => nf1.format(Math.min(20, x))).join(' / ')} (20 = parfait)`
+      : 'Ticks par seconde');
+
+    setText($('players'), s.online == null ? '—' : `${nf0.format(num(s.online))} / ${nf0.format(num(s.max))}`);
+
+    const mods = arr(st.modules);
+    const enabled = mods.filter((m) => m && m.state === 'ENABLED').length;
+    const broken = mods.filter((m) => m && (m.state === 'FAILED' || m.state === 'TRIPPED')).length;
+    const ms = $('mods-sum');
+    ms.textContent = '';
+    ms.append(`${enabled} / ${mods.length}`);
+    if (broken) ms.append(' ', h('small', { class: 'bad', text: `· ${broken} ⚠` }));
+
+    const ai = st.ai || {};
+    const jobs = arr(st.jobs);
+    const running = jobs.filter((j) => j && j.state === 'RUNNING').length;
+    const queued = jobs.filter((j) => j && j.state === 'QUEUED').length;
+    const aiEl = $('ai-sum');
+    if (ai.available === false) {
+      setText(aiEl, 'indisponible');
+      setCls(aiEl, 'bad', true);
+      setCls(aiEl, 'good', false);
+      setAttr($('m-ai'), 'title', str(ai.reason) || 'IA indisponible');
+    } else {
+      setText(aiEl, queued ? `${running} en cours · ${queued} en file` : `${running} en cours`);
+      setCls(aiEl, 'bad', false);
+      setCls(aiEl, 'good', running > 0);
+      setAttr($('m-ai'), 'title', 'Tâches IA en cours');
+    }
+
+    const un = $('ai-unavail');
+    if (ai.available === false) {
+      setText(un, `🤖 IA indisponible${ai.reason ? ` : ${ai.reason}` : ''}. Les modules peuvent toujours être modifiés à la main (rechargement automatique).`);
+      setHidden(un, false);
+    } else {
+      setHidden(un, true);
+    }
+  }
+
+  // ======================================================================
+  // Rendering: modules
+  // ======================================================================
+  const pending = new Map(); // moduleId -> 'reload' | 'enable' | 'disable'
+
+  function createModuleView(m) {
+    const v = { id: m.id, prevGen: null, prevAttempt: null, prevState: null, sig: {} };
+    v.stateText = h('span');
+    v.stateBadge = h('span', { class: 'badge state' }, h('i', { class: 'dot' }), v.stateText);
+    v.gen = h('span', { class: 'badge gen', title: 'Génération (nombre de chargements réussis)' });
+    v.rb = h('span', { class: 'badge rb', title: 'La nouvelle version a échoué : la version précédente tourne toujours' }, '↩ version précédente');
+    v.aiBadge = h('span', { class: 'badge ai', title: "L'IA travaille sur ce module" }, h('i', { class: 'dot' }), '🤖 IA');
+    v.idEl = h('h3', { class: 'mod-id' });
+    v.desc = h('p', { class: 'mod-desc' });
+
+    v.relEl = h('span', { class: 'v' });
+    v.tickV = h('span', { class: 'v' });
+    v.barI = h('i');
+    v.bar = h('div', { class: 'bar' }, v.barI);
+    v.errV = h('span', { class: 'v' });
+    const stats = h('div', { class: 'stats' },
+      h('div', { class: 'stat', title: 'Dernier chargement réussi' }, h('span', { class: 'k', text: 'Rechargé' }), v.relEl),
+      h('div', { class: 'stat', title: 'Temps moyen passé dans ce module par tick (un tick = 50 ms)' }, h('span', { class: 'k', text: 'ms / tick' }), v.tickV, v.bar),
+      h('div', { class: 'stat', title: "Erreurs d'exécution depuis le dernier chargement" }, h('span', { class: 'k', text: 'Erreurs' }), v.errV));
+
+    v.cmdChips = h('span', { class: 'chips', title: 'Commandes ajoutées par ce module' });
+    v.regV = h('span', { class: 'reg', title: "Écouteurs d'événements et tâches planifiées de la version en cours" });
+    v.chips = h('div', { class: 'chips' }, v.cmdChips, v.regV);
+
+    v.errLabel = h('b');
+    v.errMsg = h('span');
+    v.errBox = h('div', { class: 'err-box' }, v.errLabel, v.errMsg);
+
+    v.diagSum = h('span');
+    v.diagList = h('ol', { class: 'diag-list' });
+    v.diag = h('details', { class: 'x' }, h('summary', null, v.diagSum), h('div', { class: 'x-body' }, v.diagList));
+
+    v.rtSum = h('span');
+    v.rtList = h('ol', { class: 'rt-list' });
+    v.rt = h('details', { class: 'x' }, h('summary', null, v.rtSum), h('div', { class: 'x-body' }, v.rtList));
+
+    v.logPre = h('pre', { class: 'logs', text: 'Chargement…' });
+    v.logs = h('details', { class: 'x' }, h('summary', null, h('span', { text: 'Journal du module' })), h('div', { class: 'x-body' }, v.logPre));
+    v.logs.addEventListener('toggle', () => {
+      clearInterval(v.logTimer);
+      if (v.logs.open) {
+        loadLogs(v);
+        v.logTimer = setInterval(() => loadLogs(v), 3000);
+      }
+    });
+
+    v.btnReload = h('button', { type: 'button', class: 'btn', onclick: () => moduleAction(v.id, 'reload') });
+    v.btnDisable = h('button', { type: 'button', class: 'btn danger', onclick: () => moduleAction(v.id, 'disable') });
+    v.btnEnable = h('button', { type: 'button', class: 'btn ok', onclick: () => moduleAction(v.id, 'enable') });
+    v.btnAi = h('button', { type: 'button', class: 'btn', title: 'Préremplir le formulaire IA pour ce module', onclick: () => prefillForm(v.id) }, '🤖 Demander à l\'IA');
+
+    const body = h('div', { class: 'mod-body' },
+      h('div', { class: 'mod-title' }, v.idEl, h('div', { class: 'badges' }, v.stateBadge, v.gen, v.rb, v.aiBadge)),
+      v.desc, stats, v.chips, v.errBox, v.diag, v.rt, v.logs);
+    v.node = h('article', { class: 'mod' }, body, h('div', { class: 'actions' }, v.btnReload, v.btnDisable, v.btnEnable, v.btnAi));
+    v.node.addEventListener('animationend', (e) => {
+      if (e.target === v.node && (e.animationName === 'flashok' || e.animationName === 'flasherr')) {
+        v.node.classList.remove('flash-ok', 'flash-err');
+      }
+    });
+    v.destroy = () => clearInterval(v.logTimer);
+    return v;
+  }
+
+  async function loadLogs(v) {
+    if (v.logBusy) return;
+    v.logBusy = true;
+    try {
+      const d = await api('GET', `/api/modules/${enc(v.id)}/logs?limit=200`, null, 8000);
+      const lines = arr(d && d.lines).map(str);
+      const stick = nearBottom(v.logPre) || !v.logLoaded;
+      setText(v.logPre, lines.length ? lines.join('\n') : '(aucune ligne pour l\'instant)');
+      v.logLoaded = true;
+      if (stick) v.logPre.scrollTop = v.logPre.scrollHeight;
+    } catch (e) {
+      setText(v.logPre, `Impossible de charger le journal : ${errorText(e)}`);
+    } finally {
+      v.logBusy = false;
+    }
+  }
+
+  function updateModuleView(v, m) {
+    v.data = m;
+    const state = STATE_LABEL[m.state] ? m.state : 'DISCOVERED';
+    setData(v.node, 'state', state);
+    setText(v.idEl, m.id);
+    setText(v.stateText, STATE_LABEL[state]);
+    setAttr(v.stateBadge, 'title', STATE_HELP[state]);
+    const gen = num(m.generation);
+    setText(v.gen, `v${gen}`);
+    setHidden(v.gen, gen <= 0);
+    setHidden(v.rb, !m.rolledBack);
+    setHidden(v.aiBadge, !activeJobByModule.has(m.id));
+    setText(v.desc, str(m.description));
+    setHidden(v.desc, !str(m.description));
+
+    // live relative time (updated by the ticker)
+    setData(v.relEl, 'rel', num(m.lastReloadAt));
+    setText(v.relEl, relTime(num(m.lastReloadAt), now()));
+    setAttr(v.relEl, 'title', num(m.lastReloadAt) > 0 ? `Chargé à ${clock(num(m.lastReloadAt))}` : null);
+
+    const ms = num(m.msPerTick);
+    setText(v.tickV, fmtTickMs(ms));
+    const pct = ms > 0 ? Math.max(3, Math.min(100, Math.sqrt(ms / 50) * 100)) : 0;
+    const w = `${pct.toFixed(1)}%`;
+    if (v.barI.style.width !== w) v.barI.style.width = w;
+    setCls(v.bar, 'warn', ms >= 2 && ms < 10);
+    setCls(v.bar, 'bad', ms >= 10);
+
+    const errs = num(m.runtimeErrorCount);
+    setText(v.errV, nf0.format(errs));
+    setCls(v.errV, 'bad', errs > 0);
+    const nl = num(m.listeners);
+    const nt = num(m.tasks);
+    setText(v.regV, `${plural(nl, 'écouteur', 'écouteurs')} · ${plural(nt, 'tâche', 'tâches')}`);
+
+    const cmds = arr(m.commands).map(str);
+    const cmdSig = cmds.join('\n');
+    if (v.sig.cmds !== cmdSig) {
+      v.sig.cmds = cmdSig;
+      v.cmdChips.textContent = '';
+      for (const c of cmds) v.cmdChips.append(h('span', { class: 'chip', text: `/${c.replace(/^\//, '')}` }));
+    }
+    setHidden(v.cmdChips, !cmds.length);
+    setHidden(v.regV, !nl && !nt);
+    setHidden(v.chips, !cmds.length && !nl && !nt);
+
+    // last error
+    const lastError = str(m.lastError);
+    setHidden(v.errBox, !lastError);
+    if (lastError) {
+      let label = 'Dernière erreur :';
+      let msg = lastError;
+      if (m.rolledBack) { label = 'Nouvelle version refusée :'; if (gen > 0) msg += ` — v${gen} toujours en service`; }
+      else if (state === 'FAILED') label = 'Échec :';
+      else if (state === 'TRIPPED') label = 'Disjoncteur :';
+      setText(v.errLabel, label);
+      setText(v.errMsg, msg);
+      setCls(v.errBox, 'rb', !!m.rolledBack);
+      setCls(v.errBox, 'trip', !m.rolledBack && state === 'TRIPPED');
+    }
+
+    // compiler diagnostics
+    const diags = arr(m.diagnostics).filter(Boolean);
+    const dSig = JSON.stringify(diags);
+    if (v.sig.diag !== dSig) {
+      v.sig.diag = dSig;
+      const counts = {};
+      for (const d of diags) counts[d.kind] = (counts[d.kind] || 0) + 1;
+      const bits = [];
+      if (counts.ERROR) bits.push(plural(counts.ERROR, 'erreur', 'erreurs'));
+      if (counts.WARNING) bits.push(plural(counts.WARNING, 'avertissement', 'avertissements'));
+      if (counts.NOTE) bits.push(plural(counts.NOTE, 'note', 'notes'));
+      setText(v.diagSum, `Diagnostics du compilateur${bits.length ? ` · ${bits.join(', ')}` : ''}`);
+      v.diagList.textContent = '';
+      for (const d of diags) v.diagList.append(renderDiag(d));
+    }
+    setHidden(v.diag, !diags.length);
+
+    // runtime errors (newest first)
+    const rec = arr(m.recentErrors).map(str);
+    const rSig = rec.join('\n');
+    if (v.sig.rt !== rSig) {
+      v.sig.rt = rSig;
+      setText(v.rtSum, `Erreurs d'exécution récentes (${rec.length})`);
+      v.rtList.textContent = '';
+      for (const line of rec.slice().reverse()) v.rtList.append(h('li', { text: line }));
+    }
+    setHidden(v.rt, !rec.length);
+
+    updateModuleButtons(v);
+
+    // flash on new version / new failure (not on first render)
+    const attempt = num(m.lastAttemptAt);
+    if (v.prevGen != null) {
+      if (gen > v.prevGen) flash(v.node, 'flash-ok');
+      else if (attempt > v.prevAttempt && lastError && state !== 'COMPILING') flash(v.node, 'flash-err');
+    }
+    v.prevGen = gen;
+    v.prevAttempt = attempt;
+  }
+
+  function renderDiag(d) {
+    const kind = ['ERROR', 'WARNING', 'NOTE'].includes(d.kind) ? d.kind : 'ERROR';
+    const file = str(d.file);
+    const line = num(d.line);
+    const col = num(d.column);
+    let loc = file;
+    if (file && line > 0) loc += `:${line}${col > 0 ? `:${col}` : ''}`;
+    else if (!file && line > 0) loc = `ligne ${line}`;
+    const li = h('li', { class: `diag k-${kind}` },
+      h('div', { class: 'diag-loc' }, h('span', { class: 'diag-kind', text: KIND_LABEL[kind] }), loc || null),
+      h('div', { class: 'diag-msg', text: str(d.message) }));
+    if (str(d.sourceLine)) li.append(h('pre', { class: 'diag-src', text: str(d.sourceLine) }));
+    return li;
+  }
+
+  function updateModuleButtons(v) {
+    const m = v.data || {};
+    const p = pending.get(v.id);
+    const disabled = m.state === 'DISABLED';
+    setHidden(v.btnReload, disabled);
+    setHidden(v.btnDisable, disabled);
+    setHidden(v.btnEnable, !disabled);
+    setText(v.btnReload, p === 'reload' ? 'Rechargement…' : '⟳ Recharger');
+    setText(v.btnDisable, p === 'disable' ? 'Désactivation…' : '⏸ Désactiver');
+    setText(v.btnEnable, p === 'enable' ? 'Activation…' : '▶ Activer');
+    for (const [b, a] of [[v.btnReload, 'reload'], [v.btnDisable, 'disable'], [v.btnEnable, 'enable']]) {
+      setDisabled(b, !!p);
+      setCls(b, 'busy', p === a);
+    }
+  }
+
+  function renderModules(mods) {
+    const list = mods.filter((m) => m && typeof m.id === 'string')
+      .slice().sort((a, b) => a.id.localeCompare(b.id, 'fr'));
+    moduleIndex.clear();
+    for (const m of list) moduleIndex.set(m.id, m);
+    reconcile($('mod-list'), list, (m) => m.id, createModuleView, updateModuleView);
+    setHidden($('mod-empty'), list.length > 0);
+    const enabled = list.filter((m) => m.state === 'ENABLED').length;
+    setText($('mod-count'), list.length ? `${enabled} actif${enabled > 1 ? 's' : ''} / ${list.length}` : '0');
+
+    // datalist for the AI form
+    const sig = list.map((m) => m.id).join('\n');
+    const dl = $('dl-modules');
+    if (dl._sig !== sig) {
+      dl._sig = sig;
+      dl.textContent = '';
+      for (const m of list) dl.append(h('option', { value: m.id }));
+    }
+  }
+
+  function moduleView(id) {
+    const map = $('mod-list')._views;
+    return map ? map.get(id) : null;
+  }
+
+  async function moduleAction(id, action) {
+    if (pending.has(id)) return;
+    pending.set(id, action);
+    const v = moduleView(id);
+    if (v) updateModuleButtons(v);
+    try {
+      const r = await api('POST', `/api/modules/${enc(id)}/${action}`, null, action === 'disable' ? 30000 : 130000);
+      if (action === 'disable') {
+        if (r && r.ok === false) toast(`${id} : impossible de désactiver`, 'warn', r.error ? str(r.error) : '');
+        else toast(`⏸ ${id} désactivé`, 'info');
+      } else {
+        reloadToast(r, id, action);
+      }
+    } catch (e) {
+      toast(`✖ ${id} : ${errorText(e)}`, 'error');
+    } finally {
+      pending.delete(id);
+      const v2 = moduleView(id);
+      if (v2) updateModuleButtons(v2);
+      pollNow();
+    }
+  }
+
+  function firstDiagText(r) {
+    const d = arr(r && r.diagnostics).find((x) => x && x.kind === 'ERROR') || arr(r && r.diagnostics)[0];
+    if (!d) return '';
+    const loc = str(d.file) ? `${d.file}${num(d.line) > 0 ? `:${d.line}` : ''} — ` : '';
+    return `${loc}${str(d.message).split('\n')[0]}`;
+  }
+
+  function reloadToast(r, id, action) {
+    if (!r || typeof r !== 'object') { toast(`${id} : réponse inattendue`, 'warn'); return; }
+    const mid = str(r.id) || id;
+    if (r.ok) {
+      const verb = action === 'enable' ? 'activé' : 'rechargé à chaud';
+      toast(`✔ ${mid} v${num(r.generation)} ${verb} (${fmtMs(r.durationMs)})`, 'ok');
+    } else if (r.rolledBack) {
+      toast(`↩ ${mid} : ${str(r.error) || 'échec'} — v${num(r.generation)} conservée`, 'warn', firstDiagText(r));
+    } else {
+      toast(`✖ ${mid} : ${str(r.error) || 'échec du chargement'}`, 'error', firstDiagText(r));
+    }
+  }
+
+  // ======================================================================
+  // Rendering: AI jobs
+  // ======================================================================
+  function sortJobs(jobs) {
+    const nums = jobs.map((j) => { const mm = /(\d+)\s*$/.exec(str(j.id)); return mm ? Number(mm[1]) : NaN; });
+    if (jobs.length && nums.every((n) => !isNaN(n))) {
+      return jobs.map((j, i) => [j, nums[i]]).sort((a, b) => b[1] - a[1]).map((x) => x[0]);
+    }
+    return jobs.slice(); // API order: active jobs first, then finished ones (newest first)
+  }
+
+  function createJobView(j) {
+    const v = { id: j.id, lines: [], userOpen: null, stick: true, armed: null };
+    v.stateText = h('span');
+    v.stateBadge = h('span', { class: 'badge state' }, h('i', { class: 'dot' }), v.stateText);
+    v.mod = h('span', { class: 'job-mod' });
+    v.time = h('span', { class: 'job-time', title: 'Durée' });
+    v.prompt = h('p', { class: 'job-prompt' });
+    v.meta = h('div', { class: 'job-meta' });
+    v.feedToggle = h('button', { type: 'button', class: 'btn small feed-toggle', onclick: () => {
+      v.userOpen = !v.feedOpen;
+      applyFeedOpen(v);
+    } });
+    v.feed = h('div', { class: 'feed', role: 'log', 'aria-live': 'off' });
+    v.feed.addEventListener('scroll', () => { v.stick = nearBottom(v.feed); }, { passive: true });
+    v.result = h('div', { class: 'result' });
+    v.btnStop = h('button', { type: 'button', class: 'btn danger', onclick: () => armOr(v, 'stop', () => jobAction(v, 'stop')) });
+    v.btnFollow = h('button', { type: 'button', class: 'btn small', title: 'Préremplir le formulaire pour une nouvelle demande sur ce module', onclick: () => prefillForm(v.moduleId) }, '💬 Demande suivante');
+    v.btnReset = h('button', { type: 'button', class: 'btn small', title: "La prochaine demande sur ce module repartira d'une conversation vierge", onclick: () => armOr(v, 'reset', () => jobAction(v, 'reset')) });
+    v.node = h('article', { class: 'job' },
+      h('div', { class: 'job-head' }, v.stateBadge, v.mod, v.time),
+      v.prompt, v.meta, v.feedToggle, v.feed, v.result,
+      h('div', { class: 'actions' }, v.btnStop, v.btnFollow, v.btnReset));
+    v.destroy = () => clearTimeout(v.armTimer);
+    return v;
+  }
+
+  // Two-click confirmation for destructive job actions (no blocking confirm() dialogs on stage).
+  function armOr(v, what, fn) {
+    if (v.armed === what) {
+      v.armed = null;
+      clearTimeout(v.armTimer);
+      updateJobButtons(v);
+      fn();
+      return;
+    }
+    v.armed = what;
+    clearTimeout(v.armTimer);
+    v.armTimer = setTimeout(() => { v.armed = null; updateJobButtons(v); }, 3500);
+    updateJobButtons(v);
+  }
+
+  function applyFeedOpen(v) {
+    const active = ACTIVE_JOB.has(v.state);
+    const open = v.userOpen == null ? active : v.userOpen;
+    v.feedOpen = open;
+    setHidden(v.feed, !open);
+    setAttr(v.feedToggle, 'aria-expanded', open ? 'true' : 'false');
+    const n = v.lines.length;
+    setText(v.feedToggle, `${open ? '▾' : '▸'} Journal · ${plural(n, 'ligne', 'lignes')}`);
+    if (open && v.stick) v.feed.scrollTop = v.feed.scrollHeight;
+  }
+
+  function patchFeed(v, lines, animate) {
+    const cur = v.lines;
+    let drop = -1;
+    if (!cur.length) drop = 0;
+    else {
+      for (let s = 0; s < cur.length; s++) {
+        const n = cur.length - s;
+        if (n > lines.length || cur[s] !== lines[0]) continue;
+        let same = true;
+        for (let i = 1; i < n; i++) if (cur[s + i] !== lines[i]) { same = false; break; }
+        if (same) { drop = s; break; }
+      }
+    }
+    const feed = v.feed;
+    const ph = feed.querySelector('.ln.ph');
+    if (ph) ph.remove();
+    if (drop < 0) {
+      feed.textContent = '';
+      for (const l of lines) feed.append(h('div', { class: 'ln', text: l }));
+    } else {
+      for (let i = 0; i < drop && feed.firstChild; i++) feed.firstChild.remove();
+      for (const l of lines.slice(cur.length - drop)) feed.append(h('div', { class: animate ? 'ln new' : 'ln', text: l }));
+    }
+    v.lines = lines.slice();
+    if (!lines.length) {
+      feed.append(h('div', { class: 'ln ph', text: v.state === 'QUEUED' ? 'En attente d\'une place libre…' : 'En attente du premier message de l\'IA…' }));
+    }
+  }
+
+  function updateJobView(v, j) {
+    v.moduleId = str(j.moduleId);
+    const state = JOB_LABEL[j.state] ? j.state : 'QUEUED';
+    const firstRender = v.state == null;
+    v.state = state;
+    setData(v.node, 'state', state);
+    setText(v.stateText, JOB_LABEL[state]);
+    setText(v.mod, v.moduleId);
+    setText(v.prompt, `« ${str(j.prompt)} »`);
+
+    const by = str(j.requestedBy);
+    const byTxt = by === 'dashboard' ? 'tableau de bord' : by === 'console' ? 'console' : by;
+    const meta = [];
+    if (byTxt) meta.push(`par ${byTxt}`);
+    meta.push(str(j.id));
+    if (num(j.startedAt) > 0) meta.push(`démarré à ${clock(num(j.startedAt))}`);
+    if (num(j.costUsd) > 0) meta.push(`coût ${fmtCost(j.costUsd)}`);
+    setText(v.meta, meta.join(' · '));
+    setAttr(v.meta, 'title', j.sessionId ? `Conversation Claude : ${j.sessionId}` : null);
+
+    // elapsed time: live while running (ticker), fixed once finished
+    const start = num(j.startedAt);
+    const end = num(j.endedAt);
+    if (state === 'QUEUED' || start <= 0) {
+      delete v.time.dataset.run;
+      setText(v.time, state === 'QUEUED' ? '⏳ en file' : '');
+    } else if (end > 0) {
+      delete v.time.dataset.run;
+      setText(v.time, `⏱ ${fmtDur(end - start)}`);
+    } else {
+      setData(v.time, 'run', start);
+      setText(v.time, `⏱ ${fmtDur(now() - start)}`);
+    }
+
+    // progress feed (append-only patching, auto-scroll when already at the bottom)
+    const lines = arr(j.progress).map(str);
+    const stickBefore = v.stick;
+    patchFeed(v, lines, !firstRender);
+    applyFeedOpen(v);
+    if (v.feedOpen && (stickBefore || firstRender)) { v.feed.scrollTop = v.feed.scrollHeight; v.stick = true; }
+
+    // final result
+    const res = str(j.result);
+    let resTxt = '';
+    let resCls = 'ok';
+    if (state === 'SUCCEEDED') resTxt = res ? `🤖 ${res}` : '🤖 Terminé.';
+    else if (state === 'FAILED') { resTxt = res ? `✖ ${res}` : "✖ La tâche a échoué (voir le journal)."; resCls = 'ko'; }
+    else if (state === 'STOPPED') { resTxt = res ? `⏹ ${res}` : '⏹ Tâche arrêtée.'; resCls = 'stop'; }
+    setText(v.result, resTxt);
+    setHidden(v.result, !resTxt);
+    setCls(v.result, 'ok', resCls === 'ok');
+    setCls(v.result, 'ko', resCls === 'ko');
+    setCls(v.result, 'stop', resCls === 'stop');
+
+    updateJobButtons(v);
+  }
+
+  function updateJobButtons(v) {
+    const active = ACTIVE_JOB.has(v.state);
+    setHidden(v.btnStop, !active);
+    setHidden(v.btnFollow, active);
+    setHidden(v.btnReset, active);
+    setText(v.btnStop, v.busy === 'stop' ? 'Arrêt…' : v.armed === 'stop' ? 'Confirmer l\'arrêt ?' : '⏹ Arrêter');
+    setText(v.btnReset, v.busy === 'reset' ? '…' : v.armed === 'reset' ? 'Confirmer ?' : 'Oublier la conversation');
+    setCls(v.btnStop, 'armed', v.armed === 'stop');
+    setCls(v.btnReset, 'armed', v.armed === 'reset');
+    setCls(v.btnStop, 'busy', v.busy === 'stop');
+    setDisabled(v.btnStop, !!v.busy);
+    setDisabled(v.btnReset, !!v.busy);
+  }
+
+  async function jobAction(v, what) {
+    if (v.busy) return;
+    v.busy = what;
+    updateJobButtons(v);
+    const id = v.moduleId;
+    try {
+      const r = await api('POST', `/api/ai/${enc(id)}/${what}`, null, 20000);
+      if (r && r.ok === false) toast(what === 'stop' ? `Aucune tâche en cours pour ${id}` : `${id} : rien à oublier`, 'warn');
+      else toast(what === 'stop' ? `⏹ Tâche IA arrêtée (${id})` : `🧹 Conversation oubliée pour ${id}`, 'info');
+    } catch (e) {
+      toast(`✖ ${id} : ${errorText(e)}`, 'error');
+    } finally {
+      v.busy = null;
+      updateJobButtons(v);
+      pollNow();
+    }
+  }
+
+  const FINISHED_SHOWN = 5;
+  let showAllJobs = false;
+  function renderJobs(jobs) {
+    const list = sortJobs(jobs.filter((j) => j && j.id != null));
+    activeJobByModule.clear();
+    for (const j of list) if (ACTIVE_JOB.has(j.state)) activeJobByModule.set(str(j.moduleId), j);
+    let finishedSeen = 0;
+    const visible = list.filter((j) => ACTIVE_JOB.has(j.state) || showAllJobs || ++finishedSeen <= FINISHED_SHOWN);
+    const hiddenCount = list.length - visible.length;
+    const views = reconcile($('job-list'), visible, (j) => str(j.id), createJobView, updateJobView);
+    // stick-to-bottom pass once the cards are attached (new cards are measured as 0 px while detached,
+    // and a moved card may lose its scroll position)
+    for (const v of views.values()) if (v.feedOpen && v.stick) v.feed.scrollTop = v.feed.scrollHeight;
+    setHidden($('job-empty'), list.length > 0);
+    const running = list.filter((j) => j.state === 'RUNNING').length;
+    setText($('job-count'), running ? `${running} en cours` : plural(list.length, 'tâche', 'tâches'));
+    const more = $('job-more');
+    const finishedTotal = list.filter((j) => !ACTIVE_JOB.has(j.state)).length;
+    setHidden(more, !(hiddenCount > 0 || (showAllJobs && finishedTotal > FINISHED_SHOWN)));
+    setText(more, showAllJobs ? '▴ Masquer les anciennes tâches' : `▾ Afficher ${plural(hiddenCount, 'tâche terminée', 'tâches terminées')} de plus`);
+  }
+
+  // ======================================================================
+  // Rendering: ideas
+  // ======================================================================
+  function createIdeaView(idea) {
+    const v = { id: idea.id, open: false, busy: null };
+    v.text = h('div', { class: 'idea-text' });
+    v.meta = h('div', { class: 'idea-meta' });
+    v.meta._view = v;
+    v.btnAccept = h('button', { type: 'button', class: 'btn ok', onclick: () => openAccept(v) }, '✔ Accepter');
+    v.btnDismiss = h('button', { type: 'button', class: 'btn', onclick: () => ideaDismiss(v) }, '✖ Écarter');
+    v.actions = h('div', { class: 'actions' }, v.btnAccept, v.btnDismiss);
+    v.input = h('input', { class: 'input', maxlength: '40', spellcheck: 'false', autocapitalize: 'off', 'aria-label': 'Module pour cette idée' });
+    v.inErr = h('div', { class: 'hint bad' });
+    v.btnGo = h('button', { type: 'submit', class: 'btn primary' }, '🤖 Lancer l\'IA');
+    v.btnCancel = h('button', { type: 'button', class: 'btn', onclick: () => { v.open = false; updateIdeaUi(v); } }, 'Annuler');
+    v.form = h('form', { class: 'form', novalidate: true },
+      h('label', { text: 'Module à créer / modifier' }),
+      h('div', { class: 'accept-row' }, v.input, v.btnGo, v.btnCancel), v.inErr);
+    v.form.addEventListener('submit', (e) => { e.preventDefault(); ideaAccept(v); });
+    v.input.addEventListener('input', () => {
+      const pos = v.input.selectionStart;
+      const n = softNormalizeId(v.input.value);
+      if (n !== v.input.value) { v.input.value = n; try { v.input.setSelectionRange(pos, pos); } catch (e) { /* ignore */ } }
+      validateIdeaInput(v);
+    });
+    v.input.addEventListener('keydown', (e) => { if (e.key === 'Escape') { v.open = false; updateIdeaUi(v); } });
+    v.node = h('div', { class: 'idea' }, v.text, v.meta, v.actions, v.form);
+    return v;
+  }
+
+  function validateIdeaInput(v) {
+    const val = v.input.value.trim();
+    const ok = ID_RE.test(val);
+    setCls(v.input, 'invalid', !ok && val !== '');
+    setText(v.inErr, ok || !val ? '' : 'Identifiant invalide : minuscules, chiffres, - et _ (40 max).');
+    return ok;
+  }
+
+  function openAccept(v) {
+    v.open = true;
+    v.input.value = slugify(v.data && v.data.text, `idee-${v.id}`);
+    validateIdeaInput(v);
+    updateIdeaUi(v);
+    v.input.focus();
+    v.input.select();
+  }
+
+  function updateIdeaUi(v) {
+    const isNew = v.data && v.data.status === 'NEW';
+    setHidden(v.actions, !isNew || v.open);
+    setHidden(v.form, !isNew || !v.open);
+    setDisabled(v.btnAccept, !!v.busy);
+    setDisabled(v.btnDismiss, !!v.busy);
+    setDisabled(v.btnGo, !!v.busy);
+    setDisabled(v.input, !!v.busy);
+    setCls(v.btnGo, 'busy', v.busy === 'accept');
+    setCls(v.btnDismiss, 'busy', v.busy === 'dismiss');
+  }
+
+  function updateIdeaView(v, idea) {
+    v.data = idea;
+    const status = str(idea.status) || 'NEW';
+    setCls(v.node, 'done', status !== 'NEW');
+    setCls(v.node, 'st-DISMISSED', status === 'DISMISSED');
+    setCls(v.node, 'st-ACCEPTED', status === 'ACCEPTED');
+    setText(v.text, `« ${str(idea.text)} »`);
+    setData(v.meta, 'ideaAt', num(idea.at));
+    setText(v.meta, ideaMeta(idea, now()));
+    if (status !== 'NEW') v.open = false;
+    updateIdeaUi(v);
+  }
+
+  function ideaMeta(idea, t) {
+    const status = str(idea.status) || 'NEW';
+    const bits = [`#${idea.id}`];
+    if (str(idea.author)) bits.push(str(idea.author));
+    if (num(idea.at) > 0) bits.push(relTime(num(idea.at), t));
+    if (status === 'ACCEPTED') bits.push(`→ module ${str(idea.moduleId) || '?'}`);
+    if (status === 'DISMISSED') bits.push('écartée');
+    return bits.join(' · ');
+  }
+
+  async function ideaAccept(v) {
+    if (v.busy) return;
+    if (!validateIdeaInput(v)) { v.input.focus(); return; }
+    const mod = v.input.value.trim();
+    v.busy = 'accept';
+    updateIdeaUi(v);
+    try {
+      const job = await api('POST', `/api/ideas/${enc(v.id)}/accept?module=${enc(mod)}`, null, 20000);
+      const jm = str(job && job.moduleId) || mod;
+      toast(`🤖 Idée #${v.id} envoyée à l'IA → ${jm}${job && job.state === 'QUEUED' ? ' (en file)' : ''}`, 'ok');
+      v.open = false;
+    } catch (e) {
+      toast(`✖ Idée #${v.id} : ${aiErrorText(e, mod)}`, 'error');
+    } finally {
+      v.busy = null;
+      updateIdeaUi(v);
+      pollNow();
+    }
+  }
+
+  async function ideaDismiss(v) {
+    if (v.busy) return;
+    v.busy = 'dismiss';
+    updateIdeaUi(v);
+    try {
+      await api('POST', `/api/ideas/${enc(v.id)}/dismiss`, null, 15000);
+      toast(`Idée #${v.id} écartée`, 'info');
+    } catch (e) {
+      toast(`✖ Idée #${v.id} : ${errorText(e)}`, 'error');
+    } finally {
+      v.busy = null;
+      updateIdeaUi(v);
+      pollNow();
+    }
+  }
+
+  function renderIdeas(ideas) {
+    const all = ideas.filter((i) => i && i.id != null).slice().sort((a, b) => num(b.at) - num(a.at) || num(b.id) - num(a.id));
+    const fresh = all.filter((i) => (str(i.status) || 'NEW') === 'NEW');
+    const done = all.filter((i) => (str(i.status) || 'NEW') !== 'NEW');
+    reconcile($('idea-list'), fresh, (i) => String(i.id), createIdeaView, updateIdeaView);
+    reconcile($('idea-done-list'), done, (i) => String(i.id), createIdeaView, updateIdeaView);
+    setHidden($('idea-empty'), fresh.length > 0);
+    setHidden($('idea-done'), done.length === 0);
+    setText($('idea-done-count'), String(done.length));
+    setText($('idea-count'), fresh.length ? `${fresh.length} nouvelle${fresh.length > 1 ? 's' : ''}` : '0');
+  }
+
+  // ======================================================================
+  // AI request form
+  // ======================================================================
+  const fModule = $('f-module');
+  const fPrompt = $('f-prompt');
+  const fSubmit = $('f-submit');
+  let formBusy = false;
+
+  function updateFormHint() {
+    const hint = $('f-hint');
+    const id = fModule.value.trim();
+    let txt = 'Minuscules, chiffres, - et _ (40 caractères max). Un nouveau module est créé automatiquement.';
+    let cls = '';
+    if (id) {
+      if (!ID_RE.test(id)) {
+        txt = '✖ Identifiant invalide : commence par une lettre ou un chiffre, puis minuscules, chiffres, - ou _ (40 max).';
+        cls = 'bad';
+      } else if (activeJobByModule.has(id)) {
+        txt = `⏳ L'IA travaille déjà sur « ${id} » : attendez la fin ou arrêtez la tâche.`;
+        cls = 'warn';
+      } else if (moduleIndex.has(id)) {
+        const m = moduleIndex.get(id);
+        const g = num(m.generation);
+        txt = `↻ Module existant (${STATE_LABEL[m.state] || m.state}${g > 0 ? ` v${g}` : ''}) : l'IA reprend sa conversation sur ce module.`;
+        cls = 'good';
+      } else {
+        txt = `✚ Nouveau module « ${id} » : il sera créé automatiquement.`;
+        cls = 'good';
+      }
+    }
+    setText(hint, txt);
+    setCls(hint, 'bad', cls === 'bad');
+    setCls(hint, 'warn', cls === 'warn');
+    setCls(hint, 'good', cls === 'good');
+    setCls(fModule, 'invalid', cls === 'bad');
+  }
+
+  function saveDraft() {
+    storage.set(DRAFT_KEY, JSON.stringify({ module: fModule.value, prompt: fPrompt.value }));
+  }
+  function restoreDraft() {
+    try {
+      const d = JSON.parse(storage.get(DRAFT_KEY) || 'null');
+      if (d && typeof d === 'object') {
+        if (typeof d.module === 'string') fModule.value = d.module;
+        if (typeof d.prompt === 'string') fPrompt.value = d.prompt;
+      }
+    } catch (e) { /* ignore broken draft */ }
+  }
+
+  function prefillForm(id) {
+    fModule.value = id || '';
+    updateFormHint();
+    saveDraft();
+    fPrompt.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    fPrompt.focus({ preventScroll: true });
+  }
+
+  function aiErrorText(e, id) {
+    if (e && e.status === 409) return `l'IA travaille déjà sur « ${id} »${e.message && e.message !== 'erreur HTTP 409' ? ` (${e.message})` : ''}`;
+    if (e && e.status === 503) return `IA indisponible${e.message && e.message !== 'erreur HTTP 503' ? ` : ${e.message}` : ''}`;
+    return errorText(e);
+  }
+
+  async function submitForm() {
+    if (formBusy) return;
+    const id = fModule.value.trim();
+    const prompt = fPrompt.value.trim();
+    if (!ID_RE.test(id)) {
+      updateFormHint();
+      if (!id) toast('Indiquez un identifiant de module', 'warn', 'ex : pluie-de-cochons');
+      fModule.focus();
+      return;
+    }
+    if (!prompt) {
+      toast('Écrivez la demande pour l\'IA', 'warn');
+      fPrompt.focus();
+      return;
+    }
+    formBusy = true;
+    setDisabled(fSubmit, true);
+    setCls(fSubmit, 'busy', true);
+    setText(fSubmit, 'Envoi…');
+    try {
+      const job = await api('POST', `/api/ai/${enc(id)}`, prompt, 30000);
+      const queued = job && job.state === 'QUEUED';
+      toast(`🤖 Demande envoyée à l'IA → ${id}${queued ? ' (en file d\'attente)' : ''}`, 'ok', job && job.id ? str(job.id) : '');
+      fPrompt.value = '';
+      saveDraft();
+      fPrompt.focus();
+    } catch (e) {
+      toast(`✖ ${aiErrorText(e, id)}`, 'error');
+    } finally {
+      formBusy = false;
+      setDisabled(fSubmit, false);
+      setCls(fSubmit, 'busy', false);
+      setText(fSubmit, 'Envoyer à l\'IA');
+      pollNow();
+    }
+  }
+
+  $('ai-form').addEventListener('submit', (e) => { e.preventDefault(); submitForm(); });
+  $('ai-form').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submitForm(); return; }
+    if (e.key === 'Enter' && e.target === fModule) { e.preventDefault(); fPrompt.focus(); }
+  });
+  fModule.addEventListener('input', () => {
+    const pos = fModule.selectionStart;
+    const n = softNormalizeId(fModule.value);
+    if (n !== fModule.value) { fModule.value = n; try { fModule.setSelectionRange(pos, pos); } catch (e) { /* ignore */ } }
+    updateFormHint();
+    saveDraft();
+  });
+  fPrompt.addEventListener('input', saveDraft);
+
+  // ======================================================================
+  // Polling & ticker
+  // ======================================================================
+  let pollTimer = null;
+  let inFlight = false;
+  let again = false;
+  let fails = 0;
+
+  function render(st) {
+    if (!st || typeof st !== 'object') throw new Error('réponse invalide');
+    lastStatus = st;
+    const steps = [
+      () => renderJobs(arr(st.jobs)), // first: modules use the active-job index
+      () => renderHeader(st),
+      () => renderModules(arr(st.modules)),
+      () => renderIdeas(arr(st.ideas)),
+      () => updateFormHint()
+    ];
+    for (const s of steps) { try { s(); } catch (e) { console.error('render', e); } }
+  }
+
+  async function poll() {
+    clearTimeout(pollTimer);
+    if (inFlight) { again = true; return; }
+    inFlight = true;
+    const t0 = performance.now();
+    try {
+      const st = await api('GET', '/api/status', null, 8000);
+      fails = 0;
+      lastOkAt = now();
+      if (tokenModalOpen && !$('tk-input').value) closeToken();
+      setConn('live');
+      render(st);
+    } catch (e) {
+      if (e.status !== 401) {
+        fails++;
+        if (fails >= 2 || !lastStatus) setConn('down');
+        if (e.status && e.status !== 401) console.warn('status', e.message);
+      }
+    } finally {
+      inFlight = false;
+      if (again) { again = false; pollTimer = setTimeout(poll, 0); }
+      else {
+        const period = document.hidden ? HIDDEN_POLL_MS : POLL_MS;
+        pollTimer = setTimeout(poll, Math.max(150, period - (performance.now() - t0)));
+      }
+    }
+  }
+  function pollNow() { if (inFlight) again = true; else { clearTimeout(pollTimer); pollTimer = setTimeout(poll, 0); } }
+
+  function tick() {
+    const t = now();
+    for (const n of document.querySelectorAll('[data-rel]')) setText(n, relTime(Number(n.dataset.rel), t));
+    for (const n of document.querySelectorAll('[data-run]')) setText(n, `⏱ ${fmtDur(t - Number(n.dataset.run))}`);
+    for (const n of document.querySelectorAll('[data-idea-at]')) {
+      if (n._view && n._view.data) setText(n, ideaMeta(n._view.data, t));
+    }
+    updateBanner();
+  }
+
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) pollNow(); });
+  $('job-more').addEventListener('click', () => {
+    showAllJobs = !showAllJobs;
+    if (lastStatus) { try { renderJobs(arr(lastStatus.jobs)); } catch (e) { console.error(e); } }
+  });
+
+  // expose a tiny surface for debugging / tests
+  window.VibeDash = { render, slugify, relTime, fmtDur, poll: pollNow };
+
+  restoreDraft();
+  updateFormHint();
+  poll();
+  setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>

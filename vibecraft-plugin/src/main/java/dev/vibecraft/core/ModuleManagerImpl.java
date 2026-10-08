@@ -342,8 +342,12 @@ public final class ModuleManagerImpl implements ModuleManager {
         }
         ModuleRecord rec = recordFor(id);
         if (rec == null) {
-            return CompletableFuture.completedFuture(new ReloadResult(id, false, ModuleState.FAILED, 0,
-                    "unknown module: " + id + " (no directory " + new File(cfg.modulesDir(), id) + ")", List.of(), 0, false));
+            File d = new File(cfg.modulesDir(), id);
+            String why = d.isDirectory()
+                    ? "modules/" + id + "/ is empty: write the module's .java file first"
+                    : "unknown module: " + id + " (no directory modules/" + id + "/)";
+            return CompletableFuture.completedFuture(new ReloadResult(id, false, ModuleState.FAILED, 0, why,
+                    List.of(new Diagnostic("ERROR", "", -1, -1, why, "")), 0, false));
         }
         if (rec.disabled) {
             return CompletableFuture.completedFuture(new ReloadResult(id, false, ModuleState.DISABLED, 0,

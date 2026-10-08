@@ -1,0 +1,87 @@
+# ---------------------------------------------------------------------------------------------
+# VibeCraft - Velocity proxy configuration (TEMPLATE).
+# proxy/start-proxy.ps1 (or the test runner) renders this file into proxy/velocity/velocity.toml
+# on every start, replacing the {{...}} placeholders. Edit THIS file, not the generated one.
+# ---------------------------------------------------------------------------------------------
+
+# Config version. Do not change this
+config-version = "2.9"
+
+# Address players connect to.
+bind = "{{BIND}}"
+
+motd = "<#09add3>VibeCraft</#09add3> <gray>- live AI coding"
+show-max-players = 100
+
+# Mojang authentication. false = offline mode (same UUIDs as the current offline-mode server).
+online-mode = {{ONLINE_MODE}}
+force-key-authentication = {{ONLINE_MODE}}
+prevent-client-proxy-connections = false
+
+# Modern forwarding: backends (main + limbo) must have proxies.velocity.enabled=true and the
+# same secret in config/paper-global.yml (done by enable-proxy-mode.ps1 / setup-proxy.ps1).
+player-info-forwarding-mode = "modern"
+forwarding-secret-file = "forwarding.secret"
+
+announce-forge = false
+kick-existing-players = false
+sample-players-in-ping = false
+enable-player-address-logging = true
+
+[ping-passthrough]
+version = false
+players = false
+description = false
+favicon = false
+modinfo = false
+
+[packet-limiter]
+interval = 7
+packets-per-second = -1
+bytes-per-second = -1
+decompressed-bytes-per-second = 5242880
+
+[servers]
+# The real VibeCraft server (Paper + VibeCraft plugin)
+main = "{{MAIN_ADDR}}"
+# Tiny waiting room used while "main" restarts (see proxy/limbo)
+limbo = "{{LIMBO_ADDR}}"
+
+# Join "main" first; if it is down, "limbo" (VibeReconnect brings players back automatically).
+try = [
+    "main",
+    "limbo"
+]
+
+[forced-hosts]
+
+[advanced]
+compression-threshold = 256
+compression-level = -1
+# Conference: many people may share one public IP -> very small rate limit.
+login-ratelimit = 500
+connection-timeout = 5000
+read-timeout = 30000
+haproxy-protocol = false
+tcp-fast-open = false
+bungee-plugin-message-channel = true
+show-ping-requests = false
+# Essential for the safety net: when the backend connection drops without a kick message
+# (JVM crash / kill), fall back to the next server (limbo) instead of disconnecting.
+failover-on-unexpected-server-disconnect = true
+announce-proxy-commands = true
+log-command-executions = false
+log-player-connections = true
+accepts-transfers = false
+enable-reuse-port = false
+command-rate-limit = 50
+forward-commands-if-rate-limited = true
+kick-after-rate-limited-commands = 0
+tab-complete-rate-limit = 10
+kick-after-rate-limited-tab-completes = 0
+
+[query]
+enabled = false
+port = 25565
+map = "Velocity"
+show-plugins = false

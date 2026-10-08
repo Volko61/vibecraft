@@ -6,11 +6,19 @@ vibecraft-plugin/out/
 workspace/data/
 workspace/modules/*/.vibe/
 node_modules/
+# proxy/ (Velocity safety net): only scripts, templates, plugin sources and README are tracked.
+# The rest is downloaded, generated, secret (forwarding.secret, limbo .rcon-password) or logs.
+proxy/velocity/
+proxy/limbo/
+proxy/test-main/
+proxy/run/
+proxy/downloads/
+proxy/vibe-reconnect/build/
+proxy/test/node_modules/
+proxy/test/logs/
+proxy/test/reports/
+proxy/test/freeze-plugin/build/
 proxy/**/*.jar
-proxy/**/libraries/
-proxy/**/logs/
-proxy/**/world*/
-proxy/**/cache/
 tests/**/reports/
 *.log
 .sandbox*/

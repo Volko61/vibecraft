@@ -1,0 +1,23 @@
+{
+  "name": "vibecraft-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "End-to-end tests for VibeCraft: a mineflayer bot stays connected while modules are hot-reloaded through the HTTP API.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node run-e2e.mjs",
+    "list": "node run-e2e.mjs --list",
+    "selftest": "node tools/selftest-fake-api.mjs",
+    "compile-fixtures": "node tools/compile-fixtures.mjs",
+    "sandbox": "node tools/sandbox-check.mjs",
+    "integ": "bash tools/integ.sh all",
+    "integ:restart": "bash tools/integ.sh restart-check",
+    "kick-repro": "node tools/kick-repro.mjs"
+  },
+  "dependencies": {
+    "mineflayer": "^4.39.0"
+  }
+}

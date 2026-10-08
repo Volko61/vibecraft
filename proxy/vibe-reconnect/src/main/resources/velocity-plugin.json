@@ -1,0 +1,9 @@
+{
+  "id": "vibereconnect",
+  "name": "VibeReconnect",
+  "version": "1.0.0",
+  "description": "Keeps players connected (limbo) while the VibeCraft main server restarts",
+  "authors": ["VibeCraft"],
+  "dependencies": [],
+  "main": "dev.vibecraft.proxy.VibeReconnect"
+}

@@ -1,0 +1,14 @@
+{
+  "name": "vibecraft-proxy-test",
+  "private": true,
+  "type": "module",
+  "description": "Failover test for the VibeCraft Velocity safety net (mineflayer bot through the proxy)",
+  "scripts": {
+    "setup-main": "pwsh -NoProfile -ExecutionPolicy Bypass -File setup-test-main.ps1",
+    "test": "node failover-test.mjs --start-proxy --stop-proxy",
+    "test:supervisor": "node failover-test.mjs --start-proxy --stop-proxy --supervisor"
+  },
+  "dependencies": {
+    "mineflayer": "^4.39.0"
+  }
+}

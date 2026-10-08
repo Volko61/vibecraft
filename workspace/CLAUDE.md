@@ -53,7 +53,7 @@ data/<id>/store.yml   ctx.store(), managed by the server
   digit first -> `_`: `2048` -> `vibe._2048`); if a scaffold exists, keep its package.
 - If the folder already contains a scaffold (`<Name>Module.java` created by `/vibe new` or `/vibe ai`),
   **edit it**: a second class implementing VibeModule makes the load fail.
-- The watcher also reloads about 1.2 s after every save. While you write several files the server may
+- The watcher also reloads about 2 s after the last save. While you write several files the server may
   compile half-written code: harmless (the previous version keeps running), but the final reload must be ok.
 - One module = one feature = one chat. If the request really belongs to another module, say so in your
   answer instead of editing it. Modules can exchange data through `ctx.shared()`.
@@ -119,7 +119,7 @@ Reload answer:
 - `ok:false, rolledBack:true`: the previous version is still running. Fix and reload.
 - `state:"FAILED"`: nothing runs (first version broken). `"TRIPPED"`: circuit breaker (too many runtime
   errors, see logs / `.vibe/errors.log`); fix and reload to re-arm. `"DISABLED"`: use the enable endpoint.
-- 404 right after creating a new folder: the watcher has not seen it yet (about 1 s); call again.
+- reload works as soon as the folder holds your `.java` file (no need to wait for the watcher); 404 = no such folder.
 - `GET /api/modules/<id>` also returns `lastError`, `runtimeErrorCount`, `recentErrors`, `commands`,
   `listeners`, `tasks`, `msPerTick`. Files: `.vibe/build.log` (compiler output), `.vibe/errors.log`
   (runtime stack traces), `.vibe/status.json`.

@@ -1,0 +1,4 @@
+# e2e harness: private sandbox servers (tests/e2e/.sandbox, .sandbox-integ, ...), dependencies, run reports
+.sandbox*/
+node_modules/
+reports/

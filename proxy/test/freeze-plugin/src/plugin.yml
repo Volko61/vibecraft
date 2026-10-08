@@ -1,0 +1,8 @@
+name: VibeFreezeTest
+version: 1.0.0
+main: dev.vibecraft.testfreeze.FreezePlugin
+api-version: "26.3"
+commands:
+  vibefreeze:
+    description: TEST ONLY - blocks the main thread for N seconds
+    permission: vibefreeze.use

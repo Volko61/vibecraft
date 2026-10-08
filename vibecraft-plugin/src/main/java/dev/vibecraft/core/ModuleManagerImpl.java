@@ -954,20 +954,8 @@ public final class ModuleManagerImpl implements ModuleManager {
 
     // ================================================================== create
 
-    private static final Set<String> JAVA_KEYWORDS = Set.of("abstract", "assert", "boolean", "break", "byte", "case",
-            "catch", "char", "class", "const", "continue", "default", "do", "double", "else", "enum", "extends", "final",
-            "finally", "float", "for", "goto", "if", "implements", "import", "instanceof", "int", "interface", "long",
-            "native", "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp",
-            "super", "switch", "synchronized", "this", "throw", "throws", "transient", "try", "void", "volatile", "while",
-            "true", "false", "null", "var", "record", "yield", "sealed", "permits", "non", "_");
-
-    /** Java package of a module: {@code vibe.<id with '-' replaced by '_'>}. */
     static String packageOf(String id) {
-        String p = id.replace('-', '_');
-        if (Character.isDigit(p.charAt(0)) || JAVA_KEYWORDS.contains(p)) {
-            p = "_" + p;
-        }
-        return "vibe." + p;
+        return ModuleIds.packageOf(id);
     }
 
     /** {@code pig-rain} -> {@code PigRainModule}. */
@@ -1097,10 +1085,14 @@ public final class ModuleManagerImpl implements ModuleManager {
     }
 
     private void removeModule(ModuleRecord rec) {
-        if (!records.remove(rec.id, rec)) {
-            return;
+        synchronized (rec) {
+            if (rec.removed) {
+                return; // unload already scheduled
+            }
+            rec.removed = true;
         }
-        rec.removed = true;
+        // The record stays visible (API, list) until its code is really unloaded on the main thread,
+        // so a 404 always means "no code of this module is running anymore".
         Runnable r = () -> {
             Loaded cur = rec.current;
             if (cur != null) {
@@ -1108,6 +1100,7 @@ public final class ModuleManagerImpl implements ModuleManager {
                 rec.current = null;
                 flushPlayerUpdates();
             }
+            records.remove(rec.id, rec);
             rec.store.saveIfDirty();
             log.info("[" + rec.id + "] module directory deleted: unloaded");
             emit(rec, ModuleEvent.Type.REMOVED, "module directory deleted", 0);

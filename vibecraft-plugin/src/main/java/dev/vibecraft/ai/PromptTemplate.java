@@ -5,6 +5,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+import dev.vibecraft.core.ModuleIds;
+
 /**
  * The job prompt template ({@code ai/job-prompt.md} resource) with {@code {{PLACEHOLDER}}} substitution.
  * Placeholders: MODULE_ID, MODULE_DIR, MODULE_DIR_ABS, PACKAGE, API_BASE, AUTH_HEADER, REQUEST,
@@ -57,12 +59,8 @@ public final class PromptTemplate {
         return out;
     }
 
-    /** Java package for a module id ("ma-fusee" -> "vibe.ma_fusee", "3d" -> "vibe._3d"). */
+    /** Java package for a module id, identical to the engine's scaffold ("ma-fusee" -> "vibe.ma_fusee", "3d" -> "vibe._3d", "new" -> "vibe._new"). */
     public static String packageFor(String moduleId) {
-        String seg = moduleId.replace('-', '_');
-        if (!seg.isEmpty() && Character.isDigit(seg.charAt(0))) {
-            seg = "_" + seg;
-        }
-        return "vibe." + seg;
+        return ModuleIds.packageOf(moduleId);
     }
 }

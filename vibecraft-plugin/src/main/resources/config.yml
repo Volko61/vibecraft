@@ -13,7 +13,7 @@ guard:
   # Max main-thread time for one guarded call (event handler, command, scheduled task) before it is interrupted.
   handler-budget-ms: 250
   # Max time for VibeModule.enable()/disable().
-  enable-budget-ms: 5000
+  enable-budget-ms: 2000
   # Fallback for module code running on the main thread outside a guarded call: max time since the tick started.
   tick-budget-ms: 2000
   # Circuit breaker: that many runtime errors within the window disables (TRIPS) the module.

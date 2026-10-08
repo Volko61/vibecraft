@@ -18,7 +18,7 @@ public record EngineConfig(File modulesDir, File dataDir, boolean autoReload, lo
                 clamp(c.getLong("poll-interval-ms", 750), 100, 60_000),
                 clamp(c.getLong("debounce-ms", 1200), 0, 60_000),
                 clamp(c.getLong("guard.handler-budget-ms", 250), 10, 60_000),
-                clamp(c.getLong("guard.enable-budget-ms", 5000), 50, 60_000),
+                clamp(c.getLong("guard.enable-budget-ms", 2000), 50, 60_000),
                 clamp(c.getLong("guard.tick-budget-ms", 2000), 100, 60_000),
                 (int) clamp(c.getLong("guard.error-burst-limit", 25), 1, 1_000_000),
                 clamp(c.getLong("guard.error-burst-window-ms", 10_000), 100, 3_600_000));

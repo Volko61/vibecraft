@@ -207,7 +207,7 @@ public interface ModuleStore {           // data/<id>/store.yml, dotted paths "p
   `PluginManager.disablePlugin/enablePlugin/clearPlugins`, `HandlerList.unregisterAll()` (static) and
   `unregisterAll(Plugin)`, `BukkitScheduler.cancelTasks(Plugin)`, `sun.misc.Unsafe`, `jdk.internal.*`,
   `System.setSecurityManager`. They would stop the server, break other plugins or other modules.
-- **Main-thread time budgets**: one event handler / command / task run <= 250 ms, `enable`/`disable` <= 5 s.
+- **Main-thread time budgets**: one event handler / command / task run <= 250 ms, `enable`/`disable` <= 2 s (keep enable() light: spread heavy work over ticks with `ctx.every`).
   Over budget, the call is aborted with `ModuleTimeoutError` and counted as an error. So: no long loops,
   no blocking I/O, and **never `Thread.sleep` on the main thread** (it throws immediately). Delays are
   `ctx.later(ticks, ...)`.

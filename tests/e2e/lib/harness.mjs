@@ -159,7 +159,9 @@ export class TestContext {
     }
     let info;
     if (!result) {
-      info = await waitForAttempt(this.api, id, since, timeoutMs);
+      // the attempt must be newer than the one visible before writing (a back-to-back deploy could otherwise
+      // match the previous attempt, whose lastAttemptAt can fall inside the 50 ms slack of `since`)
+      info = await waitForAttempt(this.api, id, since, timeoutMs, before?.lastAttemptAt ?? 0);
       result = {
         id, ok: info.state === 'ENABLED' && !info.rolledBack && !info.lastError, state: info.state, generation: info.generation,
         error: info.lastError, diagnostics: info.diagnostics || [], rolledBack: info.rolledBack, durationMs: Date.now() - t0,

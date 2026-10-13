@@ -1,0 +1,26 @@
+---- Minecraft Crash Report ----
+// Who set us up the TNT?
+
+Time: 2026-10-08 11:45:20
+Description: Exception in server tick loop
+
+dev.vibecraft.core.guard.ModuleKilledError: module 'leaks-jul' v3 was unloaded: its code is not allowed to run any more
+
+[... system details trimmed ...]
+
+console.log excerpt:
+[11:45:18 INFO]: [VibeCraft] [leaks-jul] relay v3 installed; handlers on root logger: 2
+[11:45:18 INFO]: [VibeCraft] [leaks-jul] v3 loaded in 52 ms (compile 46 ms, swap 1 ms)
+[11:45:18 INFO]: [1m[38;5;141mV[38;5;141mi[38;5;105mb[38;5;111me[38;5;75mC[38;5;75mr[38;5;75ma[38;5;81mf[38;5;45mt[0m [38;5;8m»[0m [38;5;10m?[0m [38;5;15mleaks-jul[0m [38;5;7mv3[0m [38;5;10mchargé à chaud[0m
+[11:45:19 INFO]: [VibeCraft] [leaks-jul] relay v4 installed; handlers on root logger: 3
+[11:45:19 INFO]: [VibeCraft] [leaks-jul] relay v3 installed; handlers on root logger: 4
+[11:45:19 WARN]: [VibeCraft] [leaks-jul] FAILED: enable() was interrupted; rollback to v3 also failed: enable() was interrupted - nothing running
+[11:45:19 ERROR]: [VibeCraft] internal error while swapping module leaks-jul
+dev.vibecraft.core.guard.ModuleKilledError: module 'leaks-jul' v3 was unloaded: its code is not allowed to run any more
+[11:45:19 WARN]: [VibeCraft] Task #46 for VibeCraft v0.1.0 generated an exception
+dev.vibecraft.core.guard.ModuleKilledError: module 'leaks-jul' v3 was unloaded: its code is not allowed to run any more
+[11:45:19 ERROR]: Encountered an unexpected exception
+[11:45:20 INFO]: Stopping server
+[11:45:20 INFO]: [ViaBackwards] Disabling ViaBackwards v5.12.1-SNAPSHOT
+[11:45:20 ERROR]: Exception stopping the server
+dev.vibecraft.core.guard.ModuleKilledError: module 'leaks-jul' v1 was unloaded: its code is not allowed to run any more

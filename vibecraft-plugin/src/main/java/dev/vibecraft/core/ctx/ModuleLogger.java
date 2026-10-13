@@ -57,13 +57,21 @@ public final class ModuleLogger extends Logger {
         if (!acquire()) {
             return;
         }
-        console.log(level, "[" + id + "] " + msg);
+        try {
+            console.log(level, "[" + id + "] " + msg);
+        } catch (Throwable ignored) {
+            // a broken log handler (left by a module) must not break the caller
+        }
     }
 
-    /** Engine message: ring + console, not rate limited. */
+    /** Engine message: ring + console, not rate limited. Never throws. */
     public void engine(Level level, String msg) {
-        ring.add(level.getName(), msg);
-        console.log(level, "[" + id + "] " + msg);
+        try {
+            ring.add(level.getName(), msg);
+            console.log(level, "[" + id + "] " + msg);
+        } catch (Throwable ignored) {
+            // a broken log handler (left by a module) must never break the engine
+        }
     }
 
     /** Engine message to the ring only. */

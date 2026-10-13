@@ -35,6 +35,10 @@ final class ModuleCommand extends Command {
         this.tabWhere = "tab-complete /" + name;
     }
 
+    Gen gen() {
+        return gen;
+    }
+
     @Override
     public boolean execute(CommandSender sender, String label, String[] args) {
         if (gen.killed()) {

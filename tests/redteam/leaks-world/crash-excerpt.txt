@@ -1,0 +1,72 @@
+---- Minecraft Crash Report ----
+// Surprise! Haha. Well, this is awkward.
+Time: 2026-10-08 16:20:08
+Description: Chunk system error
+java.util.concurrent.CompletionException: dev.vibecraft.core.guard.ModuleKilledError: module 'leaks-world' v1 was unloaded: its code is not allowed to run any more
+	at java.base/java.util.concurrent.CompletableFuture.wrapInCompletionException(CompletableFuture.java:323)
+	at java.base/java.util.concurrent.CompletableFuture.encodeThrowable(CompletableFuture.java:359)
+	at java.base/java.util.concurrent.CompletableFuture.completeThrowable(CompletableFuture.java:364)
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1791)
+	at java.base/java.util.concurrent.CompletableFuture.asyncSupplyStage(CompletableFuture.java:1803)
+	at java.base/java.util.concurrent.CompletableFuture.supplyAsync(CompletableFuture.java:2026)
+	at net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator.buildTerrain(NoiseBasedChunkGenerator.java:395)
+	at org.bukkit.craftbukkit.generator.CustomChunkGenerator.buildTerrain(CustomChunkGenerator.java:275)
+	at net.minecraft.world.level.chunk.status.ChunkStatusTasks.buildTerrain(ChunkStatusTasks.java:109)
+	at net.minecraft.world.level.chunk.status.ChunkStep.apply(ChunkStep.java:71)
+	at ca.spottedleaf.moonrise.patches.chunk_system.scheduling.task.ChunkUpgradeGenericStatusTask.run(ChunkUpgradeGenericStatusTask.java:97)
+	at ca.spottedleaf.concurrentutil.executor.thread.BalancedPrioritisedThreadPool$OrderedStreamGroup$Queue.lambda$createTask$0(BalancedPrioritisedThreadPool.java:467)
+	at ca.spottedleaf.concurrentutil.executor.queue.PrioritisedTaskQueue$PrioritisedQueuedTask.execute(PrioritisedTaskQueue.java:345)
+	at ca.spottedleaf.concurrentutil.executor.thread.BalancedPrioritisedThreadPool$OrderedStreamGroup.executeTask(BalancedPrioritisedThreadPool.java:344)
+	at ca.spottedleaf.concurrentutil.executor.thread.BalancedPrioritisedThreadPool$WorkerThread.pollTasks(BalancedPrioritisedThreadPool.java:630)
+	at ca.spottedleaf.concurrentutil.executor.QueueExecutorRunnable.mainLoop(QueueExecutorRunnable.java:38)
+	at ca.spottedleaf.concurrentutil.executor.QueueExecutorRunnable.doRun(QueueExecutorRunnable.java:61)
+	at ca.spottedleaf.concurrentutil.executor.QueueExecutorRunnable.run(QueueExecutorRunnable.java:30)
+	at ca.spottedleaf.concurrentutil.util.LazyRunnable.run(LazyRunnable.java:25)
+	at java.base/java.lang.Thread.run(Thread.java:1474)
+Caused by: dev.vibecraft.core.guard.ModuleKilledError: module 'leaks-world' v1 was unloaded: its code is not allowed to run any more
+A detailed walkthrough of the error, its code path and all known details is as follows:
+---------------------------------------------------------------------------------------
+-- Head --
+Thread: Server thread
+[... trimmed ...]
+	at net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator.buildTerrain(NoiseBasedChunkGenerator.java:395) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at org.bukkit.craftbukkit.generator.CustomChunkGenerator.buildTerrain(CustomChunkGenerator.java:275) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at net.minecraft.world.level.chunk.status.ChunkStatusTasks.buildTerrain(ChunkStatusTasks.java:109) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at net.minecraft.world.level.chunk.status.ChunkStep.apply(ChunkStep.java:71) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at ca.spottedleaf.moonrise.patches.chunk_system.scheduling.task.ChunkUpgradeGenericStatusTask.run(ChunkUpgradeGenericStatusTask.java:97) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	... 9 more
+Caused by: dev.vibecraft.core.guard.ModuleKilledError: module 'leaks-world' v1 was unloaded: its code is not allowed to run any more
+[16:20:07 ERROR]: [ChunkTaskScheduler] Chunk system error at chunk (51,52), holder: NewChunkHolder{world=minecraft:leaks_void, chunkX=51, chunkZ=52, entityChunkFromDisk=false, lastChunkCompletion={chunk_class=net.minecraft.world.level.chunk.ProtoChun
+java.lang.Throwable: java.util.concurrent.CompletionException: dev.vibecraft.core.guard.ModuleKilledError: module 'leaks-world' v1 was unloaded: its code is not allowed to run any more
+[16:20:08 ERROR]: Encountered an unexpected exception
+java.lang.RuntimeException: Chunk system crash propagated to tick()
+	at net.minecraft.server.MinecraftServer.processPacketsAndTick(MinecraftServer.java:1665) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at net.minecraft.server.MinecraftServer.runServer(MinecraftServer.java:1330) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at net.minecraft.server.MinecraftServer.lambda$spin$0(MinecraftServer.java:298) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at java.base/java.lang.Thread.run(Thread.java:1474) ~[?:?]
+Caused by: java.lang.RuntimeException: Chunk system crash propagated from unrecoverableChunkSystemFailure
+	at ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkTaskScheduler.unrecoverableChunkSystemFailure(ChunkTaskScheduler.java:324) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder.lambda$setGenerationTask$0(NewChunkHolder.java:1594) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at ca.spottedleaf.moonrise.patches.chunk_system.scheduling.task.ChunkProgressionTask.complete0(ChunkProgressionTask.java:91) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at ca.spottedleaf.moonrise.patches.chunk_system.scheduling.task.ChunkProgressionTask.complete(ChunkProgressionTask.java:74) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at ca.spottedleaf.moonrise.patches.chunk_system.scheduling.task.ChunkUpgradeGenericStatusTask.run(ChunkUpgradeGenericStatusTask.java:142) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at ca.spottedleaf.concurrentutil.executor.thread.BalancedPrioritisedThreadPool$OrderedStreamGroup$Queue.lambda$createTask$0(BalancedPrioritisedThreadPool.java:467) ~[concurrentutil-1.2.4.jar:?]
+	at ca.spottedleaf.concurrentutil.executor.queue.PrioritisedTaskQueue$PrioritisedQueuedTask.execute(PrioritisedTaskQueue.java:345) ~[concurrentutil-1.2.4.jar:?]
+	at ca.spottedleaf.concurrentutil.executor.thread.BalancedPrioritisedThreadPool$OrderedStreamGroup.executeTask(BalancedPrioritisedThreadPool.java:344) ~[concurrentutil-1.2.4.jar:?]
+	at ca.spottedleaf.concurrentutil.executor.thread.BalancedPrioritisedThreadPool$WorkerThread.pollTasks(BalancedPrioritisedThreadPool.java:630) ~[concurrentutil-1.2.4.jar:?]
+	at ca.spottedleaf.concurrentutil.executor.QueueExecutorRunnable.mainLoop(QueueExecutorRunnable.java:38) ~[concurrentutil-1.2.4.jar:?]
+	at ca.spottedleaf.concurrentutil.executor.QueueExecutorRunnable.doRun(QueueExecutorRunnable.java:61) ~[concurrentutil-1.2.4.jar:?]
+	at ca.spottedleaf.concurrentutil.executor.QueueExecutorRunnable.run(QueueExecutorRunnable.java:30) ~[concurrentutil-1.2.4.jar:?]
+	at ca.spottedleaf.concurrentutil.util.LazyRunnable.run(LazyRunnable.java:25) ~[concurrentutil-1.2.4.jar:?]
+	... 1 more
+Caused by: net.minecraft.ReportedException: Chunk system error
+	at ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkTaskScheduler.unrecoverableChunkSystemFailure(ChunkTaskScheduler.java:301) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	... 13 more
+Caused by: java.util.concurrent.CompletionException: dev.vibecraft.core.guard.ModuleKilledError: module 'leaks-world' v1 was unloaded: its code is not allowed to run any more
+	at java.base/java.util.concurrent.CompletableFuture.wrapInCompletionException(CompletableFuture.java:323) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.encodeThrowable(CompletableFuture.java:359) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeThrowable(CompletableFuture.java:364) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1791) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.asyncSupplyStage(CompletableFuture.java:1803) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.supplyAsync(CompletableFuture.java:2026) ~[?:?]
+	at net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator.buildTerrain(NoiseBasedChunkGenerator.java:395) ~[paper-26.3.jar:26.3-159-a4b87cf]

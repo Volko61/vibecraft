@@ -730,7 +730,9 @@ public final class VibeCommand implements TabExecutor {
                     Msg.text("id", String.valueOf(idea.moduleId())));
             return;
         }
-        String id = args.length >= 3 ? args[2].toLowerCase(Locale.ROOT) : Slug.of(idea.text(), "idee-" + idea.id());
+        // without an explicit id: a fresh module (an idea worded like an existing module's name must not make the
+        // AI rewrite that module); "/vibe accept <n> <id>" targets an existing module on purpose
+        String id = args.length >= 3 ? args[2].toLowerCase(Locale.ROOT) : freeModuleId(Slug.of(idea.text(), "idee-" + idea.id()));
         if (!modules.isValidId(id)) {
             error(sender, "Identifiant invalide : <white><id></white>", Msg.text("id", Msg.cut(id, 40)));
             return;
@@ -745,6 +747,18 @@ public final class VibeCommand implements TabExecutor {
             send(sender, Msg.pmm("<green>💡 Idée #<n> de <author> acceptée</green> <gray>→ module</gray> <white><id></white>",
                     Msg.text("n", String.valueOf(idea.id())), Msg.text("author", idea.author()), Msg.text("id", id)));
         }));
+    }
+
+    /** {@code base}, or {@code base-2}, {@code base-3}... if a module with that id already exists. */
+    private String freeModuleId(String base) {
+        for (int i = 1; i < 100; i++) {
+            String suffix = i == 1 ? "" : "-" + i;
+            String id = (base.length() + suffix.length() > 40 ? base.substring(0, 40 - suffix.length()) : base) + suffix;
+            if (modules.info(id).isEmpty() && !new java.io.File(modules.modulesDir(), id).exists()) {
+                return id;
+            }
+        }
+        return base;
     }
 
     private void dismiss(CommandSender sender, String[] args, String label) {

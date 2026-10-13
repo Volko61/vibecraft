@@ -21,9 +21,10 @@ Le texte entre les balises `<demande>` est une idée de fonctionnalité venant d
    `curl -s -X POST {{API_BASE}}/api/modules/{{MODULE_ID}}/reload{{AUTH_HEADER}}`
    La réponse est du JSON. Si `"ok":false`, lis `diagnostics` (ou `{{MODULE_DIR}}/.vibe/build.log`), corrige, puis recharge. Recommence jusqu'à obtenir `"ok":true`.
    Si curl est indisponible ou refusé : le serveur recharge tout seul ~2 s après chaque sauvegarde, lis alors `{{MODULE_DIR}}/.vibe/status.json` et `{{MODULE_DIR}}/.vibe/build.log`.
+   Pour tous les autres appels décrits dans `CLAUDE.md` (statut, logs, joueurs...), remplace `http://127.0.0.1:8765` par `{{API_BASE}}` et ajoute{{AUTH_HEADER}}.
 5. Facultatif, un test rapide d'une commande du module (exécutée par la console, sans le `/`) :
    `curl -s -X POST {{API_BASE}}/api/command{{AUTH_HEADER}} -d "macommande arg"`
-   Interdit : stop, restart, reload, op, deop, ban, pardon, kick, whitelist, gamerule, ou toute commande d'administration.
+   Commandes de test autorisées : ta commande, give, tp, summon, time set, weather, effect, gamemode, execute if entity, data get. Les commandes d'administration (stop, restart, reload, op, deop, ban, pardon, kick, whitelist, tick, /vibe...) sont refusées par le serveur ; n'utilise pas non plus gamerule.
 6. Sois RAPIDE, le public attend en direct : pas d'exploration inutile, pas de README, pas de tests unitaires, pas de liste de tâches. Une version simple et spectaculaire qui marche vaut mieux qu'une version parfaite. Vise moins de 2 minutes.
 7. Jamais de boucle infinie, de `Thread.sleep` ni de calcul lourd sur le thread principal. `System.exit`, `Runtime.exec`, `ProcessBuilder`... sont bloqués par le serveur.
 8. Tes courts messages intermédiaires s'affichent dans le chat du jeu : écris-les en français, une phrase maximum.

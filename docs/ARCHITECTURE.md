@@ -86,15 +86,25 @@ Adventure 5.2 + MiniMessage. Paper API 26.3 (`api-version: "26.3"` accepted). Ru
 ## 4. Engine requirements (ENGINE)
 
 ### 4.1 Discovery, watching, reloading
-* Poll `modules-dir` every `poll-interval-ms`; fingerprint per module = (relative path, size, mtime) of
-  `*.java`, `config.yml`, `module.yml` (ignore `.vibe/`). When a fingerprint changes and is stable for
-  `debounce-ms`, reload (if `auto-reload`). New directory → load. Deleted directory → unload (event REMOVED).
+* Poll `modules-dir` every `poll-interval-ms`; fingerprint per module = (relative path, size, content hash) of
+  `*.java`, `config.yml`, `module.yml` (ignore `.vibe/`; hashes cached by size+mtime, so rewriting a file with
+  the same content is not a change). When a fingerprint changes and is stable for `debounce-ms`, reload (if
+  `auto-reload`). New directory → load. Deleted directory → unload (event REMOVED). Files the module itself
+  wrote during `enable()` (e.g. `config.yml` with copyDefaults) count as compiled when the `.java` files did not
+  change, so a module saving its own config does not reload itself in a loop.
 * `reload(id)`: compile **off the main thread** (single shared compiler executor with 2 threads; per
   module at most one compile at a time; requests arriving during a compile are coalesced into exactly
   one follow-up compile). Then hop to the main thread: unload current generation, load the new one.
-* Unload order: call `module.disable(ctx)` (guarded, enable-budget), then run all tracked cleanups in
-  reverse order (listeners, commands, tasks, recipes, entities, custom track()), save store, set the
-  generation's kill flag, drop the class loader.
+  Duplicate requests: a request for the same files as the compile in flight shares its result, and a request
+  for the files the watcher loaded less than 20 s ago returns that generation (no 2nd swap: the AI's curl
+  right after its save). `POST .../reload?force=1` always recompiles.
+* Limits per compile: 1 MB of sources, 200 files, 1000 classes, 60 s (javac aborted through a TaskListener).
+* Unload order: call `module.disable(ctx)` (guarded, enable-budget), close menus of this generation that
+  players still have open (holder class of its loader, or inventory it created), then run all tracked
+  cleanups in reverse order (listeners, commands, tasks, recipes, entities, custom track()), save store
+  (io thread on reload), set the generation's kill flag, drop the class loader, then sweep leftovers that
+  bypassed ctx: JUL handlers / Log4j appenders whose class is of that loader, recipes `vibecraft:<id>/...`.
+  Unloading never throws (engine logging is guarded too: a broken log handler cannot break the engine).
 * Load: define classes, find the VibeModule class (exactly one), instantiate, call `enable(ctx)`
   guarded with `enable-budget-ms`. If anything fails (exception, timeout, policy violation, zero/
   several module classes), clean up whatever this attempt registered, then **restore the previous
@@ -117,26 +127,53 @@ Adventure 5.2 + MiniMessage. Paper API 26.3 (`api-version: "26.3"` accepted). Ru
 
 ### 4.3 Guard & instrumentation (ASM, at define time)
 Every module class is rewritten before definition:
-1. **Kill switch**: at each method entry and each loop back-edge, `Guard.check(int genId)`: if that
-   generation was unloaded → throw `ModuleKilledError` (extends `Error`). Stops leftover async threads,
-   stray scheduled tasks, captured lambdas of old generations.
+1. **Kill switch**: at each loop back-edge `Guard.check(int genId)`, at each method entry
+   `if (Guard.enter(genId)) return <default>;` (constructors / static initializers: `check`). For an unloaded
+   generation: back-edges throw `ModuleKilledError` (extends `Error`): stops leftover threads and loops. Method
+   entry throws it when the caller is module code (stale lambdas kept in shared(), zombie threads) and
+   returns a default value (no-op) when the caller is the server or host code (stale click callbacks, log
+   handlers, renderers, goals...): nothing is ever thrown into server code for unloaded code.
 2. **Time budget** (main thread only): `Guard.check` also throws `ModuleTimeoutError` (extends `Error`)
    if the current guarded call exceeded its budget (`handler-budget-ms` for listeners/commands/
    tasks, `enable-budget-ms` for enable/disable). Guarded calls nest (only the outermost sets the
    deadline). Module code reached outside a guarded call (raw Bukkit APIs) uses the fallback deadline
-   `tickStart + tick-budget-ms` (tick start from Paper's `ServerTickStartEvent`). The check must be
+   `tickStart + tick-budget-ms` (tick start from Paper's `ServerTickStartEvent`); there (no guarded call on the
+   stack) the abort is a `ModuleAbortException` (a `RuntimeException`, which vanilla / Paper call sites
+   contain, an `Error` would crash the server). The check must be
    cheap (volatile reads; read `System.nanoTime()` only every ~1024 checks or so). If the module
    catches the Error, the next check throws again.
 3. **Redirects**: `Thread.sleep(..)` on the main thread → throws (`ModuleTimeoutError` with clear message);
    off-main → real sleep (but still killable: sleep in slices and check the kill flag).
    `PluginManager.registerEvents(listener, plugin)` → routed to the module's guarded `listen()`.
    Calls returning `BukkitTask` / `int` task id on `BukkitScheduler` and `BukkitRunnable.runTask*`
-   → the task is tracked by the generation (cancelled on unload).
+   → the task is tracked by the generation (cancelled on unload). `cancelTask(int)` only cancels own tasks,
+   `HandlerList#unregister(Listener)` / `HandlerList.unregisterAll(Listener)` only own listeners (a listener object taken from
+   `getRegisteredListeners()` stays registered).
+   Also redirected (see `Redirects`): blocking network / DNS / Mojang profile lookups refused on the main
+   thread, `Lock.lock`, `Condition.await`, `LockSupport.park`, timed waits bounded by the budget there;
+   `Entity.setVelocity` / fireball vectors scaled to ≤ 10 blocks/tick (projectiles from `launchProjectile` /
+   `World.spawnArrow` too, right after the call); item meta / lore / data components
+   > 64 KB and names > 32 KB refused (oversized items disconnect players at every join); `Bukkit.addRecipe`
+   = `ctx.recipe`; tracked and undone on unload: `ClickEvent.callback` (wrapped: guarded, dropped on unload),
+   `AsyncChatEvent.renderer` (guarded, default renderer on error), Adventure `BossBar.addViewer`,
+   `ServicesManager.register`, incoming plugin channels (listener also run under the guard), `MapView.addRenderer`, conversations,
+   `MobGoals.addGoal`, permission attachments, `Logger.addHandler`, inventories from `createInventory`,
+   `new Timer / ThreadPoolExecutor / ScheduledThreadPoolExecutor / ForkJoinPool` (constructor hook).
 4. **Policy** (reject at load with a Diagnostic, kind ERROR, file/line when available):
    `System.exit`, `Runtime.exit/halt/exec`, `ProcessBuilder` (any use), `Thread.stop`,
    `Bukkit/Server.shutdown/restart/reload/reloadData`, `PluginManager.disablePlugin/clearPlugins/
    enablePlugin`, static `HandlerList.unregisterAll()` and `HandlerList.unregisterAll(Plugin)`,
-   `BukkitScheduler.cancelTasks(Plugin)`, `sun.misc.Unsafe`/`jdk.internal.*`, `System.setSecurityManager`.
+   `BukkitScheduler.cancelTasks(Plugin)`, `sun.misc.Unsafe`/`jdk.internal.*`, `System.setSecurityManager`;
+   since the red-team round also `PluginLoader.disablePlugin/enablePlugin`, `Plugin.onEnable/onDisable/onLoad/
+   setEnabled`, `JavaPlugin.getCommand`, `HandlerList.getHandlerLists/register/unregister(Plugin|RegisteredListener)`,
+   `BukkitScheduler.getPendingTasks/getActiveWorkers`, `Player.kick/kickPlayer/transfer/ban/banIp`, `setOp`,
+   `BanList.addBan/pardon`, whitelist / IP-ban changes, socket types (`java.net.Socket`, `ServerSocket`,
+   `DatagramSocket`, NIO socket channels, `com.sun.net.httpserver`), server connection internals (`net.minecraft.server.network.*`,
+   `net.minecraft.network.Connection`, `PlayerList`: a module could disconnect players through them), reading `System.in`, and module classes
+   extending `ChunkGenerator` / `BiomeProvider` / `BlockPopulator` (the chunk system crashes the server on any
+   error). Command lines dispatched by modules (and by the HTTP API, minus `/vibe`) are checked by
+   `Policy.forbiddenCommandLine`: stop, restart, reload, op, deop, kick, ban*, pardon*, whitelist, transfer,
+   save-off, tick, debug... also inside `execute ... run`.
 5. Uncaught `StackOverflowError` / exceptions / errors from guarded calls are caught, logged with the
    module id and the module's own stack frames, recorded (ModuleInfo.recentErrors, errors.log) and
    counted. `error-burst-limit` errors in `error-burst-window-ms` → module unloaded, state TRIPPED,
@@ -153,13 +190,25 @@ Implements `dev.vibecraft.api.ModuleContext` exactly (see javadoc). Notes:
   ignoreCancelled) through guarded executors (MethodHandles).
 * `command(...)`: a `org.bukkit.command.Command` subclass registered in
   `Bukkit.getCommandMap().register("vibe", cmd)`; on unload remove it from `getKnownCommands()`
-  (all labels/aliases pointing to it) and `cmd.unregister(map)`. After any command change, call
-  `Player#updateCommands()` for online players (on the main thread) so tab-completion updates.
-  Exceptions → sender gets a short red message, error recorded.
+  (all labels/aliases pointing to it) and `cmd.unregister(map)`. A name already used by another module or
+  by the server → `IllegalArgumentException` (enable fails, clear message); a taken alias is skipped with a
+  WARNING diagnostic in the ReloadResult. After command changes, `Player#updateCommands()` is called (at the END of a tick,
+  so Paper's async tree build does not race the swaps of the next tick) once commands were quiet for 3 ticks, and once more 20 ticks later (Paper builds trees asynchronously: a tree
+  lost to a concurrent change or delivered out of order is corrected). Exceptions → sender gets a short red
+  message, error recorded.
 * Tasks: `later/every/async` → BukkitScheduler with host plugin, guarded runnables, tracked.
-* `recipe(r)`: `Bukkit.addRecipe(r)`; on unload `Bukkit.removeRecipe(key)`. `entity(e)`: removed on unload if valid.
+* `recipe(r)`: `Bukkit.addRecipe(r)`; on unload `Bukkit.removeRecipe(key)`. `entity(e)`: only the UUID is kept
+  (no stale object after a chunk reload, dead entities not retained); removed on unload through
+  `Bukkit.getEntity(uuid)`; tagged with PDC `vibecraft:module-entity = <id>|<boot id>|<load id>` and deleted
+  by the engine when it comes back with a chunk (or after a crash / restart) while its generation is gone.
 * `store()`: YAML at `data/<id>/store.yml`; saved on unload and every 60 s if dirty; survives generations.
-* `shared()`: one global `ConcurrentHashMap` for all modules.
+  Only YAML-safe values (Strings, boxed numbers, booleans, lists, maps, ConfigurationSerializable; Instant,
+  UUID, enums, CharSequence, Optional, Atomic* converted; anything else throws). Maps become sections.
+  Saves copy the tree under the lock and serialize outside it (io thread); loaded off-thread before enable;
+  a file with Java tags (older versions) is loaded leniently instead of starting empty.
+* `shared()`: one global `ConcurrentHashMap` for all modules, seen through a per-module view that records the
+  keys the module writes: kept across reloads, dropped when the module's folder is deleted. On unload, values that
+  are objects of the generation are dropped; JDK containers holding some are kept but named in a WARNING of the module's log.
 * `logger()`: java.util.logging Logger named `VibeCraft/<id>`, records also go to the module's ring
   buffer (`ModuleManager.logs`, 500 lines).
 * `mm()` / `broadcast()`: MiniMessage; broadcast to all players + console.
@@ -173,6 +222,13 @@ CREATED, REMOVED). Listener exceptions are caught.
 
 All JSON (Gson, records serialize as objects, `serializeNulls`). If `api.token` is set, require header
 `X-Vibe-Token`. CORS not needed (same origin). Bodies are UTF-8 plain text unless stated.
+Requests with a `Host` other than 127.0.0.1 / localhost / [::1] / `api.host` (DNS rebinding), with an
+`Origin` other than this server (cross-site pages) or with `Sec-Fetch-Site: cross-site|same-site` (other sites and other
+localhost ports, also for GETs without Origin) get 403; curl (no Origin, no fetch metadata) and the dashboard keep working.
+Slow / half-open clients are closed after 3 s (`sun.net.httpserver.maxReqTime`), 32 request threads.
+`POST /api/command` refuses admin command lines with 403 (see 4.3 Policy), `POST /api/modules/{id}/reload?force=1`
+skips the duplicate-request shortcut, idea accept without `module` picks a fresh id (`slug-2`...) instead of an
+existing module.
 Bukkit calls happen on the main thread (`Bukkit.getScheduler().callSyncMethod` or futures), never on HTTP threads.
 
 | Method & path | Body | Response |
@@ -264,3 +320,20 @@ world, low RAM) and a small Velocity plugin `VibeReconnect`: when the main backe
 unexpectedly / restarts, players go to limbo with a title "Le serveur redémarre…", and are sent back
 automatically when the main backend answers pings again. Scripts to start everything. Modern
 forwarding. Tested with a mineflayer bot through the proxy while the backend is killed & restarted.
+
+## 11. Before the talk (security checklist)
+
+The red-team round found that the defaults are fine for development but not for a hall full of strangers on
+the same Wi-Fi:
+
+* **Run behind the proxy in online mode** (`proxy/enable-proxy-mode.ps1 -OnlineMode` + `start-proxy.ps1
+  -OnlineMode`): Mojang authentication on Velocity, and the main server binds `server-ip=127.0.0.1`, which
+  also keeps its RCON port off the network. Without the proxy, `online-mode=false` lets anybody join under any
+  name, including an op's name.
+* **ops.json**: only the presenter's account(s); no test bot. `white-list` stays off (the audience must join).
+* **RCON**: reachable from the LAN unless `server-ip=127.0.0.1` (proxy mode) or a firewall rule blocks the port;
+  otherwise set `enable-rcon=false` for the talk (the e2e tools need it, a live demo does not).
+  `broadcast-rcon-to-ops=false`, long random password. VibeCraft logs a WARNING at startup when RCON is reachable from the
+  network, its password is short or `broadcast-rcon-to-ops=true`.
+* **API**: bound to 127.0.0.1, Host/Origin checked; set `api.token` if anything untrusted runs on the laptop.
+* World: `difficulty=easy` + `gamerule spawn_monsters false` (modules may spawn monsters, nature does not).

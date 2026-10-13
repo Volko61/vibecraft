@@ -34,6 +34,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import com.destroystokyo.paper.event.server.ServerTickStartEvent;
+import org.bukkit.event.world.EntitiesLoadEvent;
 import dev.vibecraft.api.VibeModule;
 import dev.vibecraft.core.ModuleRecord.KeptBuild;
 import dev.vibecraft.core.ModuleRecord.Loaded;
@@ -68,7 +69,9 @@ public final class ModuleManagerImpl implements ModuleManager {
     private final Logger log;
     private final EngineConfig cfg;
     private final ConcurrentHashMap<String, ModuleRecord> records = new ConcurrentHashMap<>();
-    private final Map<String, Object> shared = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Object> shared = new ConcurrentHashMap<>();
+    /** shared() key -> module that wrote it last (keys are dropped when that module is removed). */
+    private final ConcurrentHashMap<String, String> sharedOwners = new ConcurrentHashMap<>();
     private final List<ModuleEventListener> listeners = new CopyOnWriteArrayList<>();
 
     private volatile boolean started;
@@ -100,6 +103,25 @@ public final class ModuleManagerImpl implements ModuleManager {
         return shared;
     }
 
+    /** What ctx.shared() returns for module {@code id}. */
+    Map<String, Object> sharedView(String id) {
+        return new SharedView(shared, sharedOwners, id);
+    }
+
+    /** Store saves of modules (off the main thread); runs inline if the io thread is gone. */
+    void runStoreIo(Runnable r) {
+        ScheduledExecutorService x = io;
+        if (x == null) {
+            r.run();
+            return;
+        }
+        try {
+            x.execute(r);
+        } catch (RejectedExecutionException e) {
+            r.run();
+        }
+    }
+
     long handlerBudgetNanos() {
         return TimeUnit.MILLISECONDS.toNanos(cfg.handlerBudgetMs());
     }
@@ -118,6 +140,42 @@ public final class ModuleManagerImpl implements ModuleManager {
 
     // ================================================================== lifecycle
 
+    /**
+     * RCON gives full console access to anybody who knows (or brute-forces) its password. With
+     * {@code server-ip} empty it listens on every network interface: say so loudly at startup (the
+     * conference Wi-Fi is full of strangers). Proxy mode binds the server to 127.0.0.1, which also
+     * keeps RCON local.
+     */
+    private void warnExposedRcon() {
+        try {
+            java.util.Properties p = new java.util.Properties();
+            try (java.io.Reader r = java.nio.file.Files.newBufferedReader(new File("server.properties").toPath(),
+                    java.nio.charset.StandardCharsets.UTF_8)) {
+                p.load(r);
+            }
+            if (!"true".equalsIgnoreCase(p.getProperty("enable-rcon", "false").strip())) {
+                return;
+            }
+            String ip = p.getProperty("server-ip", "").strip();
+            boolean local = ip.equals("127.0.0.1") || ip.equalsIgnoreCase("localhost") || ip.equals("::1");
+            String pwd = p.getProperty("rcon.password", "");
+            if (!local) {
+                log.warning("RCON (port " + p.getProperty("rcon.port", "25575").strip() + ") is reachable from the network "
+                        + "(server-ip is empty): anybody on this network can try its password and get full console "
+                        + "access. Before a public demo set server-ip=127.0.0.1 (proxy mode does it), block the port in "
+                        + "the firewall or set enable-rcon=false (see docs/ARCHITECTURE.md section 11)");
+            }
+            if (pwd.length() < 16) {
+                log.warning("rcon.password is short (" + pwd.length() + " characters): use a long random password");
+            }
+            if ("true".equalsIgnoreCase(p.getProperty("broadcast-rcon-to-ops", "false").strip())) {
+                log.warning("broadcast-rcon-to-ops=true: every RCON command (e2e tools...) is shown to ops in chat");
+            }
+        } catch (Throwable t) {
+            log.log(Level.FINE, "could not check server.properties for RCON exposure", t);
+        }
+    }
+
     @Override
     public void start() {
         if (started) {
@@ -127,11 +185,29 @@ public final class ModuleManagerImpl implements ModuleManager {
         mkdirs(cfg.modulesDir());
         mkdirs(cfg.dataDir());
         Guard.init(cfg.tickBudgetMs());
+        warnExposedRcon();
 
         tickListener = new Listener() {
         };
         Bukkit.getPluginManager().registerEvent(ServerTickStartEvent.class, tickListener, EventPriority.LOWEST,
                 (l, e) -> onTickStart(), plugin);
+        // command trees are built by Paper on a thread pool: send them at the END of a tick, so that the build
+        // runs while the main thread waits for the next tick instead of racing the module swaps / tasks that
+        // change the command map at the start of the next one (ConcurrentModificationException, stale trees)
+        Bukkit.getPluginManager().registerEvent(com.destroystokyo.paper.event.server.ServerTickEndEvent.class, tickListener,
+                EventPriority.MONITOR, (l, e) -> onTickEnd(), plugin);
+        Bukkit.getPluginManager().registerEvent(EntitiesLoadEvent.class, tickListener, EventPriority.MONITOR,
+                (l, e) -> {
+                    if (e instanceof EntitiesLoadEvent ev) {
+                        purgeStaleEntities(ev.getEntities());
+                    }
+                }, plugin);
+        // entities loaded before VibeCraft was enabled (spawn area at startup)
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            for (org.bukkit.World w : Bukkit.getWorlds()) {
+                purgeStaleEntities(w.getEntities());
+            }
+        });
 
         List<File> cp = computeClasspath();
         compiler = new ModuleCompiler(cp);
@@ -182,7 +258,7 @@ public final class ModuleManagerImpl implements ModuleManager {
         for (String id : toLoad) {
             ModuleRecord rec = records.get(id);
             rec.triggeredFp = rec.observedFp;
-            submit(rec);
+            submit(rec, null, true);
         }
         io.scheduleWithFixedDelay(this::flushStatus, 250, 250, TimeUnit.MILLISECONDS);
         io.scheduleWithFixedDelay(this::autosaveStores, 60, 60, TimeUnit.SECONDS);
@@ -353,19 +429,59 @@ public final class ModuleManagerImpl implements ModuleManager {
             return CompletableFuture.completedFuture(new ReloadResult(id, false, ModuleState.DISABLED, 0,
                     "module is disabled", List.of(), 0, false));
         }
-        return submit(rec);
+        return submit(rec, ModuleFiles.snapshot(rec.dir).fingerprint(), false);
     }
 
-    private CompletableFuture<ReloadResult> submit(ModuleRecord rec) {
+    /**
+     * {@code reload(id)} without the duplicate-request shortcut: always compiles and swaps (dashboard /
+     * API {@code ?force=1}).
+     */
+    public CompletableFuture<ReloadResult> reload(String id, boolean force) {
+        if (!force) {
+            return reload(id);
+        }
+        ModuleRecord rec = isValidId(id) && started && !shuttingDown ? recordFor(id) : null;
+        if (rec == null || rec.disabled) {
+            return reload(id);
+        }
+        return submit(rec, null, false);
+    }
+
+    /** How long after an automatic (watcher) reload an explicit reload of the same files returns that result. */
+    private static final long SAME_FILES_WINDOW_MS = 20_000;
+
+    /**
+     * @param fp        fingerprint of the files when the request was made (null: always compile)
+     * @param byWatcher true for automatic reloads
+     */
+    private CompletableFuture<ReloadResult> submit(ModuleRecord rec, String fp, boolean byWatcher) {
         synchronized (rec) {
             if (rec.inFlight != null) {
+                // same files as the compile already running (typical: the AI's curl right after the watcher
+                // picked up its save): share that result instead of compiling + swapping a 2nd time
+                if (fp != null && rec.followUp == null && fp.equals(rec.inFlightFp)) {
+                    return rec.inFlight;
+                }
                 if (rec.followUp == null) {
                     rec.followUp = new CompletableFuture<>();
                 }
                 return rec.followUp;
             }
+            if (fp != null && !byWatcher && rec.loadedByWatcher && fp.equals(rec.loadedFp)) {
+                Loaded cur = rec.current;
+                if (cur != null && rec.state == ModuleState.ENABLED && !rec.rolledBack && rec.lastError == null
+                        && System.currentTimeMillis() - rec.lastReloadAt < SAME_FILES_WINDOW_MS) {
+                    // the watcher already loaded exactly these files a moment ago: no 2nd swap
+                    rec.ring.add("INFO", "reload request: v" + cur.gen().generation
+                            + " already runs these files (loaded automatically after the save)");
+                    return CompletableFuture.completedFuture(new ReloadResult(rec.id, true, ModuleState.ENABLED,
+                            cur.gen().generation, null, rec.diagnostics, 0, false));
+                }
+            }
             CompletableFuture<ReloadResult> f = new CompletableFuture<>();
             rec.inFlight = f;
+            rec.inFlightFp = fp;
+            rec.inFlightByWatcher = byWatcher;
             startPipeline(rec, f);
             return f;
         }
@@ -400,10 +516,14 @@ public final class ModuleManagerImpl implements ModuleManager {
             try {
                 res = swap.get();
             } catch (Throwable t) {
-                log.log(Level.SEVERE, "internal error while swapping module " + rec.id, t);
+                safeLog(Level.SEVERE, "internal error while swapping module " + rec.id, t);
                 res = failure(rec, "internal error: " + t, List.of(), 0);
             }
-            finish(rec, f, res);
+            try {
+                finish(rec, f, res);
+            } catch (Throwable t) {
+                safeLog(Level.SEVERE, "internal error after swapping module " + rec.id, t);
+            }
         };
         if (shuttingDown) {
             finish(rec, f, failure(rec, "server is shutting down", List.of(), 0));
@@ -426,6 +546,8 @@ public final class ModuleManagerImpl implements ModuleManager {
             next = rec.followUp;
             rec.followUp = null;
             rec.inFlight = next;
+            rec.inFlightFp = null;
+            rec.inFlightByWatcher = false;
         }
         completeAsync(f, r);
         if (next != null) {
@@ -466,12 +588,13 @@ public final class ModuleManagerImpl implements ModuleManager {
     record CompileOutcome(boolean ok, long startNanos, String error, List<Diagnostic> diagnostics,
                           Map<String, String> sources, long compileMs, String description,
                           Map<String, byte[]> rawClasses, Map<String, String> sourceOf, String mainClass,
-                          int loadId, Map<String, byte[]> instrumented, String configText, YamlConfiguration config) {
+                          int loadId, Map<String, byte[]> instrumented, String configText, YamlConfiguration config,
+                          String fingerprint) {
 
         static CompileOutcome failure(long t0, String error, List<Diagnostic> diags, Map<String, String> sources,
                                       long compileMs, String description) {
             return new CompileOutcome(false, t0, error, diags, sources, compileMs, description, null, null, null, -1,
-                    null, null, null);
+                    null, null, null, null);
         }
     }
 
@@ -481,6 +604,11 @@ public final class ModuleManagerImpl implements ModuleManager {
         }
         ModuleFiles.Sources src = ModuleFiles.read(rec.dir);
         rec.compiledFp = src.fingerprint();
+        try {
+            rec.store.preload(); // load store.yml here, not inside enable() on the main thread
+        } catch (Throwable t) {
+            log.log(Level.FINE, "store preload of " + rec.id + " failed", t);
+        }
         String description = descriptionOf(src.moduleYml());
         if (src.java().isEmpty()) {
             return CompileOutcome.failure(t0, "no .java file in modules/" + rec.id + "/", List.of(new Diagnostic("ERROR",
@@ -534,7 +662,7 @@ public final class ModuleManagerImpl implements ModuleManager {
                     "instrumentation failed: " + t, "")), src.java(), cr.millis(), description);
         }
         return new CompileOutcome(true, t0, null, cr.diagnostics(), src.java(), cr.millis(), description, cr.classes(),
-                cr.sourceOf(), ep.className(), loadId, inst, src.configYml(), config);
+                cr.sourceOf(), ep.className(), loadId, inst, src.configYml(), config, src.fingerprint());
     }
 
     private static List<Diagnostic> withSourceLines(List<Diagnostic> diags, Map<String, String> sources) {
@@ -597,9 +725,13 @@ public final class ModuleManagerImpl implements ModuleManager {
         }
 
         // ---- unload the running generation, load the new one
+        boolean byWatcher;
+        synchronized (rec) {
+            byWatcher = rec.inFlightByWatcher;
+        }
         Loaded old = rec.current;
         if (old != null) {
-            unloadGen(rec, old, "reload");
+            unloadGen(rec, old, "reload", true);
             rec.current = null;
         }
         int newGeneration = rec.generation + 1;
@@ -610,11 +742,14 @@ public final class ModuleManagerImpl implements ModuleManager {
         if (a.loaded() != null) {
             rec.current = a.loaded();
             rec.generation = newGeneration;
+            rec.loadedFp = out.fingerprint();
+            rec.loadedByWatcher = byWatcher;
+            acceptSelfWrites(rec, out.fingerprint());
             rec.lastGood = new KeptBuild(out.rawClasses(), out.sourceOf(), out.mainClass(), out.configText(), newGeneration);
             rec.state = ModuleState.ENABLED;
             rec.rolledBack = false;
             rec.lastError = null;
-            rec.diagnostics = out.diagnostics();
+            rec.diagnostics = withWarnings(out.diagnostics(), a.loaded().ctx());
             rec.lastReloadAt = System.currentTimeMillis();
             rec.resetErrors();
             rec.statusDirty = true;
@@ -626,7 +761,7 @@ public final class ModuleManagerImpl implements ModuleManager {
             rec.logger.engine(Level.INFO, msg);
             writeBuildLog(rec, "OK: " + msg, out.diagnostics(), out.sources(), out.compileMs());
             emit(rec, ModuleEvent.Type.RELOADED, msg, newGeneration);
-            result = new ReloadResult(rec.id, true, ModuleState.ENABLED, newGeneration, null, out.diagnostics(), total, false);
+            result = new ReloadResult(rec.id, true, ModuleState.ENABLED, newGeneration, null, rec.diagnostics, total, false);
         } else {
             List<Diagnostic> diags = new ArrayList<>(out.diagnostics());
             diags.addAll(a.diagnostics());
@@ -640,6 +775,7 @@ public final class ModuleManagerImpl implements ModuleManager {
                     rec.current = rb.loaded();
                     rec.state = ModuleState.ENABLED;
                     rec.rolledBack = true;
+                    rec.loadedFp = null;
                     headline = "FAILED: " + a.error() + " - rolled back to v" + rec.lastGood.generation();
                     type = ModuleEvent.Type.ROLLED_BACK;
                 } else {
@@ -672,6 +808,37 @@ public final class ModuleManagerImpl implements ModuleManager {
         return (System.nanoTime() - startNanos) / 1_000_000;
     }
 
+    /** Compile diagnostics + warnings raised while enable() ran (command name conflicts...). */
+    private static List<Diagnostic> withWarnings(List<Diagnostic> diags, ModuleContextImpl ctx) {
+        List<String> w = ctx.warnings();
+        if (w.isEmpty()) {
+            return diags;
+        }
+        List<Diagnostic> out = new ArrayList<>(diags);
+        for (String m : w) {
+            out.add(new Diagnostic("WARNING", "", -1, -1, m, ""));
+        }
+        return out;
+    }
+
+    /**
+     * Files the module itself wrote during enable() (typically config.yml with copyDefaults + save) must not
+     * trigger another reload: if the .java files are still the compiled ones, the current fingerprint counts
+     * as compiled.
+     */
+    private void acceptSelfWrites(ModuleRecord rec, String compiled) {
+        try {
+            String now = ModuleFiles.snapshot(rec.dir).fingerprint();
+            if (compiled != null && !now.equals(compiled) && ModuleFiles.javaPart(now).equals(ModuleFiles.javaPart(compiled))) {
+                rec.compiledFp = now;
+                rec.loadedFp = now;
+                rec.ring.add("INFO", "files written by the module itself during enable() ignored by the watcher");
+            }
+        } catch (Throwable t) {
+            log.log(Level.FINE, "self-write check of " + rec.id + " failed", t);
+        }
+    }
+
     /** Define, instantiate and enable a generation (main thread). On failure everything it did is undone. */
     private Attempt loadGen(ModuleRecord rec, int loadId, Map<String, byte[]> classes, String mainClass, int generation,
                             YamlConfiguration config, Map<String, String> sourceOf) {
@@ -701,14 +868,16 @@ public final class ModuleManagerImpl implements ModuleManager {
             return new Attempt(loaded, null, List.of());
         }
         rec.current = null;
+        closeMenus(ctx, loader);
         try {
             ctx.close();
         } catch (Throwable t) {
-            log.log(Level.WARNING, "cleanup after failed enable of " + rec.id + " failed", t);
+            safeLog(Level.WARNING, "cleanup after failed enable of " + rec.id + " failed", t);
         }
-        rec.store.saveIfDirty();
+        rec.store.saveAsync();
         g.kill();
-        removeSharedFrom(loader);
+        removeSharedFrom(rec, loader);
+        sweepLeftovers(rec, loader);
         String error = describeEnableFailure(err);
         appendErrorLog(rec, java.time.LocalTime.now().withNano(0) + " [v" + generation + "] enable failed: " + err + "\n"
                 + ModuleRecord.moduleFrames(err, 12) + "\n");
@@ -781,8 +950,25 @@ public final class ModuleManagerImpl implements ModuleManager {
         }
     }
 
-    /** disable() + cleanups + store save + kill (main thread). */
     private void unloadGen(ModuleRecord rec, Loaded lg, String reason) {
+        unloadGen(rec, lg, reason, false);
+    }
+
+    /** disable() + cleanups + store save + kill (main thread). Never throws. */
+    private void unloadGen(ModuleRecord rec, Loaded lg, String reason, boolean asyncSave) {
+        try {
+            unloadGen0(rec, lg, reason, asyncSave);
+        } catch (Throwable t) {
+            try {
+                lg.gen().kill();
+            } catch (Throwable ignored) {
+                // nothing more to do
+            }
+            safeLog(Level.WARNING, "error while unloading module " + rec.id, t);
+        }
+    }
+
+    private void unloadGen0(ModuleRecord rec, Loaded lg, String reason, boolean asyncSave) {
         Throwable t = Guard.invoke(lg.gen(), "disable() of module '" + rec.id + "'", enableBudgetNanos(), () -> {
             VibeModule m = lg.module();
             if (m != null) {
@@ -794,40 +980,262 @@ public final class ModuleManagerImpl implements ModuleManager {
             appendErrorLog(rec, java.time.LocalTime.now().withNano(0) + " [v" + lg.gen().generation + "] disable failed: "
                     + t + "\n" + ModuleRecord.moduleFrames(t, 12) + "\n");
         }
+        closeMenus(lg.ctx(), lg.loader());
         int failures = 0;
         try {
             failures = lg.ctx().close();
         } catch (Throwable e) {
-            log.log(Level.WARNING, "cleanup of module " + rec.id + " failed", e);
+            safeLog(Level.WARNING, "cleanup of module " + rec.id + " failed", e);
         }
         if (failures > 0) {
             rec.logger.engine(Level.WARNING, failures + " cleanup action(s) failed while unloading v" + lg.gen().generation);
         }
-        rec.store.saveIfDirty();
+        if (asyncSave) {
+            rec.store.saveAsync();
+        } else {
+            rec.store.saveIfDirty();
+        }
         lg.gen().kill();
-        removeSharedFrom(lg.loader());
+        removeSharedFrom(rec, lg.loader());
+        sweepLeftovers(rec, lg.loader());
         rec.ring.add("INFO", "v" + lg.gen().generation + " unloaded (" + reason + ")");
     }
 
-    /** Drop shared() entries whose value belongs to an unloaded generation (lambdas, module objects). */
-    private void removeSharedFrom(ClassLoader loader) {
+    private void safeLog(Level level, String msg, Throwable t) {
+        try {
+            log.log(level, msg, t);
+        } catch (Throwable ignored) {
+            // a broken log handler must never break the engine
+        }
+    }
+
+    /**
+     * Close the menus of this generation that players still have open: its click listener is gone, so the
+     * items would become takeable (inventories whose holder is a module class, or created by the module).
+     */
+    private void closeMenus(ModuleContextImpl ctx, ClassLoader loader) {
+        try {
+            List<org.bukkit.inventory.Inventory> created = ctx.inventories();
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                try {
+                    org.bukkit.inventory.Inventory top = p.getOpenInventory().getTopInventory();
+                    org.bukkit.inventory.InventoryHolder holder = top.getHolder(false);
+                    boolean ours = created.stream().anyMatch(inv -> inv == top || inv.equals(top))
+                            || (holder != null && loader != null && holder.getClass().getClassLoader() == loader);
+                    if (ours) {
+                        p.closeInventory();
+                    }
+                } catch (Throwable t) {
+                    safeLog(Level.FINE, "could not close the menu of " + p.getName(), t);
+                }
+            }
+        } catch (Throwable t) {
+            safeLog(Level.FINE, "closing menus failed", t);
+        }
+    }
+
+    /**
+     * Last line of defence after an unload: things that would keep calling (or pinning) the dead generation
+     * although they were not registered through ctx: log handlers / appenders whose class belongs to it, and
+     * recipes under the module's key prefix.
+     */
+    private void sweepLeftovers(ModuleRecord rec, ClassLoader loader) {
         if (loader == null) {
             return;
         }
-        shared.entrySet().removeIf(e -> e.getValue() != null && e.getValue().getClass().getClassLoader() == loader);
+        try {
+            for (Logger l : List.of(Logger.getLogger(""), Bukkit.getLogger(), log)) {
+                for (java.util.logging.Handler h : l.getHandlers()) {
+                    if (h.getClass().getClassLoader() == loader) {
+                        l.removeHandler(h);
+                        rec.logger.engine(Level.WARNING, "removed a log handler left by the unloaded version ("
+                                + h.getClass().getSimpleName() + ")");
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            safeLog(Level.FINE, "log handler sweep failed", t);
+        }
+        try {
+            Log4jSweep.removeAppendersOf(loader, rec.logger);
+        } catch (Throwable t) {
+            safeLog(Level.FINE, "log4j appender sweep failed", t);
+        }
+        try {
+            String prefix = rec.id + "/";
+            List<org.bukkit.NamespacedKey> stale = new ArrayList<>();
+            for (java.util.Iterator<org.bukkit.inventory.Recipe> it = Bukkit.recipeIterator(); it.hasNext(); ) {
+                org.bukkit.inventory.Recipe r = it.next();
+                if (r instanceof org.bukkit.Keyed k && k.getKey().getNamespace().equals(plugin.getName().toLowerCase(Locale.ROOT))
+                        && k.getKey().getKey().startsWith(prefix)) {
+                    stale.add(k.getKey());
+                }
+            }
+            for (org.bukkit.NamespacedKey k : stale) {
+                Bukkit.removeRecipe(k, false);
+                recipesDirty = true;
+            }
+        } catch (Throwable t) {
+            safeLog(Level.FINE, "recipe sweep failed", t);
+        }
     }
 
-    /** Refresh players' command trees / recipes after registrations changed (main thread). */
+    /** Entities tagged by ctx.entity() whose generation is gone (chunk loaded later, crash, restart): delete them. */
+    private void purgeStaleEntities(java.util.Collection<org.bukkit.entity.Entity> entities) {
+        try {
+            org.bukkit.NamespacedKey key = dev.vibecraft.core.ctx.EntityTags.key(plugin);
+            List<org.bukkit.entity.Entity> stale = null;
+            for (org.bukkit.entity.Entity e : entities) {
+                String tag;
+                try {
+                    tag = e.getPersistentDataContainer().get(key, org.bukkit.persistence.PersistentDataType.STRING);
+                } catch (RuntimeException ex) {
+                    continue;
+                }
+                if (tag == null || isLiveTag(tag)) {
+                    continue;
+                }
+                if (stale == null) {
+                    stale = new ArrayList<>();
+                }
+                stale.add(e);
+            }
+            if (stale != null) {
+                List<org.bukkit.entity.Entity> todo = stale;
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    for (org.bukkit.entity.Entity e : todo) {
+                        try {
+                            if (e.isValid() && !(e instanceof Player)) {
+                                e.remove();
+                            }
+                        } catch (Throwable ignored) {
+                            // best effort
+                        }
+                    }
+                });
+            }
+        } catch (Throwable t) {
+            safeLog(Level.FINE, "stale entity purge failed", t);
+        }
+    }
+
+    private static boolean isLiveTag(String tag) {
+        String[] p = tag.split("\\|");
+        if (p.length != 3 || !p[1].equals(dev.vibecraft.core.ctx.EntityTags.BOOT)) {
+            return false;
+        }
+        try {
+            return !Guard.gen(Integer.parseInt(p[2])).killed();
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Drop shared() entries whose value itself belongs to an unloaded generation (lambdas, module objects).
+     * JDK containers holding module objects are kept on purpose (the module's other data in them stays
+     * usable; calling an old lambda found there throws ModuleKilledError), but the module's log names the
+     * key: the next generation would get a ClassCastException on those objects, and they keep the old
+     * generation in memory.
+     */
+    private void removeSharedFrom(ModuleRecord rec, ClassLoader loader) {
+        if (loader == null) {
+            return;
+        }
+        try {
+            shared.entrySet().removeIf(e -> {
+                Object v = e.getValue();
+                if (v != null && v.getClass().getClassLoader() == loader) {
+                    sharedOwners.remove(e.getKey());
+                    return true;
+                }
+                if (holdsModuleObject(v, loader, 0, new int[] {5000})) {
+                    rec.logger.engine(Level.WARNING, "shared() key '" + e.getKey() + "' holds objects of the unloaded "
+                            + "version (module classes inside a list / map): the next version cannot cast them "
+                            + "(ClassCastException). Keep only JDK / Bukkit types in ctx.shared()");
+                }
+                return false;
+            });
+        } catch (Throwable t) {
+            safeLog(Level.FINE, "shared() cleanup failed", t);
+        }
+    }
+
+    /** The value, or something up to 3 levels deep inside a JDK container (at most {@code budget[0]} objects looked at), belongs to {@code loader}. */
+    private static boolean holdsModuleObject(Object v, ClassLoader loader, int depth, int[] budget) {
+        if (v == null || --budget[0] < 0) {
+            return false;
+        }
+        Class<?> c = v.getClass();
+        if (c.getClassLoader() == loader) {
+            return true;
+        }
+        if (depth >= 3) {
+            return false;
+        }
+        try {
+            Iterable<?> items = null;
+            if (v instanceof Map<?, ?> m && c.getClassLoader() == null) {
+                java.util.List<Object> kv = new ArrayList<>();
+                int n = 0;
+                for (Map.Entry<?, ?> e : m.entrySet()) {
+                    kv.add(e.getKey());
+                    kv.add(e.getValue());
+                    if (++n >= 1000) {
+                        break;
+                    }
+                }
+                items = kv;
+            } else if (v instanceof Iterable<?> it && c.getClassLoader() == null) {
+                items = it; // JDK collections only (a Bukkit / other plugin Iterable may be lazy or huge)
+            } else if (c.isArray() && !c.getComponentType().isPrimitive()) {
+                items = java.util.Arrays.asList((Object[]) v);
+            }
+            if (items == null) {
+                return false;
+            }
+            int n = 0;
+            for (Object o : items) {
+                if (holdsModuleObject(o, loader, depth + 1, budget)) {
+                    return true;
+                }
+                if (++n >= 2000 || budget[0] <= 0) {
+                    break;
+                }
+            }
+        } catch (RuntimeException concurrentOrBroken) {
+            // ConcurrentModificationException from a container another thread is filling: leave it
+        }
+        return false;
+    }
+
+    /** Ticks without command change before the trees are sent, and delay of the safety re-send. */
+    private static final int COMMANDS_QUIET_TICKS = 3;
+    private static final int COMMANDS_RESEND_TICKS = 20;
+    private long ticks;
+    private long commandsChangedAt = -1;
+    private long commandsResendAt = -1;
+
+    /**
+     * Refresh players' command trees / recipes after registrations changed (main thread). Paper builds
+     * command trees on a thread pool while the main thread may already change commands again (several
+     * modules loading in consecutive ticks): trees are only sent once commands were quiet for a few ticks,
+     * and sent once more a second later, alone, so a tree lost to a concurrent change or built out of
+     * order never stays on the client.
+     */
     private void flushPlayerUpdates() {
         if (commandsDirty) {
             commandsDirty = false;
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                try {
-                    p.updateCommands();
-                } catch (Throwable t) {
-                    log.log(Level.FINE, "updateCommands failed for " + p.getName(), t);
-                }
-            }
+            commandsChangedAt = ticks;
+            commandsResendAt = -1;
+        }
+        if (commandsChangedAt >= 0 && ticks - commandsChangedAt >= COMMANDS_QUIET_TICKS) {
+            commandsChangedAt = -1;
+            commandsResendAt = ticks + COMMANDS_RESEND_TICKS;
+            sendCommandTrees();
+        } else if (commandsResendAt >= 0 && ticks >= commandsResendAt) {
+            commandsResendAt = -1;
+            sendCommandTrees();
         }
         if (recipesDirty) {
             recipesDirty = false;
@@ -835,6 +1243,16 @@ public final class ModuleManagerImpl implements ModuleManager {
                 Bukkit.updateRecipes();
             } catch (Throwable t) {
                 log.log(Level.FINE, "updateRecipes failed", t);
+            }
+        }
+    }
+
+    private void sendCommandTrees() {
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            try {
+                p.updateCommands();
+            } catch (Throwable t) {
+                safeLog(Level.FINE, "updateCommands failed for " + p.getName(), t);
             }
         }
     }
@@ -1074,7 +1492,9 @@ public final class ModuleManagerImpl implements ModuleManager {
                 }
                 rec.triggeredFp = s.fingerprint();
                 rec.ring.add("INFO", "change detected: reloading");
-                reload(id);
+                if (!rec.disabled && !shuttingDown) {
+                    submit(rec, s.fingerprint(), true);
+                }
             }
         }
         for (ModuleRecord rec : new ArrayList<>(records.values())) {
@@ -1102,6 +1522,7 @@ public final class ModuleManagerImpl implements ModuleManager {
             }
             records.remove(rec.id, rec);
             rec.store.saveIfDirty();
+            SharedView.dropOwnedBy(shared, sharedOwners, rec.id);
             log.info("[" + rec.id + "] module directory deleted: unloaded");
             emit(rec, ModuleEvent.Type.REMOVED, "module directory deleted", 0);
             cleanLeftoverVibeDir(rec.dir);
@@ -1141,6 +1562,7 @@ public final class ModuleManagerImpl implements ModuleManager {
 
     private void onTickStart() {
         Guard.tickStart();
+        ticks++;
         for (ModuleRecord rec : records.values()) {
             Loaded cur = rec.current;
             if (cur != null) {
@@ -1150,8 +1572,15 @@ public final class ModuleManagerImpl implements ModuleManager {
                 rec.msPerTick = rec.msPerTick < 1e-4 ? 0 : rec.msPerTick * 0.95;
             }
         }
-        if (commandsDirty || recipesDirty) {
-            flushPlayerUpdates();
+    }
+
+    private void onTickEnd() {
+        if (commandsDirty || recipesDirty || commandsChangedAt >= 0 || commandsResendAt >= 0) {
+            try {
+                flushPlayerUpdates();
+            } catch (Throwable t) {
+                safeLog(Level.FINE, "player updates failed", t);
+            }
         }
     }
 

@@ -74,6 +74,12 @@ final class ModuleRecord implements ModuleHost {
     long observedSince;
     volatile String triggeredFp;
     volatile String compiledFp;
+    /** Fingerprint of the sources of the running generation, and whether the watcher (not a request) loaded it. */
+    volatile String loadedFp;
+    volatile boolean loadedByWatcher;
+    /** Fingerprint the in-flight compile was requested for (guarded by this). */
+    String inFlightFp;
+    boolean inFlightByWatcher;
 
     volatile boolean disabled;
     volatile boolean removed;
@@ -96,8 +102,11 @@ final class ModuleRecord implements ModuleHost {
         this.id = id;
         this.dir = dir;
         this.logger = new ModuleLogger(id, manager.plugin().getLogger(), ring);
-        this.store = new ModuleStoreImpl(new File(new File(manager.dataDir(), id), "store.yml"), logger);
+        this.store = new ModuleStoreImpl(new File(new File(manager.dataDir(), id), "store.yml"), logger, manager::runStoreIo);
+        this.sharedView = manager.sharedView(id);
     }
+
+    private final Map<String, Object> sharedView;
 
     // ================================================================== ModuleHost
 
@@ -137,7 +146,7 @@ final class ModuleRecord implements ModuleHost {
 
     @Override
     public Map<String, Object> shared() {
-        return manager.shared();
+        return sharedView;
     }
 
     @Override

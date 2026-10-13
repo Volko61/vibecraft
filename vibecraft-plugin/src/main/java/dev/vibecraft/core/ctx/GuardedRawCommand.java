@@ -33,6 +33,10 @@ final class GuardedRawCommand extends Command {
         setPermission(inner.getPermission());
     }
 
+    Gen gen() {
+        return gen;
+    }
+
     Command inner() {
         return inner;
     }

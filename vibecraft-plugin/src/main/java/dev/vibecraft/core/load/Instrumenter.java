@@ -25,7 +25,9 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.FieldNode;
+import org.objectweb.asm.tree.FrameNode;
 import org.objectweb.asm.tree.InsnList;
+import org.objectweb.asm.tree.InsnNode;
 import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.JumpInsnNode;
 import org.objectweb.asm.tree.LabelNode;
@@ -134,8 +136,75 @@ public final class Instrumenter {
             new Rule(Kind.REPLACE, "java/lang/reflect/Constructor", "newInstance", null, false, "newInstance"),
             new Rule(Kind.REPLACE, "java/lang/invoke/MethodHandles$Lookup", "find*", null, false, "lookup_*"),
             new Rule(Kind.REPLACE, "java/lang/invoke/MethodHandles$Lookup", "unreflect", null, false, "lookup_unreflect"),
-            new Rule(Kind.REPLACE, "org/bukkit/plugin/java/JavaPlugin", "getProvidingPlugin", null, true, "getProvidingPlugin")
+            new Rule(Kind.REPLACE, "org/bukkit/plugin/java/JavaPlugin", "getProvidingPlugin", null, true, "getProvidingPlugin"),
+            // network / locks that would block the main thread (refused or bounded there; real call elsewhere)
+            new Rule(Kind.REPLACE, "java/net/http/HttpClient", "send", null, false, "httpSend"),
+            new Rule(Kind.REPLACE, "java/net/URL", "openStream", "()Ljava/io/InputStream;", false, "urlOpenStream"),
+            new Rule(Kind.REPLACE, "java/net/URL", "openConnection", null, false, "urlOpenConnection"),
+            new Rule(Kind.REPLACE, "java/net/URL", "getContent", null, false, "urlGetContent"),
+            new Rule(Kind.REPLACE, "java/net/InetAddress", "getByName", null, true, "inetGetByName"),
+            new Rule(Kind.REPLACE, "java/net/InetAddress", "getAllByName", null, true, "inetGetAllByName"),
+            new Rule(Kind.REPLACE, "java/net/InetAddress", "getLocalHost", null, true, "inetGetLocalHost"),
+            new Rule(Kind.REPLACE, "com/destroystokyo/paper/profile/PlayerProfile", "complete", null, false, "profileComplete"),
+            new Rule(Kind.REPLACE, "java/util/concurrent/locks/Lock", "lock", "()V", false, "lockLock"),
+            new Rule(Kind.REPLACE, "java/util/concurrent/locks/Lock", "lockInterruptibly", "()V", false, "lockLock"),
+            new Rule(Kind.REPLACE, "java/util/concurrent/locks/Lock", "tryLock", "(JLjava/util/concurrent/TimeUnit;)Z", false, "lockTryLockTimed"),
+            new Rule(Kind.REPLACE, "java/util/concurrent/locks/Condition", "await", "()V", false, "conditionAwait"),
+            new Rule(Kind.REPLACE, "java/util/concurrent/locks/LockSupport", "park", null, true, "park"),
+            new Rule(Kind.REPLACE, "java/util/concurrent/Future", "get", "(JLjava/util/concurrent/TimeUnit;)Ljava/lang/Object;", false, "futureGetTimed"),
+            new Rule(Kind.REPLACE, "java/util/concurrent/CountDownLatch", "await", "(JLjava/util/concurrent/TimeUnit;)Z", false, "latchAwaitTimed"),
+            new Rule(Kind.REPLACE, "java/util/concurrent/BlockingQueue", "put", "(Ljava/lang/Object;)V", false, "queuePut"),
+            new Rule(Kind.REPLACE, "java/util/concurrent/BlockingQueue", "poll", "(JLjava/util/concurrent/TimeUnit;)Ljava/lang/Object;", false, "queuePollTimed"),
+            // values that freeze or disconnect: extreme velocities, oversized item / name NBT
+            new Rule(Kind.REPLACE, "org/bukkit/entity/Entity", "setVelocity", "(Lorg/bukkit/util/Vector;)V", false, "setVelocity"),
+            new Rule(Kind.POST, "org/bukkit/projectiles/ProjectileSource", "launchProjectile", null, false, "clampLaunched"),
+            new Rule(Kind.POST, "org/bukkit/World", "spawnArrow", null, false, "clampLaunched"),
+            new Rule(Kind.REPLACE, "org/bukkit/entity/Fireball", "setDirection", "(Lorg/bukkit/util/Vector;)V", false, "fireballSetDirection"),
+            new Rule(Kind.REPLACE, "org/bukkit/entity/Fireball", "setAcceleration", "(Lorg/bukkit/util/Vector;)V", false, "fireballSetAcceleration"),
+            new Rule(Kind.REPLACE, "org/bukkit/entity/Fireball", "setPower", "(Lorg/bukkit/util/Vector;)V", false, "fireballSetPower"),
+            new Rule(Kind.REPLACE, "org/bukkit/inventory/ItemStack", "setItemMeta", "(Lorg/bukkit/inventory/meta/ItemMeta;)Z", false, "itemSetItemMeta"),
+            new Rule(Kind.REPLACE, "org/bukkit/inventory/ItemStack", "editMeta", null, false, "itemEditMeta"),
+            new Rule(Kind.REPLACE, "org/bukkit/inventory/ItemStack", "lore", "(Ljava/util/List;)V", false, "itemLore"),
+            new Rule(Kind.REPLACE, "org/bukkit/inventory/ItemStack", "setData", null, false, "itemSetData"),
+            new Rule(Kind.REPLACE, "org/bukkit/Nameable", "customName", "(Lnet/kyori/adventure/text/Component;)V", false, "customName"),
+            new Rule(Kind.REPLACE, "org/bukkit/Nameable", "setCustomName", "(Ljava/lang/String;)V", false, "setCustomName"),
+            new Rule(Kind.REPLACE, "org/bukkit/entity/TextDisplay", "text", "(Lnet/kyori/adventure/text/Component;)V", false, "textDisplayText"),
+            // raw recipes: same as ctx.recipe (replaces an existing key, removed on unload)
+            new Rule(Kind.REPLACE, "org/bukkit/Bukkit", "addRecipe", null, true, "addRecipe"),
+            new Rule(Kind.REPLACE, "org/bukkit/Server", "addRecipe", null, false, "addRecipe"),
+            // registrations outside ctx that would keep old generations alive / call killed code: undone on unload
+            new Rule(Kind.REPLACE, "net/kyori/adventure/text/event/ClickEvent", "callback", null, true, "clickCallback"),
+            new Rule(Kind.REPLACE, "net/kyori/adventure/bossbar/BossBar", "addViewer",
+                    "(Lnet/kyori/adventure/audience/Audience;)Lnet/kyori/adventure/bossbar/BossBar;", false, "bossBarAddViewer"),
+            new Rule(Kind.REPLACE, "org/bukkit/plugin/ServicesManager", "register", null, false, "servicesRegister"),
+            new Rule(Kind.REPLACE, "org/bukkit/plugin/messaging/Messenger", "registerIncomingPluginChannel", null, false,
+                    "registerIncomingPluginChannel"),
+            new Rule(Kind.REPLACE, "org/bukkit/map/MapView", "addRenderer", null, false, "mapAddRenderer"),
+            new Rule(Kind.REPLACE, "org/bukkit/conversations/Conversation", "begin", "()V", false, "conversationBegin"),
+            new Rule(Kind.REPLACE, "org/bukkit/conversations/Conversable", "beginConversation", null, false, "beginConversation"),
+            new Rule(Kind.REPLACE, "com/destroystokyo/paper/entity/ai/MobGoals", "addGoal", null, false, "addGoal"),
+            new Rule(Kind.POST, "org/bukkit/permissions/Permissible", "addAttachment", null, false, "trackPermissionAttachment"),
+            new Rule(Kind.REPLACE, "java/util/logging/Logger", "addHandler", "(Ljava/util/logging/Handler;)V", false, "loggerAddHandler"),
+            new Rule(Kind.REPLACE, "io/papermc/paper/event/player/AbstractChatEvent", "renderer",
+                    "(Lio/papermc/paper/chat/ChatRenderer;)V", false, "chatRenderer"),
+            new Rule(Kind.POST, "org/bukkit/Bukkit", "createInventory", null, true, "trackInventory"),
+            new Rule(Kind.POST, "org/bukkit/Server", "createInventory", null, false, "trackInventory"),
+            // other modules' tasks / listeners are off limits
+            new Rule(Kind.REPLACE, "org/bukkit/scheduler/BukkitScheduler", "cancelTask", "(I)V", false, "sched_cancelTask"),
+            new Rule(Kind.REPLACE, "org/bukkit/event/HandlerList", "unregister", "(Lorg/bukkit/event/Listener;)V", false,
+                    "handlerListUnregister")
     );
+
+    /**
+     * Constructors whose instance is tracked right after construction ({@code new X(...)}: DUP + tracking
+     * call inserted after the INVOKESPECIAL). These classes start threads inside JDK code, where the
+     * Thread.start redirect cannot see them.
+     */
+    private static final Map<String, String[]> CTOR_TRACK = Map.of(
+            "java/util/Timer", new String[] {"trackTimer", "(Ljava/util/Timer;I)V"},
+            "java/util/concurrent/ThreadPoolExecutor", new String[] {"trackNewExecutor", "(Ljava/util/concurrent/ExecutorService;I)V"},
+            "java/util/concurrent/ScheduledThreadPoolExecutor", new String[] {"trackNewExecutor", "(Ljava/util/concurrent/ExecutorService;I)V"},
+            "java/util/concurrent/ForkJoinPool", new String[] {"trackNewExecutor", "(Ljava/util/concurrent/ExecutorService;I)V"});
 
     /** name+desc of every public static method of Redirects (only those redirects are applied). */
     private static final Set<String> REDIRECT_METHODS = new HashSet<>();
@@ -221,7 +290,7 @@ public final class Instrumenter {
             if (mn.instructions == null || mn.instructions.size() == 0) {
                 continue; // abstract / native
             }
-            instrumentMethod(mn, genId, h);
+            instrumentMethod(mn, genId, h, cn.superName);
         }
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS) {
             @Override
@@ -244,7 +313,7 @@ public final class Instrumenter {
         return l;
     }
 
-    private static void instrumentMethod(MethodNode mn, int id, ClassHierarchy h) {
+    private static void instrumentMethod(MethodNode mn, int id, ClassHierarchy h, String superName) {
         InsnList insns = mn.instructions;
         // index of every instruction (before modification) for back-edge detection
         Map<AbstractInsnNode, Integer> index = new HashMap<>();
@@ -276,6 +345,18 @@ public final class Instrumenter {
             insns.insertBefore(n, checkCall(id));
         }
         for (MethodInsnNode m : calls) {
+            if (m.getOpcode() == Opcodes.INVOKESPECIAL && m.name.equals("<init>")) {
+                String[] t = CTOR_TRACK.get(m.owner);
+                // in a constructor of a subclass, X.<init> may be the super() call (no reference left on the stack)
+                if (t != null && !(mn.name.equals("<init>") && m.owner.equals(superName))) {
+                    InsnList post = new InsnList();
+                    post.add(new InsnNode(Opcodes.DUP));
+                    post.add(idConst(id));
+                    post.add(new MethodInsnNode(Opcodes.INVOKESTATIC, REDIRECTS, t[0], t[1], false));
+                    insns.insert(m, post);
+                }
+                continue;
+            }
             Redirect r = findRedirect(m, h);
             if (r == null) {
                 continue;
@@ -290,17 +371,90 @@ public final class Instrumenter {
                 insns.insert(m, post);
             }
         }
-        // method entry: before the first real instruction (after the first label / line number / frame,
-        // so stack traces of the check carry the line of the first statement and frames stay attached)
-        AbstractInsnNode first = insns.getFirst();
-        while (first != null && first.getOpcode() < 0) {
-            first = first.getNext();
-        }
-        if (first != null) {
-            insns.insertBefore(first, checkCall(id));
+        // constructors keep the throwing entry check (returning before super() would not verify) and so do
+        // static initializers; every other method gets "if (Guard.enter(id)) return <default>;"
+        if (mn.name.equals("<init>") || mn.name.equals("<clinit>")) {
+            AbstractInsnNode first = insns.getFirst();
+            while (first != null && first.getOpcode() < 0) {
+                first = first.getNext();
+            }
+            if (first != null) {
+                insns.insertBefore(first, checkCall(id));
+            } else {
+                insns.insert(checkCall(id));
+            }
         } else {
-            insns.insert(checkCall(id));
+            insertEntry(mn, id);
         }
+    }
+
+    /**
+     * Method entry: {@code if (Guard.enter(id)) return <default value>;} inserted at the very start.
+     * The jump target is the original offset 0: it reuses the method's own first stack map frame if
+     * it has one there (a loop starting the method), otherwise an F_SAME frame (= the implicit initial
+     * frame, so later delta-encoded frames stay valid) is added.
+     */
+    private static void insertEntry(MethodNode mn, int id) {
+        InsnList insns = mn.instructions;
+        LabelNode existing = null;
+        boolean hasFrame = false;
+        int firstLine = -1;
+        for (AbstractInsnNode n = insns.getFirst(); n != null && n.getOpcode() < 0; n = n.getNext()) {
+            if (n instanceof LabelNode l) {
+                existing = l;
+            } else if (n instanceof FrameNode) {
+                hasFrame = true;
+            } else if (n instanceof LineNumberNode ln && firstLine < 0) {
+                firstLine = ln.line;
+            }
+        }
+        if (firstLine < 0) {
+            for (AbstractInsnNode n = insns.getFirst(); n != null; n = n.getNext()) {
+                if (n instanceof LineNumberNode ln) {
+                    firstLine = ln.line;
+                    break;
+                }
+            }
+        }
+        InsnList pre = new InsnList();
+        if (firstLine > 0) {
+            LabelNode start = new LabelNode();
+            pre.add(start);
+            pre.add(new LineNumberNode(firstLine, start));
+        }
+        pre.add(idConst(id));
+        pre.add(new MethodInsnNode(Opcodes.INVOKESTATIC, GUARD, "enter", "(I)Z", false));
+        LabelNode cont = hasFrame && existing != null ? existing : new LabelNode();
+        pre.add(new JumpInsnNode(Opcodes.IFEQ, cont));
+        Type ret = Type.getReturnType(mn.desc);
+        switch (ret.getSort()) {
+            case Type.VOID -> pre.add(new InsnNode(Opcodes.RETURN));
+            case Type.BOOLEAN, Type.CHAR, Type.BYTE, Type.SHORT, Type.INT -> {
+                pre.add(new InsnNode(Opcodes.ICONST_0));
+                pre.add(new InsnNode(Opcodes.IRETURN));
+            }
+            case Type.LONG -> {
+                pre.add(new InsnNode(Opcodes.LCONST_0));
+                pre.add(new InsnNode(Opcodes.LRETURN));
+            }
+            case Type.FLOAT -> {
+                pre.add(new InsnNode(Opcodes.FCONST_0));
+                pre.add(new InsnNode(Opcodes.FRETURN));
+            }
+            case Type.DOUBLE -> {
+                pre.add(new InsnNode(Opcodes.DCONST_0));
+                pre.add(new InsnNode(Opcodes.DRETURN));
+            }
+            default -> {
+                pre.add(new InsnNode(Opcodes.ACONST_NULL));
+                pre.add(new InsnNode(Opcodes.ARETURN));
+            }
+        }
+        if (cont != existing) {
+            pre.add(cont);
+            pre.add(new FrameNode(Opcodes.F_SAME, 0, null, 0, null));
+        }
+        insns.insert(pre);
     }
 
     private static boolean anyBackward(LabelNode dflt, List<LabelNode> labels, Map<AbstractInsnNode, Integer> index, int at) {
@@ -332,6 +486,10 @@ public final class Instrumenter {
             String file = sourceOf.getOrDefault(cn.name, cn.sourceFile == null ? "" : cn.sourceFile);
             Scan s = new Scan(file, out, seen, h);
             s.type(cn.superName, -1);
+            String sup = Policy.forbiddenSupertype(cn.name, h);
+            if (sup != null) {
+                s.report(sup, -1);
+            }
             if (cn.interfaces != null) {
                 for (String itf : cn.interfaces) {
                     s.type(itf, -1);
@@ -459,6 +617,10 @@ public final class Instrumenter {
                     }
                     call(m.owner, m.name, m.desc, line);
                 } else if (n instanceof FieldInsnNode f) {
+                    String fr = Policy.forbiddenField(f.owner, f.name);
+                    if (fr != null) {
+                        report(fr, line);
+                    }
                     type(f.owner, line);
                     desc(f.desc, line);
                 } else if (n instanceof TypeInsnNode t) {

@@ -45,6 +45,21 @@ public final class ModuleCompiler {
                          List<Diagnostic> diagnostics, int errors, int warnings, long millis) {
     }
 
+    /** Limits that keep one module from monopolizing the shared compile threads (and the heap). */
+    static final int MAX_SOURCE_CHARS = 1_000_000;
+    static final int MAX_SOURCE_FILES = 200;
+    static final int MAX_CLASSES = 1000;
+    static final long MAX_COMPILE_NANOS = 60_000_000_000L;
+
+    /** Thrown from the task listener when a compile runs past its deadline. */
+    static final class CompileTimeout extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        CompileTimeout() {
+            super("compile timeout", null, false, false);
+        }
+    }
+
     private final JavaCompiler javac;
     private final List<File> classpath;
     private final ThreadLocal<StandardJavaFileManager> fileManagers;
@@ -85,10 +100,21 @@ public final class ModuleCompiler {
             return new Result(false, Map.of(), Map.of(), List.of(new Diagnostic("ERROR", "", -1, -1,
                     "the Java compiler is not available: run the server with a JDK (not a JRE)", "")), 1, 0, 0);
         }
+        long chars = 0;
+        for (String src : sources.values()) {
+            chars += src.length();
+        }
+        if (chars > MAX_SOURCE_CHARS || sources.size() > MAX_SOURCE_FILES) {
+            return new Result(false, Map.of(), Map.of(), List.of(new Diagnostic("ERROR", "", -1, -1,
+                    "module sources too large (" + sources.size() + " files, " + chars / 1024 + " KB; max "
+                            + MAX_SOURCE_FILES + " files, " + MAX_SOURCE_CHARS / 1024 + " KB): keep modules small", "")),
+                    1, 0, 0);
+        }
         List<MemSource> units = new ArrayList<>();
         for (Map.Entry<String, String> e : sources.entrySet()) {
             units.add(new MemSource(e.getKey(), e.getValue()));
         }
+        long deadline = t0 + MAX_COMPILE_NANOS;
         StandardJavaFileManager std = fileManagers.get();
         MemFileManager fm = new MemFileManager(std);
         DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
@@ -96,6 +122,22 @@ public final class ModuleCompiler {
         boolean ok;
         try {
             JavaCompiler.CompilationTask task = javac.getTask(out, fm, collector, OPTIONS, null, units);
+            if (task instanceof com.sun.source.util.JavacTask jt) {
+                // javac cannot be interrupted, but it reports its progress: abort at the next step once too slow
+                jt.addTaskListener(new com.sun.source.util.TaskListener() {
+                    @Override
+                    public void started(com.sun.source.util.TaskEvent e) {
+                        if (System.nanoTime() - deadline > 0) {
+                            throw new CompileTimeout();
+                        }
+                    }
+
+                    @Override
+                    public void finished(com.sun.source.util.TaskEvent e) {
+                        started(e);
+                    }
+                });
+            }
             ok = Boolean.TRUE.equals(task.call());
         } catch (RuntimeException | Error e) {
             // javac crashed (very rare): report and reset this thread's file manager
@@ -106,8 +148,13 @@ public final class ModuleCompiler {
                 // best effort
             }
             long ms = (System.nanoTime() - t0) / 1_000_000;
+            boolean timeout = System.nanoTime() - deadline > 0;
+            for (Throwable c = e; c != null && !timeout; c = c.getCause()) {
+                timeout = c instanceof CompileTimeout;
+            }
             return new Result(false, Map.of(), Map.of(), List.of(new Diagnostic("ERROR", "", -1, -1,
-                    "internal compiler error: " + e, "")), 1, 0, ms);
+                    timeout ? "compilation took longer than " + MAX_COMPILE_NANOS / 1_000_000_000L + " s: module too big or "
+                            + "too complex, split or simplify it" : "internal compiler error: " + e, "")), 1, 0, ms);
         } finally {
             try {
                 std.flush();
@@ -136,6 +183,10 @@ public final class ModuleCompiler {
                 line = s.line(d.getLineNumber());
             }
             String msg = d.getMessage(Locale.ENGLISH);
+            if (kind.equals("NOTE") && msg != null && (msg.startsWith("Recompile with") || msg.contains("uses or overrides a deprecated API")
+                    || msg.contains("uses unchecked or unsafe operations") || msg.contains("deprecated and marked for removal"))) {
+                continue; // file-level javac notes without any line: noise for AI coders
+            }
             diags.add(new Diagnostic(kind, file, d.getLineNumber() < 0 ? -1 : d.getLineNumber(),
                     d.getColumnNumber() < 0 ? -1 : d.getColumnNumber(), msg == null ? "" : msg, line.trim()));
         }
@@ -147,6 +198,11 @@ public final class ModuleCompiler {
         long ms = (System.nanoTime() - t0) / 1_000_000;
         if (!ok) {
             return new Result(false, Map.of(), Map.of(), diags, errors, warnings, ms);
+        }
+        if (fm.outputs.size() > MAX_CLASSES) {
+            return new Result(false, Map.of(), Map.of(), List.of(new Diagnostic("ERROR", "", -1, -1,
+                    "too many classes (" + fm.outputs.size() + ", max " + MAX_CLASSES + "): keep modules small", "")),
+                    1, warnings, ms);
         }
         Map<String, byte[]> classes = new LinkedHashMap<>();
         for (Map.Entry<String, MemClass> e : fm.outputs.entrySet()) {

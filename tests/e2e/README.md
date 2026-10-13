@@ -133,6 +133,25 @@ Outside `run-e2e.mjs`: `tools/restart-check.mjs` (via `integ.sh restart-check`) 
 loads every module except the `.vibe/disabled` one, that a module failing to compile does not prevent the others,
 and that `ctx.store()` survives the restart.
 
+Two more end-to-end tools (bot online, real module directories, JSON report in `reports/`; never during a demo):
+
+```bash
+node tools/examples-check.mjs                   # ~30 s: copies the 7 workspace/examples into workspace/modules AT ONCE,
+                                                # checks they all load, exercises each with the bot (welcome title,
+                                                # /hello + tab completion, /pigrain, /wand + right click + recipe,
+                                                # /countdown boss bar, double jump, scoreboard), TPS, then deletes them
+                                                # all at once: commands, objective, boss bar, pigs, recipe, flight gone
+node tools/live-session.mjs --duration-s 600    # realistic demo: 4 modules (live-*) edited concurrently every 5-20 s
+                                                # (good / compile + syntax errors / half-written saves / runtime
+                                                # exceptions / infinite loop in a command, in enable(), in a per-tick
+                                                # task / endless async loop / config.yml via the watcher); polls
+                                                # /api/status every second + Paper /mspt every 5 s; reload latencies per
+                                                # kind, command round trips, duplicate-listener check, bot never kicked
+```
+
+Both refuse to run if their module directories already exist, and delete their modules and data dirs at the end
+(`--keep` to keep them). `live-session.mjs --seed N` replays the same edit schedule.
+
 ## Layout
 
 ```
@@ -155,6 +174,8 @@ tools/sandbox-check.mjs      validates the bot library on the plain sandbox (joi
 tools/kick-repro.mjs         reproduces the invalid_player_movement kick without the tick_end shim
 tools/fake-api.mjs           fake VibeCraft API (RCON-backed) used by:
 tools/selftest-fake-api.mjs  unit-check of the runner itself (pass run, kick detection + reconnect, unreachable API, usage)
+tools/examples-check.mjs     the 7 examples loaded / exercised / unloaded in parallel (see above)
+tools/live-session.mjs       10-minute concurrent-edit soak with TPS / MSPT / latency report (see above)
 ```
 
 ## Notes / gotchas found while building this
@@ -177,6 +198,13 @@ tools/selftest-fake-api.mjs  unit-check of the runner itself (pass run, kick det
   `/list` needs op in 26.3.
 * Never run the e2e suite against a server whose `modules-dir` is used for a live demo: it creates and
   deletes `e2e-*` modules (only those).
+* Waiting for a watcher reload: `ModuleInfo.lastAttemptAt` is set when the main-thread swap starts (state is still
+  `COMPILING`), and two deploys can follow each other within milliseconds. `deploy(..., {via: 'watcher'})` therefore
+  waits for an attempt that is strictly newer than the `lastAttemptAt` seen before writing, and in a settled state.
+  With only `lastAttemptAt >= now - 50 ms`, a back-to-back deploy sometimes took the previous attempt as its own
+  result (`watcher-auto-reload` failed 1 run in 3 that way).
+* The client's command tree can be stale after several modules change commands in consecutive ticks (Paper builds
+  it asynchronously; see `tests/redteam/e2emain-stale-command-tree`). The server still runs the right commands.
 
 ## Validating the harness itself
 

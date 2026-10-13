@@ -156,9 +156,13 @@ export function waitForGone(api, id, timeoutMs = 15000) {
 
 const BUSY = new Set(['COMPILING', 'DISCOVERED']);
 
-/** Wait for a load attempt that started at/after `since` (epoch ms) to finish. */
-export function waitForAttempt(api, id, since, timeoutMs = 30000) {
-  return waitForModule(api, id, (i) => i && i.lastAttemptAt >= since && !BUSY.has(i.state),
+/**
+ * Wait for a load attempt that started at/after `since` (epoch ms) to finish.
+ * `after` = lastAttemptAt seen BEFORE the files were written: the attempt must be a newer one. Without it, a deploy
+ * started right after a previous one (since = now - slack) could take the previous attempt for its own result.
+ */
+export function waitForAttempt(api, id, since, timeoutMs = 30000, after = 0) {
+  return waitForModule(api, id, (i) => i && i.lastAttemptAt >= since && i.lastAttemptAt > after && !BUSY.has(i.state),
     { timeoutMs, what: `a finished load attempt after ${new Date(since).toISOString()}` });
 }
 

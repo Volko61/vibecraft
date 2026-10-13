@@ -84,6 +84,13 @@ public final class ModuleContextImpl implements ModuleContext {
 
     private volatile VibeModule module;
 
+    /** Non-fatal problems found while enable() ran (reported as WARNING diagnostics of the reload). */
+    private final List<String> warnings = new java.util.concurrent.CopyOnWriteArrayList<>();
+    /** Click callbacks handed to Paper (cleared on close so that the old generation can be collected). */
+    private final Set<GuardedClick> clicks = java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
+    /** Inventories created by this generation (open ones are closed on unload). */
+    private final Set<org.bukkit.inventory.Inventory> inventories = java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
+
     public ModuleContextImpl(ModuleHost host, Gen gen, YamlConfiguration config) {
         this.host = host;
         this.gen = gen;
@@ -184,6 +191,14 @@ public final class ModuleContextImpl implements ModuleContext {
             regs.clear();
             byListener.clear();
         }
+        List<GuardedClick> cl;
+        synchronized (lock) {
+            cl = new ArrayList<>(clicks);
+            clicks.clear();
+        }
+        for (GuardedClick c : cl) {
+            c.clear();
+        }
         int failures = 0;
         for (int i = todo.size() - 1; i >= 0; i--) {
             Registration r = todo.get(i);
@@ -205,6 +220,109 @@ public final class ModuleContextImpl implements ModuleContext {
 
     public boolean isClosed() {
         return closed;
+    }
+
+    /** Warnings collected while this generation was enabled (command name conflicts...). */
+    public List<String> warnings() {
+        return List.copyOf(warnings);
+    }
+
+    private void warn(String msg) {
+        if (warnings.size() < 20) {
+            warnings.add(msg);
+        }
+        host.logger().warning(msg);
+    }
+
+    /** Inventories created by this generation that are still referenced somewhere. */
+    public List<org.bukkit.inventory.Inventory> inventories() {
+        synchronized (lock) {
+            return new ArrayList<>(inventories);
+        }
+    }
+
+    public void trackInventory(org.bukkit.inventory.Inventory inv) {
+        synchronized (lock) {
+            inventories.add(inv);
+        }
+    }
+
+    // ================================================================== click callbacks & chat renderers (redirects)
+
+    /** Paper keeps click callbacks for hours: the module callback is dropped on unload and runs under the guard. */
+    static final class GuardedClick implements net.kyori.adventure.text.event.ClickCallback<Audience> {
+        private volatile net.kyori.adventure.text.event.ClickCallback<Audience> inner;
+        private volatile ModuleContextImpl ctx;
+
+        GuardedClick(net.kyori.adventure.text.event.ClickCallback<Audience> inner, ModuleContextImpl ctx) {
+            this.inner = inner;
+            this.ctx = ctx;
+        }
+
+        void clear() {
+            inner = null;
+            ctx = null;
+        }
+
+        @Override
+        public void accept(Audience audience) {
+            net.kyori.adventure.text.event.ClickCallback<Audience> i = inner;
+            ModuleContextImpl c = ctx;
+            if (i == null || c == null || c.gen.killed()) {
+                try {
+                    audience.sendMessage(Component.text("Ce lien n'est plus actif (module rechargé).",
+                            net.kyori.adventure.text.format.NamedTextColor.GRAY));
+                } catch (Throwable ignored) {
+                    // best effort
+                }
+                return;
+            }
+            c.guarded("click callback", () -> i.accept(audience));
+        }
+    }
+
+    public net.kyori.adventure.text.event.ClickCallback<Audience> wrapClickCallback(
+            net.kyori.adventure.text.event.ClickCallback<Audience> cb) {
+        Objects.requireNonNull(cb, "callback");
+        ensureOpen();
+        GuardedClick g = new GuardedClick(cb, this);
+        synchronized (lock) {
+            clicks.add(g);
+        }
+        return g;
+    }
+
+    /** AsyncChatEvent renderer: guarded, falls back to the default format on error or once unloaded. */
+    public io.papermc.paper.chat.ChatRenderer wrapChatRenderer(io.papermc.paper.chat.ChatRenderer r) {
+        Objects.requireNonNull(r, "renderer");
+        return (source, displayName, message, viewer) -> {
+            if (!gen.killed()) {
+                Component[] out = new Component[1];
+                Throwable t = Guard.invoke(gen, "chat renderer", host.handlerBudgetNanos(),
+                        () -> out[0] = r.render(source, displayName, message, viewer));
+                if (t == null && out[0] != null) {
+                    return out[0];
+                }
+                report("chat renderer", t);
+            }
+            return io.papermc.paper.chat.ChatRenderer.defaultRenderer().render(source, displayName, message, viewer);
+        };
+    }
+
+    /** {@code BukkitScheduler.cancelTask(id)} redirect: only this generation's own tasks may be cancelled. */
+    public void cancelOwnTask(int taskId) {
+        List<Registration> snapshot;
+        synchronized (lock) {
+            snapshot = new ArrayList<>(regs);
+        }
+        for (Registration r : snapshot) {
+            if (r instanceof TaskRegistration tr && tr.task.getTaskId() == taskId) {
+                tr.task.cancel();
+                return;
+            }
+        }
+        warn("cancelTask(" + taskId + ") ignored: it is not a task of this module (keep the BukkitTask returned by "
+                + "ctx.every / ctx.later and call cancel() on it)");
     }
 
     /** Names of the commands registered by this generation. */
@@ -730,7 +848,11 @@ public final class ModuleContextImpl implements ModuleContext {
             // command map changes must happen on the main thread
             Bukkit.getScheduler().runTask(host.plugin(), () -> {
                 if (!closed && !gen.killed()) {
-                    registerCommand(n, description, handler, tabHandler, al);
+                    try {
+                        registerCommand(n, description, handler, tabHandler, al);
+                    } catch (RuntimeException e) {
+                        warn(String.valueOf(e.getMessage()));
+                    }
                 }
             });
             return;
@@ -752,13 +874,51 @@ public final class ModuleContextImpl implements ModuleContext {
         return n;
     }
 
+    /** Who already owns {@code label} in the command map ("module 'x'", "the server"...), or null if free. */
+    private String ownerOf(Map<String, Command> known, String label) {
+        Command c = known.get(label);
+        if (c == null) {
+            return null;
+        }
+        Gen other = c instanceof ModuleCommand mc ? mc.gen() : c instanceof GuardedRawCommand gc ? gc.gen() : null;
+        if (other != null) {
+            if (other.killed()) {
+                return null; // leftover of an unloaded generation (removed below)
+            }
+            return other == gen ? "this module (registered twice)" : "module '" + other.moduleId + "'";
+        }
+        return "the server (a vanilla or plugin command)";
+    }
+
     private void registerCommand(String name, String description, CommandHandler handler, TabHandler tab,
                                  List<String> aliases) {
         CommandMap map = Bukkit.getCommandMap();
-        ModuleCommand cmd = new ModuleCommand(name, description, aliases, this, gen, handler, tab);
+        Map<String, Command> known = map.getKnownCommands();
+        String owner = ownerOf(known, name);
+        if (owner != null) {
+            throw new IllegalArgumentException("command /" + name + " is already used by " + owner
+                    + ": pick another command name (other AI sessions may be building modules at the same time)");
+        }
+        List<String> free = new ArrayList<>();
+        for (String a : aliases) {
+            String o = ownerOf(known, a);
+            if (o == null) {
+                free.add(a);
+            } else {
+                warn("alias /" + a + " of /" + name + " ignored: already used by " + o);
+            }
+        }
+        // leftovers of killed generations under our labels: drop them so they cannot shadow us
+        for (String l : List.of(name, "vibe:" + name)) {
+            Command c = known.get(l);
+            if (c != null && ownerOf(known, l) == null) {
+                known.remove(l);
+            }
+        }
+        ModuleCommand cmd = new ModuleCommand(name, description, free, this, gen, handler, tab);
         boolean primary = map.register("vibe", cmd);
         if (!primary) {
-            host.logger().warning("/" + name + " already exists (another module or plugin): use /vibe:" + name);
+            warn("/" + name + " could not be registered under its own name: use /vibe:" + name);
         }
         add(new Registration("command", name) {
             @Override
@@ -799,6 +959,13 @@ public final class ModuleContextImpl implements ModuleContext {
     /** Raw {@code CommandMap.register(...)} from module code (redirect): tracked for removal. */
     public boolean registerRawCommand(CommandMap map, String label, String fallbackPrefix, Command raw) {
         ensureOpen();
+        String rawName = raw.getName() == null ? "" : raw.getName().toLowerCase(Locale.ROOT);
+        Command existing = map.getKnownCommands().get(rawName);
+        Gen other = existing instanceof ModuleCommand mc ? mc.gen() : existing instanceof GuardedRawCommand gc ? gc.gen() : null;
+        if (other != null && other != gen && !other.killed()) {
+            throw new IllegalArgumentException("command /" + rawName + " is already used by module '" + other.moduleId
+                    + "': pick another command name");
+        }
         // the module's own Command subclass runs under the guard through a delegating wrapper
         Command cmd = raw instanceof ModuleCommand || raw instanceof GuardedRawCommand ? raw
                 : new GuardedRawCommand(raw, this, gen);
@@ -919,11 +1086,26 @@ public final class ModuleContextImpl implements ModuleContext {
     public <T extends Entity> T entity(T entity) {
         Objects.requireNonNull(entity, "entity");
         ensureOpen();
-        add(new Registration("entity", entity.getType().name()) {
+        if (entity instanceof Player) {
+            return entity; // players are never removed
+        }
+        // Only the UUID is kept: the Bukkit object goes stale when its chunk unloads (a new object comes back
+        // with the chunk) and would keep dead entities in memory. The tag lets the engine delete copies that
+        // come back after this generation is gone (chunk loaded later, server crash / restart).
+        java.util.UUID uuid = entity.getUniqueId();
+        try {
+            entity.getPersistentDataContainer().set(EntityTags.key(host.plugin()),
+                    org.bukkit.persistence.PersistentDataType.STRING, EntityTags.value(host.id(), gen.id));
+        } catch (RuntimeException ignored) {
+            // entity without PDC support: still removed on unload while loaded
+        }
+        String type = entity.getType().name();
+        add(new Registration("entity", type) {
             @Override
             void undo() {
-                if (!entity.isDead()) {
-                    entity.remove();
+                Entity e = Bukkit.getEntity(uuid);
+                if (e != null && !(e instanceof Player)) {
+                    e.remove();
                 }
             }
         });

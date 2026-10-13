@@ -13,11 +13,15 @@ your code is broken. The demo only works if your module **compiles, loads and do
    Other chats are editing other modules at the same time.
 3. If a close pattern exists in `examples/` (table in section 9), read that one file. Don't explore more.
 4. Write `modules/<id>/<Name>Module.java` (or edit the scaffold already there). Prefer **one file**
-   (nested classes/records are fine).
-5. Reload explicitly (saving also auto-reloads, but this call returns the result):
+   (nested classes/records are fine) saved with **one Write**: every save is compiled ~2 s later and a
+   half-done edit is announced to the presenter as "nouvelle version refusée". Several Edits? Make each
+   one compile on its own (add the imports in the same Edit).
+5. Reload explicitly (saving also auto-reloads, but this call returns the result; if the watcher already
+   loaded these exact files it just returns that result, no second swap):
    `curl -s -X POST http://127.0.0.1:8765/api/modules/<id>/reload`. If `"ok":false`, read
    `error` + `diagnostics`, fix, reload again, until `"ok":true`.
-6. Smoke-test through the API (section 4): run your command, check logs and `runtimeErrorCount`.
+6. Smoke-test through the API (section 4): run your command, check `runtimeErrorCount` and the WARNING
+   diagnostics (e.g. an alias already used by another module was skipped).
 7. Final answer: 1-2 sentences **in French** for the audience (section 10).
 
 Aim for a working first version in 2-3 minutes. Simple and robust beats ambitious and broken; the
@@ -31,8 +35,8 @@ mention it in your answer. A follow-up request in the same chat = edit your modu
   no `&&`. One plain `curl` per Bash call. If you only have PowerShell, call `curl.exe`, not `curl`.
 - Keep curl bodies **ASCII**: on Windows, curl mangles accents (`à` arrives as an invalid byte, `✔` as `?`).
   French text belongs in your Java sources (UTF-8), not in test commands.
-- No build tool: the server compiles your sources in memory (`javac --release 25`: records, `var`,
-  switch expressions and patterns, text blocks are all fine).
+- No build tool: the server compiles your sources in memory (`javac --release 25`: records, `var`, switch
+  patterns, text blocks are fine). Keep modules small (max ~1 MB of sources, 1000 classes).
 - Available libraries: Paper API 26.3, Adventure 5.2 + MiniMessage, Gson, SnakeYAML, Guava, JOML, the JDK.
   Nothing else (no Maven dependencies, no other plugins' APIs).
 - Humans watch the dashboard at http://127.0.0.1:8765/ and in-game chat (reloads are announced there).
@@ -43,7 +47,7 @@ mention it in your answer. A follow-up request in the same chat = edit your modu
 modules/<id>/
   <Name>Module.java   exactly ONE public non-abstract class implementing VibeModule (public no-arg ctor)
   *.java              optional extra classes (same package)
-  config.yml          optional, read with ctx.config(); saving it reloads the module (live tuning)
+  config.yml          optional, read with ctx.config(); editing it reloads the module (never write it from code)
   module.yml          optional: description: "..." (shown on the dashboard)
   .vibe/              written by the server: status.json, build.log, errors.log (read them, never write)
 data/<id>/store.yml   ctx.store(), managed by the server
@@ -53,11 +57,11 @@ data/<id>/store.yml   ctx.store(), managed by the server
   digit first -> `_`: `2048` -> `vibe._2048`); if a scaffold exists, keep its package.
 - If the folder already contains a scaffold (`<Name>Module.java` created by `/vibe new` or `/vibe ai`),
   **edit it**: a second class implementing VibeModule makes the load fail.
-- The watcher also reloads about 2 s after the last save. While you write several files the server may
-  compile half-written code: harmless (the previous version keeps running), but the final reload must be ok.
-- One module = one feature = one chat. If the request really belongs to another module, say so in your
-  answer instead of editing it. Modules can exchange data through `ctx.shared()`.
-- Never delete or rename a module folder (that unloads the module).
+- The watcher also reloads ~2 s after the last save (half-written code is harmless: the previous version
+  keeps running), but the final reload must be ok.
+- One module = one feature = one chat. If the request belongs to another module, say so instead of editing it.
+- Never delete or rename a module folder (that unloads the module). Never write files in `modules/<id>/`
+  from code (defaults belong in code: `ctx.config().getInt("x", 3)`); module files go in `ctx.dataFolder()`.
 
 ## 3. Skeleton (copy, rename, fill)
 
@@ -99,6 +103,8 @@ import com.destroystokyo.paper.event.player.PlayerJumpEvent;
 
 ## 4. Dev loop: HTTP API on 127.0.0.1:8765
 
+If your prompt gives another API base URL or an `X-Vibe-Token` header, use them in every call below.
+
 | What | Command |
 |---|---|
 | reload (compile + hot swap, waits for the result) | `curl -s -X POST http://127.0.0.1:8765/api/modules/<id>/reload` |
@@ -125,15 +131,19 @@ Reload answer:
   (runtime stack traces), `.vibe/status.json`.
 
 Testing:
-- `/api/command` runs as the **console** and returns its output lines (`{"ok":true,"output":[...]}`).
-  `execute as <player> run <yourcmd>` does **not** make the player the sender of a module command.
-  So make commands usable from the console, typically with an optional player argument
+- `/api/command` runs as the **console** (admin commands such as stop, op, kick, whitelist are refused: 403)
+  and returns its output lines (`{"ok":true,"output":[...]}`):
+  only messages sent to that sender (named `FeedbackForwardingSender`), not `ctx.broadcast` or messages
+  to players. `execute as <player> run <yourcmd>` does **not** make the player the sender of a module
+  command. So make commands usable from the console, typically with an optional player argument
   (`/wand [player]`), and test them with a name from `/api/players`.
 - Handy vanilla checks: `execute if entity @e[type=minecraft:pig]` (prints the count),
   `data get entity <player> Pos`, `scoreboard objectives list`, `recipe give <player> vibecraft:<id>/<key>`,
-  `give <player> diamond`, `gamemode survival <player>`, `time set day`.
-- Nobody online? Compile + enable + console commands + logs is enough; never wait for players.
-- After testing, check `runtimeErrorCount` / `recentErrors` with the status endpoint.
+  `give <player> diamond`, `gamemode survival <player>`, `time set day`, `tp <player> x y z`.
+- `tp` (and `p.teleport`) fires `PlayerTeleportEvent`, never `PlayerMoveEvent`. For "reach this place"
+  features (parkour finish, zones, portals) check positions in `ctx.every(5, ...)`: it also works with `tp` tests.
+- Nobody online? Compile + enable + console commands + logs is enough; never wait for players. After
+  testing, check `runtimeErrorCount` / `recentErrors` with the status endpoint.
 
 Frequent compile errors:
 
@@ -155,7 +165,7 @@ public interface VibeModule {
 }
 
 @FunctionalInterface public interface CommandHandler { void handle(CommandSender sender, String[] args) throws Exception; } // args exclude the label
-@FunctionalInterface public interface TabHandler { List<String> complete(CommandSender sender, String[] args) throws Exception; } // empty list = none
+@FunctionalInterface public interface TabHandler { List<String> complete(CommandSender sender, String[] args) throws Exception; } // empty list = none; null handler = player names
 
 public interface ModuleContext {
     String id();                         // "pig-rain"
@@ -167,7 +177,7 @@ public interface ModuleContext {
     File dataFolder();                   // data/<id>/ (persistent files)
     YamlConfiguration config();          // modules/<id>/config.yml (empty if absent)
     ModuleStore store();                 // persistent key/value store
-    Map<String, Object> shared();        // global map shared by all modules, kept across reloads
+    Map<String, Object> shared();        // global map shared by all modules, kept across reloads (a module's keys go when its folder is deleted)
 
     <E extends Event> void on(Class<E> type, Consumer<? super E> handler);   // priority NORMAL, ignoreCancelled false
     <E extends Event> void on(Class<E> type, EventPriority priority, boolean ignoreCancelled, Consumer<? super E> handler);
@@ -183,7 +193,7 @@ public interface ModuleContext {
 
     NamespacedKey key(String path);      // vibecraft:<id>/<path>, stable across reloads
     void recipe(Recipe recipe);          // must be Keyed (ShapedRecipe...), removed on unload
-    <T extends Entity> T entity(T entity);                    // removed on unload; returns it
+    <T extends Entity> T entity(T entity);                    // removed on unload (even after a chunk reload / crash); returns it
     <T> T track(T resource, Consumer<? super T> cleanup);     // cleanup runs on unload (reverse order); returns it
     void onCleanup(Runnable cleanup);
     Component mm(String miniMessage);    // parse MiniMessage
@@ -195,50 +205,61 @@ public interface ModuleStore {           // data/<id>/store.yml, dotted paths "p
     long getLong(String path, long def);  double getDouble(String path, double def);
     boolean getBoolean(String path, boolean def);  List<String> getStringList(String path);
     boolean contains(String path);  Set<String> keys(String path);   // direct children, "" = root
-    void set(String path, Object value); // null removes; YAML types, ItemStack, Location... never module objects
-    void save();                         // rarely needed: saved on unload and every 60 s when dirty
+    void set(String path, Object value); // null removes; String/number/boolean/List/Map, ItemStack, Location (others throw: store instant.toString())
+    void save();                         // rarely needed (async): saved on unload and every 60 s when dirty
 }
 ```
 
 ## 6. Guard rules (they protect the live server)
 
 - **Rejected at load** (the module does not load, ERROR diagnostic): `System.exit`, `Runtime.exit/halt/exec`,
-  `ProcessBuilder`, `Thread.stop`, `Bukkit/Server.shutdown/restart/reload/reloadData`,
-  `PluginManager.disablePlugin/enablePlugin/clearPlugins`, `HandlerList.unregisterAll()` (static) and
-  `unregisterAll(Plugin)`, `BukkitScheduler.cancelTasks(Plugin)`, `sun.misc.Unsafe`, `jdk.internal.*`,
-  `System.setSecurityManager`. They would stop the server, break other plugins or other modules.
+  `ProcessBuilder`, `Thread.stop`, `Bukkit/Server.shutdown/restart/reload`, `PluginManager`/`PluginLoader`
+  `.disablePlugin/enablePlugin`, `plugin.onDisable()/getCommand()`, `HandlerList.unregisterAll()`/`(Plugin)`,
+  `getHandlerLists()`, `BukkitScheduler.cancelTasks(Plugin)/getPendingTasks()`, `Player.kick/ban/transfer`,
+  `setOp`, `BanList`, whitelist changes, `java.net.Socket`/`ServerSocket`/channels, `System.in`, custom world
+  generators (`ChunkGenerator`, `BiomeProvider`, `BlockPopulator`), server connection internals (`net.minecraft.server.network.*`),
+  `sun.misc.Unsafe`, `jdk.internal.*`; and at
+  run time admin command lines (`stop`, `op`, `kick`, `whitelist`, `/vibe`...). They would stop the server,
+  disconnect players, or break other plugins or modules.
 - **Main-thread time budgets**: one event handler / command / task run <= 250 ms, `enable`/`disable` <= 2 s (keep enable() light: spread heavy work over ticks with `ctx.every`).
   Over budget, the call is aborted with `ModuleTimeoutError` and counted as an error. So: no long loops,
   no blocking I/O, and **never `Thread.sleep` on the main thread** (it throws immediately). Delays are
-  `ctx.later(ticks, ...)`.
+  `ctx.later(ticks, ...)`. Network calls (`HttpClient.send`, `URL.openStream`, DNS, `PlayerProfile.complete`)
+  throw on the main thread: run them in `ctx.async`.
+- Limits: velocities above 10 blocks/tick are scaled down (projectiles too); item data (lore, book pages...) above 64 KB and
+  names above 32 KB throw (bigger items disconnect the players who hold them, at every join).
 - **Circuit breaker**: 25 errors within 10 s and the module is unloaded (TRIPPED). Typical cause: an
   exception thrown at every run of `ctx.every(1, ...)`. Null-check things (players leave, entities die).
 - Exceptions are caught and logged (command senders get a short red message). Catch `Exception` when you
   must, **never `Throwable` or `Error`**: the guard's errors must propagate.
 - **Old code is killed on reload**: code of an unloaded generation (lambdas, tasks, threads) throws
-  `ModuleKilledError` as soon as it runs. Use `ctx` for everything; no raw `Thread`, `Timer`, executors.
-- **Static state is lost on reload** (fresh class loader each time). `static final` constants and static
-  methods are fine. Keep state in instance fields (reset on reload), `ctx.store()` (persistent) or
-  `ctx.shared()` (in memory across reloads, JDK/Bukkit types only, no lambdas or module objects).
-  Never put `ctx` in a static field.
+  `ModuleKilledError` when module code calls it, and silently does nothing when the server still calls it
+  (old click callbacks, renderers...). Use `ctx` for everything; no raw `Thread`, `Timer`, executors.
+- **Static state is lost on reload** (fresh class loader each time; `static final` constants are fine). Keep state
+  in instance fields (reset on reload), `ctx.store()` (persistent) or `ctx.shared()` (in memory across reloads,
+  JDK/Bukkit types only, no lambdas or module objects). Never put `ctx` in a static field.
 - **Threads**: Bukkit world/entity/player/inventory APIs on the main thread only. Async work:
   `ctx.async(() -> { var data = fetch(); ctx.later(0, () -> apply(data)); })`. Some events run OFF the main
-  thread (`AsyncChatEvent`, `AsyncPlayerPreLoginEvent`): hop back with `ctx.later(0, ...)` before touching
-  the world.
+  thread (`AsyncChatEvent`, `AsyncPlayerPreLoginEvent`): hop back with `ctx.later(0, ...)` first.
 - **Big jobs** (thousands of blocks): split over ticks, e.g. at most ~2000 block changes per run of
   `ctx.every(1, ...)`, cancel the task when done. Same for `enable()`: register things, don't build worlds.
-- **Cap what you spawn** (e.g. at most ~100 entities alive per module) and remove it after a while.
+  **Cap what you spawn** (e.g. at most ~100 entities alive per module) and remove it after a while.
 - **Keep msPerTick low (< 1 ms)**: `PlayerMoveEvent` fires many times per second per player, return early
   (`if (!e.hasChangedBlock()) return;`); prefer `every(10)` over `every(1)` when possible.
 - Raw `Bukkit.getPluginManager().registerEvents(...)` and `BukkitScheduler` / `BukkitRunnable` calls are
-  redirected and tracked, but prefer `ctx.listen` / `ctx.later` / `ctx.every`.
+  redirected and tracked, but prefer `ctx.listen` / `ctx.later` / `ctx.every`. Also undone automatically:
+  `Bukkit.addRecipe`, boss bars (`showBossBar`, `addViewer`), `ClickEvent.callback`, menus left open,
+  permission attachments, services, plugin channels, map renderers, conversations, mob goals, log handlers.
 - **NOT undone automatically**: changes to the world and to players (blocks, inventories, potion effects,
-  attributes, `setAllowFlight`, game mode, `setScoreboard`...). If a change must not outlive the module
-  (temporary ability, scale, flight), undo it in `ctx.onCleanup(...)` / `ctx.track(...)`.
-- Never run `stop`, `reload`, `restart`, `whitelist`, `op`/`deop`, `ban` or `/vibe ...` from module code.
-- Don't reuse existing command names (`vibe`, `vc`, `idea`, vanilla `give`, `tp`, `kill`...). Module
-  commands are open to everyone; check `sender.isOp()` for admin-only actions.
-- Files only under `ctx.dataFolder()`. No sockets/servers. Outgoing HTTP only inside `ctx.async`.
+  attributes, `setAllowFlight`, walk/fly speed, game mode, world border, gamerules, time/weather,
+  `setMetadata`...). If a change must not outlive the module (temporary ability, scale, flight), undo it in
+  `ctx.onCleanup(...)` / `ctx.track(...)`. Worlds you create stay: prefer the existing world.
+- Don't reuse existing command names (`vibe`, `vc`, `idea`, vanilla `give`, `tp`, `kill`...). Other chats
+  run at the same time: unless the request names the command, pick a feature-specific name
+  (`/pluiecochons`, not `/jeu` or `/menu`). A name already used (other module, vanilla, plugin) makes the
+  load fail with "command /x is already used by ..."; a taken alias is skipped (WARNING). Module commands
+  are open to everyone; check `sender.isOp()` for admin-only actions.
+- Files only under `ctx.dataFolder()`. Outgoing HTTP (`java.net.http.HttpClient`) only inside `ctx.async`.
 
 Audience requests: keep them fun, local and reversible. Make a harmless version of anything destructive
 (no wiping the world, no mass ban/kick/op, no lag machines, no offensive content) and say so kindly.
@@ -263,8 +284,8 @@ Audience requests: keep them fun, local and reversible. Make a harmless version 
 
 **Sounds.** `p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f)` (that player only) or
 `world.playSound(loc, Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 2f)` (everyone nearby). `org.bukkit.Sound` is an
-**interface now** (registry-backed): constants work, but no `switch`, no `Sound.valueOf()/values()`; by
-name: `Registry.SOUNDS.get(NamespacedKey.minecraft("entity.pig.ambient"))` (null if unknown).
+**interface now** (registry-backed): constants work, but no `switch`, and `Sound.valueOf()/values()` are
+deprecated for removal; by name: `Registry.SOUNDS.get(NamespacedKey.minecraft("entity.pig.ambient"))` (null if unknown).
 
 **Particles.** `world.spawnParticle(Particle.HAPPY_VILLAGER, loc, count, dx, dy, dz, speed)`. `Particle` is
 still an enum, with the 1.20.5+ names: HAPPY_VILLAGER, ANGRY_VILLAGER, HEART, FLAME, SOUL_FIRE_FLAME,
@@ -279,7 +300,7 @@ Particles that **require a data argument** (else IllegalArgumentException), pass
 DUST `new Particle.DustOptions(Color.fromRGB(255, 0, 255), 1.5f)`; DUST_COLOR_TRANSITION `Particle.DustTransition`;
 BLOCK, FALLING_DUST, BLOCK_MARKER, DUST_PILLAR, BLOCK_CRUMBLE `Material.STONE.createBlockData()`; ITEM an ItemStack;
 ENTITY_EFFECT, FLASH, TINTED_LEAVES a `Color`; DRAGON_BREATH, SCULK_CHARGE a Float; SHRIEK an Integer;
-EFFECT, INSTANT_EFFECT `Particle.Spell`; also VIBRATION, TRAIL. Example:
+EFFECT, INSTANT_EFFECT `Particle.Spell`; also VIBRATION, TRAIL, GEYSER* (rule: `particle.getDataType() != Void.class`). Example:
 `world.spawnParticle(Particle.DUST, loc, 30, 0.5, 0.5, 0.5, 0, new Particle.DustOptions(Color.RED, 1.5f));`
 
 **Entities.**
@@ -294,6 +315,13 @@ EFFECT, INSTANT_EFFECT `Particle.Spell`; also VIBRATION, TRAIL. Example:
 - Nearby: `loc.getNearbyEntitiesByType(Zombie.class, 10)`, `loc.getNearbyPlayers(10)`, `p.getNearbyEntities(5, 5, 5)`.
 - `mob.setAI(false)`, `mob.setTarget(player)` (Mob), `entity.setVelocity(new Vector(0, 1.2, 0))`,
   `entity.setGlowing(true)`, `entity.setInvulnerable(true)`. Normalizing a zero vector gives NaN: check first.
+- **Monsters**: the demo world runs in easy with natural monster spawning off, so spawned monsters stay. In
+  `PEACEFUL` they would vanish at the next tick: if `world.getDifficulty() == Difficulty.PEACEFUL`, call
+  `world.setDifficulty(Difficulty.EASY)` when your command starts and say so. Test hits on cows/pigs.
+- Only humanoids show helmets. Hat on an animal: `ItemDisplay hat = ctx.entity(world.spawn(loc, ItemDisplay.class, d -> d.setItemStack(ItemStack.of(Material.CARVED_PUMPKIN)))); pig.addPassenger(hat);`
+  (size: `d.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(0.6f, 0.6f, 0.6f), new AxisAngle4f()))`, `org.joml`).
+- Fireworks: `world.spawn(loc, Firework.class, fw -> { FireworkMeta m = fw.getFireworkMeta(); m.addEffect(FireworkEffect.builder().with(FireworkEffect.Type.BALL_LARGE).withColor(Color.RED).withFade(Color.YELLOW).trail(true).build()); m.setPower(1); fw.setFireworkMeta(m); })`
+  (`fw.detonate()` = now). They hurt nearby entities: cancel `EntityDamageByEntityEvent` when `e.getDamager() instanceof Firework`.
 
 **Attributes and effects.**
 - No `GENERIC_` prefix since 1.21.3: `Attribute.MAX_HEALTH`, MOVEMENT_SPEED, ATTACK_DAMAGE, ATTACK_SPEED,
@@ -345,14 +373,15 @@ EFFECT, INSTANT_EFFECT `Particle.Spell`; also VIBRATION, TRAIL. Example:
 - Chest menu: a nested `class Menu implements InventoryHolder` that creates
   `Bukkit.createInventory(this, 27, ctx.mm("<dark_purple>Menu"))` and returns it from `getInventory()`;
   `p.openInventory(menu.getInventory())`; in `InventoryClickEvent`: `if (e.getInventory().getHolder() instanceof Menu) { e.setCancelled(true); ... }`.
-  On cleanup close menus that are open (`p.closeInventory()`).
+  Menus still open on reload are closed automatically.
 
 **Events.** Listen to concrete classes (abstract ones like `PlayerEvent` have no handler list and fail):
 PlayerJoinEvent, PlayerQuitEvent, PlayerMoveEvent, PlayerInteractEvent, PlayerInteractEntityEvent,
 PlayerToggleSneakEvent, PlayerToggleFlightEvent, PlayerDropItemEvent, PlayerItemConsumeEvent,
 PlayerRespawnEvent, PlayerDeathEvent, BlockBreakEvent, BlockPlaceEvent, EntityDamageEvent,
 EntityDamageByEntityEvent, EntityDeathEvent, ProjectileHitEvent, EntityShootBowEvent, CreatureSpawnEvent,
-EntityPickupItemEvent, InventoryClickEvent, PlayerFishEvent; Paper: `com.destroystokyo.paper.event.player.PlayerJumpEvent`,
+EntityPickupItemEvent, InventoryClickEvent, PlayerFishEvent, PlayerTeleportEvent, ExplosionPrimeEvent (cancel it: TNT/creepers
+don't explode, then do your own effect); Paper: `com.destroystokyo.paper.event.player.PlayerJumpEvent`,
 `io.papermc.paper.event.player.AsyncChatEvent` (async; `AsyncPlayerChatEvent` is deprecated):
 `ctx.on(AsyncChatEvent.class, e -> { String msg = PlainTextComponentSerializer.plainText().serialize(e.message()); if (msg.contains("feu")) ctx.later(0, () -> e.getPlayer().setFireTicks(60)); });`
 

@@ -101,8 +101,13 @@ public final class ApiServer {
         String tok = plugin.getConfig().getString("api.token", "");
         token = tok == null ? new byte[0] : tok.strip().getBytes(StandardCharsets.UTF_8);
 
+        // Slow / half-open clients must not hold the request threads forever (they would stall the dashboard
+        // and the AI agents' curl calls): the JDK server closes connections whose request is not read within
+        // maxReqTime seconds (read once per JVM, before the first HttpServer is created).
+        setIfAbsent("sun.net.httpserver.maxReqTime", "3");
+        setIfAbsent("sun.net.httpserver.maxReqHeaders", "100");
         AtomicInteger n = new AtomicInteger();
-        executor = new ThreadPoolExecutor(6, 6, 30, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), r -> {
+        executor = new ThreadPoolExecutor(32, 32, 30, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), r -> {
             Thread t = new Thread(r, "VibeCraft-API-" + n.incrementAndGet());
             t.setDaemon(true);
             return t;
@@ -163,6 +168,16 @@ public final class ApiServer {
         }
     }
 
+    private static void setIfAbsent(String key, String value) {
+        try {
+            if (System.getProperty(key) == null) {
+                System.setProperty(key, value);
+            }
+        } catch (SecurityException ignored) {
+            // keep the JDK default
+        }
+    }
+
     private String displayHost() {
         return host == null || host.isBlank() || host.equals("0.0.0.0") ? "localhost" : host;
     }
@@ -180,7 +195,21 @@ public final class ApiServer {
             if (path == null) {
                 path = "/";
             }
+            String refused = refusedOrigin(exchange);
+            if (refused != null) {
+                call.respond(403, Map.of("error", refused));
+                return;
+            }
             if (path.equals("/api") || path.startsWith("/api/")) {
+                try {
+                    call.body(); // read the whole request now (it is small): the connection leaves the "request" state
+                } catch (ApiException e) {
+                    call.respond(e.status(), Map.of("error", String.valueOf(e.getMessage())));
+                    return;
+                } catch (IOException e) {
+                    call.respond(400, Map.of("error", "cannot read the request body"));
+                    return;
+                }
                 if (!authorized(exchange)) {
                     call.respond(401, Map.of("error", "unauthorized: missing or invalid X-Vibe-Token header"));
                     return;
@@ -244,6 +273,65 @@ public final class ApiServer {
             c = c.getCause();
         }
         return c;
+    }
+
+    /** Host names the API answers to (anything else: DNS rebinding). */
+    private boolean allowedHostName(String h) {
+        if (h == null) {
+            return false;
+        }
+        String x = h.toLowerCase(Locale.ROOT);
+        if (x.equals("127.0.0.1") || x.equals("localhost") || x.equals("[::1]") || x.equals("::1")) {
+            return true;
+        }
+        String cfg = host == null ? "" : host.strip().toLowerCase(Locale.ROOT);
+        return !cfg.isEmpty() && !cfg.equals("0.0.0.0") && !cfg.equals("::") && (x.equals(cfg) || x.equals("[" + cfg + "]"));
+    }
+
+    private static String hostPart(String hostHeader) {
+        String h = hostHeader.strip();
+        if (h.startsWith("[")) {
+            int end = h.indexOf(']');
+            return end > 0 ? h.substring(0, end + 1) : h;
+        }
+        int colon = h.lastIndexOf(':');
+        return colon >= 0 ? h.substring(0, colon) : h;
+    }
+
+    /**
+     * Cross-site browser requests and DNS rebinding are refused: a foreign {@code Host} header, or an
+     * {@code Origin} header that is not this server (curl and the agents send no Origin, the dashboard sends
+     * its own). Returns the reason, or null if the request may go on.
+     */
+    private String refusedOrigin(HttpExchange exchange) {
+        Headers h = exchange.getRequestHeaders();
+        String hostHeader = h.getFirst("Host");
+        if (hostHeader != null && !hostHeader.isBlank() && !allowedHostName(hostPart(hostHeader))) {
+            return "forbidden host '" + Msg.cut(hostHeader, 60) + "': use http://127.0.0.1:" + port + "/";
+        }
+        // Fetch metadata (sent by every current browser, never by curl): a request made by another site's page
+        // (or by another port of localhost, which browsers count as "same-site") is refused even when the
+        // browser sends no Origin (simple GET / <img> / <script> requests)
+        String site = h.getFirst("Sec-Fetch-Site");
+        if (site != null && (site.equalsIgnoreCase("cross-site") || site.equalsIgnoreCase("same-site"))) {
+            return "cross-site request refused (Sec-Fetch-Site: " + Msg.cut(site, 20) + ")";
+        }
+        String origin = h.getFirst("Origin");
+        if (origin != null) {
+            String o = origin.strip().toLowerCase(Locale.ROOT);
+            boolean ok = false;
+            if (o.startsWith("http://")) {
+                String rest = o.substring("http://".length());
+                if (rest.endsWith("/")) {
+                    rest = rest.substring(0, rest.length() - 1);
+                }
+                ok = rest.endsWith(":" + port) && allowedHostName(hostPart(rest));
+            }
+            if (!ok) {
+                return "cross-origin request refused (Origin " + Msg.cut(origin, 60) + ")";
+            }
+        }
+        return null;
     }
 
     private boolean authorized(HttpExchange exchange) {
@@ -328,8 +416,11 @@ public final class ApiServer {
                 case "reload" -> {
                     requireMethod(method, "POST");
                     requireModule(id);
-                    return modules.reload(id).copy().orTimeout(RELOAD_TIMEOUT_S, TimeUnit.SECONDS)
-                            .thenApply(r -> new Resp(200, r));
+                    String force = call.query().get("force");
+                    boolean forced = force != null && (force.isEmpty() || force.equals("1") || force.equalsIgnoreCase("true"));
+                    CompletableFuture<dev.vibecraft.core.ReloadResult> f = forced
+                            && modules instanceof dev.vibecraft.core.ModuleManagerImpl impl ? impl.reload(id, true) : modules.reload(id);
+                    return f.copy().orTimeout(RELOAD_TIMEOUT_S, TimeUnit.SECONDS).thenApply(r -> new Resp(200, r));
                 }
                 case "enable" -> {
                     requireMethod(method, "POST");
@@ -464,10 +555,13 @@ public final class ApiServer {
                         throw new ApiException(409, "idea #" + ideaId + " already accepted (module '" + idea.moduleId() + "')");
                     }
                     String module = call.query().get("module");
+                    String id;
                     if (module == null || module.isBlank()) {
-                        module = Slug.of(idea.text(), "idee-" + ideaId);
+                        // a fresh module: an idea worded like an existing module's name must not make the AI rewrite it
+                        id = freeModuleId(Slug.of(idea.text(), "idee-" + ideaId));
+                    } else {
+                        id = validId(module.strip());
                     }
-                    String id = validId(module.strip());
                     CompletableFuture<Resp> started = startJob(id, idea.text(), idea.author(), 200);
                     ideas.accept(ideaId, id);
                     return started;
@@ -481,6 +575,19 @@ public final class ApiServer {
             }
         }
         throw new ApiException(404, "no such endpoint: " + method + " /" + String.join("/", seg));
+    }
+
+    /** {@code base}, or {@code base-2}, {@code base-3}... if a module with that id already exists. */
+    private String freeModuleId(String base) {
+        String b = validId(base);
+        for (int i = 1; i < 100; i++) {
+            String suffix = i == 1 ? "" : "-" + i;
+            String id = (b.length() + suffix.length() > 40 ? b.substring(0, 40 - suffix.length()) : b) + suffix;
+            if (modules.info(id).isEmpty() && !new File(modules.modulesDir(), id).exists()) {
+                return id;
+            }
+        }
+        return b;
     }
 
     private static int ideaNumber(String raw) {
@@ -588,6 +695,11 @@ public final class ApiServer {
         }
         if (line.indexOf('\n') >= 0 || line.indexOf('\r') >= 0) {
             throw new ApiException(400, "one command per request (no line breaks)");
+        }
+        String forbidden = dev.vibecraft.core.guard.Policy.forbiddenCommandLine(line, false);
+        if (forbidden != null) {
+            plugin.getLogger().warning("API command refused: /" + Msg.cut(line, 120) + " (" + forbidden + ")");
+            throw new ApiException(403, forbidden + " (use the server console for administration)");
         }
         final String cmd = line;
         List<String> output = Collections.synchronizedList(new ArrayList<>());

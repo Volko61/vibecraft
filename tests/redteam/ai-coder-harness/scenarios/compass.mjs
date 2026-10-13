@@ -1,0 +1,24 @@
+import { VibeBot } from '../../../e2e/lib/bot.mjs';
+const api = (c) => fetch('http://127.0.0.1:8820/api/command', { method: 'POST', body: c }).then(r => r.json());
+export default async (vb, h) => {
+  const bot = vb.bot;
+  await h.sleep(500);
+  const c = bot.inventory.items().find(i => i.name === 'compass');
+  if (!c) return { err: 'no compass' };
+  await bot.equip(c, 'hand');
+  const cible = new VibeBot({ port: 25620, username: 'Cible' });
+  await cible.connect({ timeoutMs: 30000 });
+  await api('tp Cible 40.5 -60 -20.5');
+  await h.sleep(800);
+  const sp = []; const bars = [];
+  const onSp = (p) => sp.push(JSON.stringify(p).slice(0, 300));
+  const onBar = (p) => bars.push(JSON.stringify(p.text).slice(0, 200));
+  bot._client.on('spawn_position', onSp); bot._client.on('set_action_bar_text', onBar);
+  await h.sleep(1200);
+  await api('tp Cible -20.5 -60 30.5');
+  await h.sleep(1200);
+  bot._client.off('spawn_position', onSp); bot._client.off('set_action_bar_text', onBar);
+  cible.quitting = true; cible.bot.quit(); 
+  await h.sleep(1500);
+  return { me: bot.entity.position, spawnPackets: sp, bars: bars.slice(-2), nb: bars.length };
+};

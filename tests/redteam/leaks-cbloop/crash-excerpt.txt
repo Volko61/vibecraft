@@ -1,0 +1,26 @@
+[16:26:38 INFO]: [VibeCraft] [leaks-cbloop] v1 loaded in 67 ms (compile 57 ms, swap 0 ms)
+[16:26:38 INFO]: [1m[38;5;141mV[38;5;141mi[38;5;105mb[38;5;111me[38;5;75mC[38;5;75mr[38;5;75ma[38;5;81mf[38;5;45mt[0m [38;5;8m»[0m [38;5;10m?[0m [38;5;15mleaks-cbloop[0m [38;5;7mv1[0m [38;5;10mchargé 
+[16:26:38 INFO]: [VibeCraft] API command: /lkcbloop throw
+[16:26:39 ERROR]: Failed to handle packet ServerboundCustomClickActionPacket[id=paper:click_callback, payload=Optional[{id:[I;530711934,-534166785,-1907267303,999106312]}]], suppressing error
+...
+[16:26:55 ERROR]: Encountered an unexpected exception
+dev.vibecraft.core.guard.ModuleTimeoutError: module 'leaks-cbloop' code ran on the main thread while the current tick exceeded 2000 ms (infinite loop?)
+	at VibeCraft.jar//dev.vibecraft.core.guard.Guard.timeoutError(Guard.java:178) ~[?:?]
+	at VibeCraft.jar//dev.vibecraft.core.guard.Guard.slowCheck(Guard.java:164) ~[?:?]
+	at VibeCraft.jar//dev.vibecraft.core.guard.Guard.check(Guard.java:139) ~[?:?]
+	at vibe:leaks-cbloop#15//vibe.leaks_cbloop.LeaksCbloopModule.lambda$enable$1(LeaksCbloopModule.java:25) ~[?:?]
+	at io.papermc.paper.adventure.providers.ClickCallbackProviderImpl$AdventureClick.lambda$doRunCallback$1(ClickCallbackProviderImpl.java:59) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at io.papermc.paper.adventure.providers.ClickCallbackProviderImpl$CallbackManager.tryConsumeCallback(ClickCallbackProviderImpl.java:122) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at io.papermc.paper.adventure.providers.ClickCallbackProviderImpl$AdventureClick.lambda$doRunCallback$0(ClickCallbackProviderImpl.java:58) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at java.base/java.util.Optional.ifPresent(Optional.java:178) ~[?:?]
+	at io.papermc.paper.adventure.providers.ClickCallbackProviderImpl$AdventureClick.doRunCallback(ClickCallbackProviderImpl.java:53) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at io.papermc.paper.adventure.providers.ClickCallbackProviderImpl$CallbackManager.tryRunCallback(ClickCallbackProviderImpl.java:130) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at net.minecraft.server.network.ServerCommonPacketListenerImpl.handleCustomClickAction(ServerCommonPacketListenerImpl.java:219) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at net.minecraft.network.protocol.common.ServerboundCustomClickActionPacket.handle(ServerboundCustomClickActionPacket.java:31) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at net.minecraft.network.protocol.common.ServerboundCustomClickActionPacket.handle(ServerboundCustomClickActionPacket.java:13) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at net.minecraft.network.PacketProcessor$ListenerAndPacket.handle(PacketProcessor.java:97) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at net.minecraft.network.PacketProcessor.executeSinglePacket(PacketProcessor.java:33) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at net.minecraft.server.MinecraftServer.runAllTasksAtTickStart(MinecraftServer.java:1176) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at net.minecraft.server.MinecraftServer.processPacketsAndTick(MinecraftServer.java:1659) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at net.minecraft.server.MinecraftServer.runServer(MinecraftServer.java:1330) ~[paper-26.3.jar:26.3-159-a4b87cf]
+	at net.minecraft.server.MinecraftServer.lambda$spin$0(MinecraftServer.java:298) ~[paper-26.3.jar:26.3-159-a4b87cf]

@@ -67,7 +67,7 @@ import org.bukkit.scoreboard.Team;
  * its last parameter. Names/descriptors must match what {@code Instrumenter} computes:
  * {@code (receiver, original args..., int id) -> original return type}.
  */
-@SuppressWarnings({"unused", "deprecation"})
+@SuppressWarnings({"unused", "deprecation", "removal"})
 public final class Redirects {
 
     private Redirects() {
@@ -361,9 +361,14 @@ public final class Redirects {
         ctx(id).registerRaw(type, listener, priority, executor, ignoreCancelled);
     }
 
+    /**
+     * Every listener of a module is registered through its context (registerEvents / registerEvent are
+     * redirected), so only the module's own registrations are undone: a listener object taken from
+     * {@code HandlerList#getRegisteredListeners()} (the engine's, another module's or another plugin's) is
+     * left alone.
+     */
     public static void unregisterAll(Listener listener, int id) {
         ctx(id).unlisten(listener);
-        HandlerList.unregisterAll(listener);
     }
 
     // ================================================================== scheduler
@@ -943,6 +948,555 @@ public final class Redirects {
         gen(id);
         checkMember(m.getDeclaringClass(), m.getName(), Type.getMethodDescriptor(m));
         return l.unreflect(m);
+    }
+
+    // ================================================================== network & locks (main thread)
+
+    /** Blocking network calls are refused on the main thread (they can freeze it for the whole OS timeout). */
+    private static void noNetworkOnMain(int id, String what) {
+        Gen g = gen(id);
+        if (Guard.isMainThread()) {
+            throw Guard.timeoutNow(g, what + " on the main server thread would freeze the whole server while it waits "
+                    + "for the network: do it inside ctx.async(() -> ...) and come back with ctx.later(0, ...)", false);
+        }
+    }
+
+    public static <T> java.net.http.HttpResponse<T> httpSend(java.net.http.HttpClient c, java.net.http.HttpRequest r,
+                                                             java.net.http.HttpResponse.BodyHandler<T> h, int id)
+            throws java.io.IOException, InterruptedException {
+        noNetworkOnMain(id, "HttpClient.send()");
+        return c.send(r, h);
+    }
+
+    public static java.io.InputStream urlOpenStream(java.net.URL u, int id) throws java.io.IOException {
+        noNetworkOnMain(id, "URL.openStream()");
+        return u.openStream();
+    }
+
+    public static java.net.URLConnection urlOpenConnection(java.net.URL u, int id) throws java.io.IOException {
+        noNetworkOnMain(id, "URL.openConnection()");
+        return u.openConnection();
+    }
+
+    public static java.net.URLConnection urlOpenConnection(java.net.URL u, java.net.Proxy p, int id) throws java.io.IOException {
+        noNetworkOnMain(id, "URL.openConnection()");
+        return u.openConnection(p);
+    }
+
+    public static Object urlGetContent(java.net.URL u, int id) throws java.io.IOException {
+        noNetworkOnMain(id, "URL.getContent()");
+        return u.getContent();
+    }
+
+    public static Object urlGetContent(java.net.URL u, Class<?>[] classes, int id) throws java.io.IOException {
+        noNetworkOnMain(id, "URL.getContent()");
+        return u.getContent(classes);
+    }
+
+    public static java.net.InetAddress inetGetByName(String host, int id) throws java.net.UnknownHostException {
+        noNetworkOnMain(id, "InetAddress.getByName() (DNS)");
+        return java.net.InetAddress.getByName(host);
+    }
+
+    public static java.net.InetAddress[] inetGetAllByName(String host, int id) throws java.net.UnknownHostException {
+        noNetworkOnMain(id, "InetAddress.getAllByName() (DNS)");
+        return java.net.InetAddress.getAllByName(host);
+    }
+
+    public static java.net.InetAddress inetGetLocalHost(int id) throws java.net.UnknownHostException {
+        noNetworkOnMain(id, "InetAddress.getLocalHost() (DNS)");
+        return java.net.InetAddress.getLocalHost();
+    }
+
+    public static boolean profileComplete(com.destroystokyo.paper.profile.PlayerProfile p, int id) {
+        noNetworkOnMain(id, "PlayerProfile.complete() (Mojang web lookup)");
+        return p.complete();
+    }
+
+    public static boolean profileComplete(com.destroystokyo.paper.profile.PlayerProfile p, boolean textures, int id) {
+        noNetworkOnMain(id, "PlayerProfile.complete() (Mojang web lookup)");
+        return p.complete(textures);
+    }
+
+    public static boolean profileComplete(com.destroystokyo.paper.profile.PlayerProfile p, boolean textures, boolean online,
+                                          int id) {
+        noNetworkOnMain(id, "PlayerProfile.complete() (Mojang web lookup)");
+        return p.complete(textures, online);
+    }
+
+    public static void lockLock(java.util.concurrent.locks.Lock l, int id) throws InterruptedException {
+        Gen g = gen(id);
+        if (Guard.isMainThread()) {
+            if (!l.tryLock(remainingOrThrow(g, "Lock.lock()"), TimeUnit.NANOSECONDS)) {
+                throw Guard.timeoutNow(g, "Lock.lock() blocked the main server thread beyond its time budget (deadlock?)");
+            }
+            return;
+        }
+        while (!l.tryLock(SLICE_NANOS, TimeUnit.NANOSECONDS)) {
+            g.live();
+        }
+    }
+
+    public static boolean lockTryLockTimed(java.util.concurrent.locks.Lock l, long time, TimeUnit unit, int id)
+            throws InterruptedException {
+        Gen g = gen(id);
+        if (Guard.isMainThread()) {
+            long want = unit.toNanos(time);
+            long rem = remainingOrThrow(g, "Lock.tryLock()");
+            if (l.tryLock(Math.min(want, rem), TimeUnit.NANOSECONDS)) {
+                return true;
+            }
+            if (want > rem) {
+                throw Guard.timeoutNow(g, "Lock.tryLock() blocked the main server thread beyond its time budget");
+            }
+            return false;
+        }
+        return l.tryLock(time, unit);
+    }
+
+    public static void conditionAwait(java.util.concurrent.locks.Condition c, int id) throws InterruptedException {
+        Gen g = gen(id);
+        if (Guard.isMainThread()) {
+            if (c.awaitNanos(remainingOrThrow(g, "Condition.await()")) <= 0) {
+                throw Guard.timeoutNow(g, "Condition.await() blocked the main server thread beyond its time budget");
+            }
+            return;
+        }
+        c.awaitNanos(SLICE_NANOS); // spurious wake-ups are allowed: callers loop on their condition
+        g.live();
+    }
+
+    public static void park(int id) {
+        Gen g = gen(id);
+        java.util.concurrent.locks.LockSupport.parkNanos(Guard.isMainThread()
+                ? Math.max(1, remainingOrThrow(g, "LockSupport.park()")) : SLICE_NANOS);
+    }
+
+    public static void park(Object blocker, int id) {
+        Gen g = gen(id);
+        java.util.concurrent.locks.LockSupport.parkNanos(blocker, Guard.isMainThread()
+                ? Math.max(1, remainingOrThrow(g, "LockSupport.park()")) : SLICE_NANOS);
+    }
+
+    public static Object futureGetTimed(Future<?> f, long time, TimeUnit unit, int id)
+            throws InterruptedException, ExecutionException, TimeoutException {
+        Gen g = gen(id);
+        if (Guard.isMainThread()) {
+            long want = unit.toNanos(time);
+            long rem = remainingOrThrow(g, "Future.get()");
+            try {
+                return f.get(Math.min(want, rem), TimeUnit.NANOSECONDS);
+            } catch (TimeoutException e) {
+                if (want > rem) {
+                    throw Guard.timeoutNow(g, "Future.get() blocked the main server thread beyond its time budget: "
+                            + "use a callback (thenAccept + ctx.later(0, ...)) instead of waiting");
+                }
+                throw e;
+            }
+        }
+        return f.get(time, unit);
+    }
+
+    public static boolean latchAwaitTimed(CountDownLatch l, long time, TimeUnit unit, int id) throws InterruptedException {
+        Gen g = gen(id);
+        if (Guard.isMainThread()) {
+            long want = unit.toNanos(time);
+            long rem = remainingOrThrow(g, "CountDownLatch.await()");
+            if (l.await(Math.min(want, rem), TimeUnit.NANOSECONDS)) {
+                return true;
+            }
+            if (want > rem) {
+                throw Guard.timeoutNow(g, "CountDownLatch.await() blocked the main server thread beyond its time budget");
+            }
+            return false;
+        }
+        return l.await(time, unit);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static void queuePut(BlockingQueue q, Object o, int id) throws InterruptedException {
+        Gen g = gen(id);
+        if (Guard.isMainThread()) {
+            if (!q.offer(o, remainingOrThrow(g, "BlockingQueue.put()"), TimeUnit.NANOSECONDS)) {
+                throw Guard.timeoutNow(g, "BlockingQueue.put() blocked the main server thread beyond its time budget");
+            }
+            return;
+        }
+        while (!q.offer(o, SLICE_NANOS, TimeUnit.NANOSECONDS)) {
+            g.live();
+        }
+    }
+
+    public static Object queuePollTimed(BlockingQueue<?> q, long time, TimeUnit unit, int id) throws InterruptedException {
+        Gen g = gen(id);
+        if (Guard.isMainThread()) {
+            long want = unit.toNanos(time);
+            long rem = remainingOrThrow(g, "BlockingQueue.poll()");
+            Object o = q.poll(Math.min(want, rem), TimeUnit.NANOSECONDS);
+            if (o == null && want > rem) {
+                throw Guard.timeoutNow(g, "BlockingQueue.poll() blocked the main server thread beyond its time budget");
+            }
+            return o;
+        }
+        return q.poll(time, unit);
+    }
+
+    // ================================================================== extreme values
+
+    /** Max speed a module may give an entity (blocks per tick): far beyond any "launch" effect, harmless for collisions. */
+    public static final double MAX_SPEED = 10.0;
+
+    private static org.bukkit.util.Vector clampVector(org.bukkit.util.Vector v) {
+        if (v == null) {
+            return null;
+        }
+        double x = v.getX();
+        double y = v.getY();
+        double z = v.getZ();
+        if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)) {
+            throw new IllegalArgumentException("velocity must be finite, got " + v + " (normalizing a zero vector gives NaN)");
+        }
+        double len = Math.sqrt(x * x + y * y + z * z);
+        if (len <= MAX_SPEED) {
+            return v;
+        }
+        double k = MAX_SPEED / len;
+        return new org.bukkit.util.Vector(x * k, y * k, z * k);
+    }
+
+    public static void setVelocity(org.bukkit.entity.Entity e, org.bukkit.util.Vector v, int id) {
+        gen(id);
+        e.setVelocity(clampVector(v));
+    }
+
+    /** Projectiles launched with a huge speed (launchProjectile / spawnArrow): clamped before their first tick. */
+    private static <T extends org.bukkit.entity.Entity> T clampEntity(T e) {
+        if (e != null) {
+            try {
+                org.bukkit.util.Vector v = e.getVelocity();
+                org.bukkit.util.Vector c = clampVector(v);
+                if (c != v) {
+                    e.setVelocity(c);
+                }
+            } catch (IllegalArgumentException bad) {
+                e.setVelocity(new org.bukkit.util.Vector());
+            }
+        }
+        return e;
+    }
+
+    public static org.bukkit.entity.Projectile clampLaunched(org.bukkit.entity.Projectile p, int id) {
+        return clampEntity(p);
+    }
+
+    public static org.bukkit.entity.AbstractArrow clampLaunched(org.bukkit.entity.AbstractArrow a, int id) {
+        return clampEntity(a);
+    }
+
+    public static org.bukkit.entity.Arrow clampLaunched(org.bukkit.entity.Arrow a, int id) {
+        return clampEntity(a);
+    }
+
+    public static void fireballSetDirection(org.bukkit.entity.Fireball f, org.bukkit.util.Vector v, int id) {
+        gen(id);
+        f.setDirection(clampVector(v));
+    }
+
+    public static void fireballSetAcceleration(org.bukkit.entity.Fireball f, org.bukkit.util.Vector v, int id) {
+        gen(id);
+        f.setAcceleration(clampVector(v));
+    }
+
+    public static void fireballSetPower(org.bukkit.entity.Fireball f, org.bukkit.util.Vector v, int id) {
+        gen(id);
+        f.setPower(clampVector(v));
+    }
+
+    /**
+     * Max size of the item data a module may put on an ItemStack (SNBT characters). A whole inventory
+     * (~100 slots) of such items stays under the 8 MB packet limit; above it, players holding the item
+     * are disconnected (PacketTooLarge) and, since the item is saved with them, locked out for good.
+     */
+    public static final int MAX_ITEM_DATA = 64 * 1024;
+    /** Max size of an entity name / text display text (JSON characters). */
+    public static final int MAX_NAME_JSON = 32 * 1024;
+
+    private static int metaSize(org.bukkit.inventory.meta.ItemMeta m) {
+        if (m == null) {
+            return 0;
+        }
+        try {
+            return m.getAsString().length();
+        } catch (RuntimeException e) {
+            return 0;
+        }
+    }
+
+    private static void checkMeta(org.bukkit.inventory.meta.ItemMeta m) {
+        int n = metaSize(m);
+        if (n > MAX_ITEM_DATA) {
+            throw new IllegalArgumentException("item data too large (" + n / 1024 + " KB, max " + MAX_ITEM_DATA / 1024
+                    + " KB): players holding it would be disconnected. Use fewer / shorter lore lines or pages");
+        }
+    }
+
+    public static boolean itemSetItemMeta(org.bukkit.inventory.ItemStack it, org.bukkit.inventory.meta.ItemMeta m, int id) {
+        gen(id);
+        checkMeta(m);
+        return it.setItemMeta(m);
+    }
+
+    public static boolean itemEditMeta(org.bukkit.inventory.ItemStack it,
+                                       Consumer<? super org.bukkit.inventory.meta.ItemMeta> c, int id) {
+        gen(id);
+        java.util.Objects.requireNonNull(c, "consumer");
+        return it.editMeta(m -> {
+            c.accept(m);
+            checkMeta(m);
+        });
+    }
+
+    public static <M extends org.bukkit.inventory.meta.ItemMeta> boolean itemEditMeta(org.bukkit.inventory.ItemStack it,
+                                                                                      Class<M> type, Consumer<? super M> c,
+                                                                                      int id) {
+        gen(id);
+        java.util.Objects.requireNonNull(c, "consumer");
+        return it.editMeta(type, m -> {
+            c.accept(m);
+            checkMeta(m);
+        });
+    }
+
+    public static void itemLore(org.bukkit.inventory.ItemStack it, List<? extends net.kyori.adventure.text.Component> lore,
+                                int id) {
+        gen(id);
+        if (lore != null) {
+            long n = 0;
+            for (net.kyori.adventure.text.Component c : lore) {
+                n += jsonLength(c);
+            }
+            if (n > MAX_ITEM_DATA) {
+                throw new IllegalArgumentException("lore too large (" + n / 1024 + " KB, max " + MAX_ITEM_DATA / 1024
+                        + " KB): players holding the item would be disconnected");
+            }
+        }
+        it.lore(lore);
+    }
+
+    private static <T> void checkItemAfter(org.bukkit.inventory.ItemStack it,
+                                           io.papermc.paper.datacomponent.DataComponentType.Valued<T> type) {
+        int n = metaSize(it.getItemMeta());
+        if (n > MAX_ITEM_DATA) {
+            it.unsetData(type);
+            throw new IllegalArgumentException("item data too large (" + n / 1024 + " KB, max " + MAX_ITEM_DATA / 1024
+                    + " KB): players holding it would be disconnected");
+        }
+    }
+
+    public static <T> void itemSetData(org.bukkit.inventory.ItemStack it,
+                                       io.papermc.paper.datacomponent.DataComponentType.Valued<T> type, T value, int id) {
+        gen(id);
+        it.setData(type, value);
+        checkItemAfter(it, type);
+    }
+
+    public static <T> void itemSetData(org.bukkit.inventory.ItemStack it,
+                                       io.papermc.paper.datacomponent.DataComponentType.Valued<T> type,
+                                       io.papermc.paper.datacomponent.DataComponentBuilder<T> value, int id) {
+        gen(id);
+        it.setData(type, value);
+        checkItemAfter(it, type);
+    }
+
+    private static long jsonLength(net.kyori.adventure.text.Component c) {
+        if (c == null) {
+            return 0;
+        }
+        try {
+            return net.kyori.adventure.text.serializer.gson.GsonComponentSerializer.gson().serialize(c).length();
+        } catch (RuntimeException | LinkageError e) {
+            return 0;
+        }
+    }
+
+    private static void checkName(net.kyori.adventure.text.Component c, String what) {
+        long n = jsonLength(c);
+        if (n > MAX_NAME_JSON) {
+            throw new IllegalArgumentException(what + " too large (" + n / 1024 + " KB, max " + MAX_NAME_JSON / 1024
+                    + " KB): nearby players would be disconnected");
+        }
+    }
+
+    public static void customName(org.bukkit.Nameable n, net.kyori.adventure.text.Component c, int id) {
+        gen(id);
+        checkName(c, "custom name");
+        n.customName(c);
+    }
+
+    public static void setCustomName(org.bukkit.Nameable n, String s, int id) {
+        gen(id);
+        if (s != null && s.length() > MAX_NAME_JSON) {
+            throw new IllegalArgumentException("custom name too large (" + s.length() / 1024 + " KB)");
+        }
+        n.setCustomName(s);
+    }
+
+    public static void textDisplayText(org.bukkit.entity.TextDisplay d, net.kyori.adventure.text.Component c, int id) {
+        gen(id);
+        checkName(c, "text display text");
+        d.text(c);
+    }
+
+    // ================================================================== recipes
+
+    public static boolean addRecipe(org.bukkit.inventory.Recipe r, int id) {
+        ctx(id).recipe(r);
+        return true;
+    }
+
+    public static boolean addRecipe(org.bukkit.inventory.Recipe r, boolean resend, int id) {
+        ctx(id).recipe(r);
+        return true;
+    }
+
+    public static boolean addRecipe(Server s, org.bukkit.inventory.Recipe r, int id) {
+        ctx(id).recipe(r);
+        return true;
+    }
+
+    public static boolean addRecipe(Server s, org.bukkit.inventory.Recipe r, boolean resend, int id) {
+        ctx(id).recipe(r);
+        return true;
+    }
+
+    // ================================================================== registrations outside ctx
+
+    public static net.kyori.adventure.text.event.ClickEvent<?> clickCallback(
+            net.kyori.adventure.text.event.ClickCallback<Audience> cb, int id) {
+        return net.kyori.adventure.text.event.ClickEvent.callback(ctx(id).wrapClickCallback(cb));
+    }
+
+    public static net.kyori.adventure.text.event.ClickEvent<?> clickCallback(
+            net.kyori.adventure.text.event.ClickCallback<Audience> cb,
+            net.kyori.adventure.text.event.ClickCallback.Options options, int id) {
+        return net.kyori.adventure.text.event.ClickEvent.callback(ctx(id).wrapClickCallback(cb), options);
+    }
+
+    public static net.kyori.adventure.text.event.ClickEvent<?> clickCallback(
+            net.kyori.adventure.text.event.ClickCallback<Audience> cb,
+            Consumer<net.kyori.adventure.text.event.ClickCallback.Options.Builder> options, int id) {
+        return net.kyori.adventure.text.event.ClickEvent.callback(ctx(id).wrapClickCallback(cb), options);
+    }
+
+    public static net.kyori.adventure.bossbar.BossBar bossBarAddViewer(net.kyori.adventure.bossbar.BossBar bar, Audience a,
+                                                                       int id) {
+        ctx(id).showBossBar(a, bar);
+        return bar;
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static void servicesRegister(org.bukkit.plugin.ServicesManager sm, Class service, Object provider, Plugin plugin,
+                                        org.bukkit.plugin.ServicePriority priority, int id) {
+        ModuleContextImpl c = ctx(id);
+        sm.register(service, provider, plugin, priority);
+        c.trackInternal("service " + (service == null ? "?" : service.getSimpleName()), () -> sm.unregister(service, provider));
+    }
+
+    public static org.bukkit.plugin.messaging.PluginMessageListenerRegistration registerIncomingPluginChannel(
+            org.bukkit.plugin.messaging.Messenger m, Plugin plugin, String channel,
+            org.bukkit.plugin.messaging.PluginMessageListener listener, int id) {
+        ModuleContextImpl c = ctx(id);
+        java.util.Objects.requireNonNull(listener, "listener");
+        // the server calls it from packet handling: run it under the guard (budget, errors recorded)
+        org.bukkit.plugin.messaging.PluginMessageListener guarded = (ch, player, data) -> {
+            if (!c.isClosed()) {
+                c.guarded("plugin message " + ch, () -> listener.onPluginMessageReceived(ch, player, data));
+            }
+        };
+        org.bukkit.plugin.messaging.PluginMessageListenerRegistration r = m.registerIncomingPluginChannel(plugin, channel, guarded);
+        c.trackInternal("plugin channel " + channel, () -> m.unregisterIncomingPluginChannel(plugin, channel, guarded));
+        return r;
+    }
+
+    public static void mapAddRenderer(org.bukkit.map.MapView v, org.bukkit.map.MapRenderer r, int id) {
+        ModuleContextImpl c = ctx(id);
+        v.addRenderer(r);
+        c.trackInternal("map renderer", () -> v.removeRenderer(r));
+    }
+
+    public static void conversationBegin(org.bukkit.conversations.Conversation conv, int id) {
+        ModuleContextImpl c = ctx(id);
+        conv.begin();
+        c.trackInternal("conversation", conv::abandon);
+    }
+
+    public static boolean beginConversation(org.bukkit.conversations.Conversable who,
+                                            org.bukkit.conversations.Conversation conv, int id) {
+        ModuleContextImpl c = ctx(id);
+        boolean r = who.beginConversation(conv);
+        c.trackInternal("conversation", conv::abandon);
+        return r;
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static void addGoal(com.destroystokyo.paper.entity.ai.MobGoals goals, org.bukkit.entity.Mob mob, int priority,
+                               com.destroystokyo.paper.entity.ai.Goal goal, int id) {
+        ModuleContextImpl c = ctx(id);
+        goals.addGoal(mob, priority, goal);
+        c.trackInternal("mob goal", () -> {
+            if (mob.isValid()) {
+                goals.removeGoal(mob, goal);
+            }
+        });
+    }
+
+    public static org.bukkit.permissions.PermissionAttachment trackPermissionAttachment(
+            org.bukkit.permissions.PermissionAttachment a, int id) {
+        if (a != null) {
+            ctx(id).trackInternal("permission attachment", a::remove);
+        }
+        return a;
+    }
+
+    public static void loggerAddHandler(java.util.logging.Logger l, java.util.logging.Handler h, int id) {
+        ModuleContextImpl c = ctx(id);
+        l.addHandler(h);
+        c.trackInternal("log handler", () -> l.removeHandler(h));
+    }
+
+    public static void chatRenderer(io.papermc.paper.event.player.AbstractChatEvent e, io.papermc.paper.chat.ChatRenderer r,
+                                    int id) {
+        e.renderer(ctx(id).wrapChatRenderer(r));
+    }
+
+    public static org.bukkit.inventory.Inventory trackInventory(org.bukkit.inventory.Inventory inv, int id) {
+        if (inv != null) {
+            ctx(id).trackInventory(inv);
+        }
+        return inv;
+    }
+
+    public static void trackTimer(java.util.Timer t, int id) {
+        if (t != null) {
+            ctx(id).trackInternal("timer", t::cancel);
+        }
+    }
+
+    public static void trackNewExecutor(ExecutorService e, int id) {
+        if (e != null) {
+            ctx(id).trackInternal("executor", e::shutdownNow);
+        }
+    }
+
+    // ================================================================== isolation between modules
+
+    public static void sched_cancelTask(BukkitScheduler s, int taskId, int id) {
+        ctx(id).cancelOwnTask(taskId);
+    }
+
+    /** Same as {@link #unregisterAll(Listener, int)}: only the module's own listeners. */
+    public static void handlerListUnregister(HandlerList hl, Listener listener, int id) {
+        ctx(id).unlisten(listener);
     }
 
     // ================================================================== plugin lookup

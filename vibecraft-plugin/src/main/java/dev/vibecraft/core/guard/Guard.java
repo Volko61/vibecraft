@@ -129,7 +129,7 @@ public final class Guard {
 
     // ------------------------------------------------------------------ the check
 
-    /** Inserted by the instrumenter at method entries and loop back-edges. Must stay tiny. */
+    /** Inserted by the instrumenter at loop back-edges (and constructor entries). Must stay tiny. */
     public static void check(int id) {
         Gen g = gens[id];
         if (g.killed) {
@@ -140,16 +140,59 @@ public final class Guard {
         }
     }
 
-    private static ModuleKilledError killed(Gen g) {
-        if (Thread.currentThread() != main) {
-            // throttle zombie threads that swallow the error in a loop
-            boolean interrupted = Thread.interrupted();
-            LockSupport.parkNanos(20_000_000L);
-            if (interrupted) {
-                Thread.currentThread().interrupt();
-            }
+    /**
+     * Inserted by the instrumenter at the entry of every module method (except constructors and
+     * static initializers). Returns {@code true} if the method must return a default value right
+     * away without running: that is the case for code of an unloaded generation called directly by
+     * the server (stale click callbacks, log handlers, renderers, goals...), so that nothing is ever
+     * thrown into server code for it. Killed code called by module code still throws
+     * {@link ModuleKilledError} (zombie loops, stale lambdas kept in shared()).
+     */
+    public static boolean enter(int id) {
+        Gen g = gens[id];
+        if (g.killed) {
+            return killedEntry(g);
         }
-        return g.killedError;
+        if (Thread.currentThread() == main && (hint || (++counter & 1023) == 0)) {
+            slowCheck(g);
+        }
+        return false;
+    }
+
+    private static final StackWalker WALKER = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE);
+
+    private static boolean killedEntry(Gen g) {
+        boolean fromModule;
+        try {
+            // frames: killedEntry, enter, <the killed method>, <its caller>
+            fromModule = WALKER.walk(s -> s.dropWhile(f -> f.getDeclaringClass() == Guard.class).skip(1).findFirst()
+                    .map(f -> f.getDeclaringClass().getClassLoader() instanceof dev.vibecraft.core.load.ModuleClassLoader)
+                    .orElse(Boolean.FALSE));
+        } catch (Throwable t) {
+            fromModule = false;
+        }
+        if (!fromModule) {
+            return true; // called by the server / host code: silently do nothing
+        }
+        throw killed(g);
+    }
+
+    /** The kill signal to throw from killed code (never an Error into unguarded main-thread server code). */
+    private static RuntimeException killed(Gen g) {
+        Thread self = Thread.currentThread();
+        if (self == main) {
+            if (depth == 0) {
+                throw new ModuleAbortException(g.killedError.getMessage());
+            }
+            throw g.killedError;
+        }
+        // throttle zombie threads that swallow the error in a loop
+        boolean interrupted = Thread.interrupted();
+        LockSupport.parkNanos(20_000_000L);
+        if (interrupted) {
+            self.interrupt();
+        }
+        throw g.killedError;
     }
 
     private static void slowCheck(Gen g) {
@@ -166,33 +209,38 @@ public final class Guard {
         hint = false;
     }
 
-    private static ModuleTimeoutError timeoutError(Gen g, long now) {
+    /** Main thread only. Inside a guarded call: ModuleTimeoutError; entered by server code: ModuleAbortException. */
+    private static RuntimeException timeoutError(Gen g, long now) {
         if (depth > 0) {
             long elapsedMs = TimeUnit.NANOSECONDS.toMillis(now - (deadline - outerBudget));
-            return new ModuleTimeoutError(outerWhere + " exceeded its main-thread time budget ("
+            throw new ModuleTimeoutError(outerWhere + " exceeded its main-thread time budget ("
                     + TimeUnit.NANOSECONDS.toMillis(outerBudget) + " ms, ran " + elapsedMs
                     + " ms): infinite loop or too much work in one tick? Split work across ticks (ctx.every) "
                     + "or move it off the main thread (ctx.async)");
         }
-        return new ModuleTimeoutError("module '" + g.moduleId + "' code ran on the main thread while the current tick "
+        throw new ModuleAbortException("module '" + g.moduleId + "' code ran on the main thread while the current tick "
                 + "exceeded " + TimeUnit.NANOSECONDS.toMillis(tickBudget) + " ms (infinite loop?)");
     }
 
     /**
-     * Mark the current main-thread guarded call as timed out (used by blocking-call redirects)
-     * and return the error to throw.
+     * Mark the current main-thread guarded call as timed out (used by blocking-call redirects) and
+     * throw the matching error. Declared to return an exception so that callers can write
+     * {@code throw Guard.timeoutNow(...)}; it never returns normally.
      */
-    public static ModuleTimeoutError timeoutNow(Gen g, String what) {
+    public static RuntimeException timeoutNow(Gen g, String what) {
         return timeoutNow(g, what, true);
     }
 
     /** Same, telling whether the budget was really consumed (false: blocking call rejected up front). */
-    public static ModuleTimeoutError timeoutNow(Gen g, String what, boolean budgetExceeded) {
+    public static RuntimeException timeoutNow(Gen g, String what, boolean budgetExceeded) {
         if (Thread.currentThread() == main) {
             timedOut = true;
             hint = true;
+            if (depth == 0) {
+                throw new ModuleAbortException(what);
+            }
         }
-        return new ModuleTimeoutError(what, budgetExceeded);
+        throw new ModuleTimeoutError(what, budgetExceeded);
     }
 
     // ------------------------------------------------------------------ guarded calls

@@ -26,7 +26,7 @@ public final class ModuleFiles {
     private static final int MAX_FILES = 2000;
 
     /**
-     * @param fingerprint (relative path, size, mtime) of every relevant file
+     * @param fingerprint (relative path, size, content hash) of every relevant file
      * @param hasJava     at least one .java file
      * @param hasContent  at least one file outside .vibe/ (any kind)
      */
@@ -81,10 +81,55 @@ public final class ModuleFiles {
         return out;
     }
 
+    /** Content hash cache: a file is only read again when its size or mtime changed. */
+    private record Hashed(long size, long mtime, long hash) {
+    }
+
+    private static final java.util.concurrent.ConcurrentHashMap<Path, Hashed> HASHES = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static long hash(byte[] b) {
+        java.util.zip.CRC32C c = new java.util.zip.CRC32C();
+        c.update(b);
+        return c.getValue();
+    }
+
+    private static long hashOf(Entry e) {
+        Hashed h = HASHES.get(e.path);
+        if (h != null && h.size == e.size && h.mtime == e.mtime) {
+            return h.hash;
+        }
+        try {
+            long v = hash(Files.readAllBytes(e.path));
+            if (HASHES.size() > 20_000) {
+                HASHES.clear();
+            }
+            HASHES.put(e.path, new Hashed(e.size, e.mtime, v));
+            return v;
+        } catch (IOException ex) {
+            return -e.mtime; // vanished / locked: changes with the file, like before
+        }
+    }
+
+    /**
+     * (relative path, size, content hash) of every entry: rewriting a file with identical content (a module
+     * saving its own config.yml, an editor touching files) does not count as a change.
+     */
     private static String fingerprint(List<Entry> entries) {
         StringBuilder sb = new StringBuilder();
         for (Entry e : entries) {
-            sb.append(e.rel).append('|').append(e.size).append('|').append(e.mtime).append('\n');
+            sb.append(e.rel).append('|').append(e.size).append('|').append(Long.toHexString(hashOf(e))).append('\n');
+        }
+        return sb.toString();
+    }
+
+    /** Only the .java lines of a fingerprint. */
+    public static String javaPart(String fingerprint) {
+        StringBuilder sb = new StringBuilder();
+        for (String line : fingerprint.split("\n")) {
+            int bar = line.indexOf('|');
+            if (bar > 0 && line.substring(0, bar).endsWith(".java")) {
+                sb.append(line).append('\n');
+            }
         }
         return sb.toString();
     }
@@ -108,14 +153,19 @@ public final class ModuleFiles {
 
     public static Sources read(File dir) throws IOException {
         List<Entry> entries = walk(dir, new boolean[1]);
-        String fp = fingerprint(entries);
+        StringBuilder fpb = new StringBuilder();
         Map<String, String> java = new LinkedHashMap<>();
         String config = null;
         String module = null;
         for (Entry e : entries) {
             String text;
             try {
-                text = decode(Files.readAllBytes(e.path));
+                byte[] bytes = Files.readAllBytes(e.path);
+                long h = hash(bytes);
+                HASHES.put(e.path, new Hashed(e.size, e.mtime, h));
+                // the fingerprint of what was really read (the file may have changed since the walk)
+                fpb.append(e.rel).append('|').append(bytes.length).append('|').append(Long.toHexString(h)).append('\n');
+                text = decode(bytes);
             } catch (IOException ex) {
                 continue; // deleted meanwhile: the next poll will notice
             }
@@ -128,7 +178,7 @@ public final class ModuleFiles {
                 default -> java.put(e.rel, text);
             }
         }
-        return new Sources(fp, Collections.unmodifiableMap(java), config, module);
+        return new Sources(fpb.toString(), Collections.unmodifiableMap(java), config, module);
     }
 
     private static String decode(byte[] b) {

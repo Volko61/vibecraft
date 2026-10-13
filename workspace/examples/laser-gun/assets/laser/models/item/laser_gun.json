@@ -1,0 +1,25 @@
+{
+  "textures": {"0": "laser:item/laser_gun", "particle": "laser:item/laser_gun"},
+  "elements": [
+    {"name": "body", "from": [2, 6, 6], "to": [12, 10, 10], "faces": {"north": {"uv": [0, 0, 8, 4], "texture": "#0"}, "east": {"uv": [0, 0, 8, 4], "texture": "#0"}, "south": {"uv": [0, 0, 8, 4], "texture": "#0"}, "west": {"uv": [0, 0, 8, 4], "texture": "#0"}, "up": {"uv": [0, 0, 8, 4], "texture": "#0"}, "down": {"uv": [0, 0, 8, 4], "texture": "#0"}}},
+    {"name": "barrel", "from": [12, 7, 7], "to": [16, 9, 9], "faces": {"north": {"uv": [8, 0, 16, 4], "texture": "#0"}, "east": {"uv": [8, 0, 16, 4], "texture": "#0"}, "south": {"uv": [8, 0, 16, 4], "texture": "#0"}, "west": {"uv": [8, 0, 16, 4], "texture": "#0"}, "up": {"uv": [8, 0, 16, 4], "texture": "#0"}, "down": {"uv": [8, 0, 16, 4], "texture": "#0"}}},
+    {"name": "emitter_ring", "from": [14, 6.5, 6.5], "to": [15, 9.5, 9.5], "faces": {"north": {"uv": [0, 4, 8, 8], "texture": "#0"}, "east": {"uv": [0, 4, 8, 8], "texture": "#0"}, "south": {"uv": [0, 4, 8, 8], "texture": "#0"}, "west": {"uv": [0, 4, 8, 8], "texture": "#0"}, "up": {"uv": [0, 4, 8, 8], "texture": "#0"}, "down": {"uv": [0, 4, 8, 8], "texture": "#0"}}, "light_emission": 15},
+    {"name": "grip", "from": [3, 1, 7], "to": [6, 6, 9], "faces": {"north": {"uv": [0, 8, 8, 12], "texture": "#0"}, "east": {"uv": [0, 8, 8, 12], "texture": "#0"}, "south": {"uv": [0, 8, 8, 12], "texture": "#0"}, "west": {"uv": [0, 8, 8, 12], "texture": "#0"}, "up": {"uv": [0, 8, 8, 12], "texture": "#0"}, "down": {"uv": [0, 8, 8, 12], "texture": "#0"}}, "rotation": {"angle": -22.5, "axis": "z", "origin": [4.5, 6, 8]}},
+    {"name": "trigger", "from": [6.5, 4.5, 7.75], "to": [7.5, 6, 8.25], "faces": {"north": {"uv": [8, 4, 16, 8], "texture": "#0"}, "east": {"uv": [8, 4, 16, 8], "texture": "#0"}, "south": {"uv": [8, 4, 16, 8], "texture": "#0"}, "west": {"uv": [8, 4, 16, 8], "texture": "#0"}, "up": {"uv": [8, 4, 16, 8], "texture": "#0"}, "down": {"uv": [8, 4, 16, 8], "texture": "#0"}}},
+    {"name": "scope", "from": [5, 10, 7.5], "to": [10, 11.5, 8.5], "faces": {"north": {"uv": [8, 4, 16, 8], "texture": "#0"}, "east": {"uv": [8, 4, 16, 8], "texture": "#0"}, "south": {"uv": [8, 4, 16, 8], "texture": "#0"}, "west": {"uv": [8, 4, 16, 8], "texture": "#0"}, "up": {"uv": [8, 4, 16, 8], "texture": "#0"}, "down": {"uv": [8, 4, 16, 8], "texture": "#0"}}},
+    {"name": "scope_lens", "from": [9.5, 10.25, 7.25], "to": [10.25, 11.25, 8.75], "faces": {"north": {"uv": [8, 8, 16, 12], "texture": "#0"}, "east": {"uv": [8, 8, 16, 12], "texture": "#0"}, "south": {"uv": [8, 8, 16, 12], "texture": "#0"}, "west": {"uv": [8, 8, 16, 12], "texture": "#0"}, "up": {"uv": [8, 8, 16, 12], "texture": "#0"}, "down": {"uv": [8, 8, 16, 12], "texture": "#0"}}, "light_emission": 15},
+    {"name": "cell_left", "from": [6, 7, 5.5], "to": [10, 9, 6], "faces": {"north": {"uv": [0, 4, 8, 8], "texture": "#0"}, "east": {"uv": [0, 4, 8, 8], "texture": "#0"}, "south": {"uv": [0, 4, 8, 8], "texture": "#0"}, "west": {"uv": [0, 4, 8, 8], "texture": "#0"}, "up": {"uv": [0, 4, 8, 8], "texture": "#0"}, "down": {"uv": [0, 4, 8, 8], "texture": "#0"}}, "light_emission": 15},
+    {"name": "cell_right", "from": [6, 7, 10], "to": [10, 9, 10.5], "faces": {"north": {"uv": [0, 4, 8, 8], "texture": "#0"}, "east": {"uv": [0, 4, 8, 8], "texture": "#0"}, "south": {"uv": [0, 4, 8, 8], "texture": "#0"}, "west": {"uv": [0, 4, 8, 8], "texture": "#0"}, "up": {"uv": [0, 4, 8, 8], "texture": "#0"}, "down": {"uv": [0, 4, 8, 8], "texture": "#0"}}, "light_emission": 15},
+    {"name": "stock", "from": [0, 6.5, 6.5], "to": [2, 9.5, 9.5], "faces": {"north": {"uv": [8, 0, 16, 4], "texture": "#0"}, "east": {"uv": [8, 0, 16, 4], "texture": "#0"}, "south": {"uv": [8, 0, 16, 4], "texture": "#0"}, "west": {"uv": [8, 0, 16, 4], "texture": "#0"}, "up": {"uv": [8, 0, 16, 4], "texture": "#0"}, "down": {"uv": [8, 0, 16, 4], "texture": "#0"}}}
+  ],
+  "display": {
+    "thirdperson_righthand": {"rotation": [0, -90, 0], "translation": [0, 3, 1], "scale": [0.6, 0.6, 0.6]},
+    "thirdperson_lefthand": {"rotation": [0, 90, 0], "translation": [0, 3, 1], "scale": [0.6, 0.6, 0.6]},
+    "firstperson_righthand": {"rotation": [0, -90, 5], "translation": [1.5, 2.5, 0], "scale": [0.6, 0.6, 0.6]},
+    "firstperson_lefthand": {"rotation": [0, 90, -5], "translation": [1.5, 2.5, 0], "scale": [0.6, 0.6, 0.6]},
+    "gui": {"rotation": [15, -30, 0], "translation": [0, 0, 0], "scale": [0.9, 0.9, 0.9]},
+    "ground": {"rotation": [0, 0, 0], "translation": [0, 2, 0], "scale": [0.5, 0.5, 0.5]},
+    "fixed": {"rotation": [0, 0, 0], "translation": [0, 0, 0], "scale": [1, 1, 1]},
+    "head": {"rotation": [0, 0, 0], "translation": [0, 10, 0], "scale": [1, 1, 1]}
+  }
+}

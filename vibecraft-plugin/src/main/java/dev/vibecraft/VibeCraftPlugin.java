@@ -9,6 +9,7 @@ import dev.vibecraft.command.IdeaCommand;
 import dev.vibecraft.command.VibeCommand;
 import dev.vibecraft.core.ModuleManager;
 import dev.vibecraft.core.ModuleManagerImpl;
+import dev.vibecraft.ext.Extensions;
 import dev.vibecraft.ideas.IdeaQueue;
 import dev.vibecraft.ideas.IdeaQueueImpl;
 import dev.vibecraft.notify.Notifier;
@@ -23,12 +24,14 @@ public final class VibeCraftPlugin extends JavaPlugin {
     private AiJobService ai;
     private IdeaQueue ideas;
     private ApiServer api;
+    private Extensions extensions;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
 
         modules = new ModuleManagerImpl(this);
+        extensions = new Extensions(this, modules); // secrets (needed by the AI job service)
         ideas = new IdeaQueueImpl(this);
         ai = new ClaudeJobService(this, modules);
         new Notifier(this, modules, ai).register();
@@ -44,6 +47,7 @@ public final class VibeCraftPlugin extends JavaPlugin {
         ideaCmd.setTabCompleter(idea);
 
         modules.start();
+        extensions.start(); // hot resource pack, OpenRouter, texture generation, /api/pack...
 
         if (getConfig().getBoolean("api.enabled", true)) {
             api = new ApiServer(this, modules, ai, ideas);
@@ -58,6 +62,9 @@ public final class VibeCraftPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (extensions != null) {
+            extensions.stop();
+        }
         if (api != null) {
             api.stop();
         }

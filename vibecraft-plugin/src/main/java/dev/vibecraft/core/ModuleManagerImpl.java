@@ -281,6 +281,14 @@ public final class ModuleManagerImpl implements ModuleManager {
         return r == null ? List.of() : r.ring.tail(Math.max(0, limit));
     }
 
+    /** Adds a line to a module's log ring (resource pack checks, texture generation...). Unknown id: ignored. */
+    public void appendLog(String id, String level, String message) {
+        ModuleRecord r = id == null ? null : records.get(id);
+        if (r != null) {
+            r.ring.add(level, message);
+        }
+    }
+
     @Override
     public File modulesDir() {
         return cfg.modulesDir();

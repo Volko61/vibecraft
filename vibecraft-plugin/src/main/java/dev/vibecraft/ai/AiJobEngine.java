@@ -24,6 +24,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -52,6 +54,19 @@ public final class AiJobEngine implements AiJobService {
     }
 
     private static final Pattern ID = Pattern.compile("[a-z0-9][a-z0-9_-]{0,39}");
+
+    /** Extra environment computed at each job start (e.g. OPENROUTER_API_KEY from secrets.yml, editable live). */
+    private static volatile Supplier<Map<String, String>> dynamicEnv = Map::of;
+    /** Applied to every progress / final line before it is shown (removes secrets an agent might echo). */
+    private static volatile UnaryOperator<String> redactor = UnaryOperator.identity();
+
+    public static void setDynamicEnv(Supplier<Map<String, String>> env) {
+        dynamicEnv = env == null ? Map::of : env;
+    }
+
+    public static void setRedactor(UnaryOperator<String> r) {
+        redactor = r == null ? UnaryOperator.identity() : r;
+    }
     private static final int MAX_PROGRESS = 200;
     private static final int MAX_FINISHED_LISTED = 20;
     private static final int MAX_FINISHED_KEPT = 50;
@@ -475,6 +490,11 @@ public final class AiJobEngine implements AiJobService {
 
     private Map<String, String> childExtraEnv(String moduleId) {
         Map<String, String> m = new HashMap<>();
+        try {
+            m.putAll(dynamicEnv.get());
+        } catch (RuntimeException ignored) {
+            // no dynamic env
+        }
         if (settings.extraEnv() != null) {
             m.putAll(settings.extraEnv());
         }
@@ -502,6 +522,9 @@ public final class AiJobEngine implements AiJobService {
             int p = n.indexOf('(');
             if (p > 0) {
                 n = n.substring(0, p).strip();
+            }
+            if (n.startsWith("mcp__")) {
+                continue; // MCP tools are not part of the built-in set (--tools); they are allowed by --allowedTools
             }
             if (!n.isEmpty()) {
                 names.add(n);
@@ -543,6 +566,7 @@ public final class AiJobEngine implements AiJobService {
                     if (fin != null && !fin.isError()) {
                         state = AiJobState.SUCCEEDED;
                         result = fin.text() == null ? "" : fin.text().strip();
+                        result = redact(result);
                         finalLine = "✅ " + (result.isEmpty() ? "Terminé"
                                 : StreamTranslator.oneLine(StreamTranslator.stripFormatting(result), 300));
                     } else {
@@ -596,7 +620,8 @@ public final class AiJobEngine implements AiJobService {
         dispatch(l -> l.onFinished(snap));
     }
 
-    private void progress(Job job, String line) {
+    private void progress(Job job, String rawLine) {
+        String line = redact(rawLine);
         job.addProgress(line);
         AiJob snap = job.snapshot();
         dispatch(l -> l.onProgress(snap, line));
@@ -803,6 +828,14 @@ public final class AiJobEngine implements AiJobService {
         synchronized AiJob snapshot() {
             return new AiJob(id, moduleId, prompt, requestedBy, state, startedAt, endedAt, List.copyOf(progress),
                     result, sessionId, cost);
+        }
+    }
+
+    private static String redact(String s) {
+        try {
+            return s == null ? null : redactor.apply(s);
+        } catch (RuntimeException e) {
+            return s;
         }
     }
 }

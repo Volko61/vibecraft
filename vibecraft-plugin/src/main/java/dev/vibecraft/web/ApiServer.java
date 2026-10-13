@@ -275,6 +275,10 @@ public final class ApiServer {
         if (n == 1) {
             return ok(Map.of("name", "VibeCraft API", "endpoints", "see docs/ARCHITECTURE.md section 5"));
         }
+        CompletableFuture<Resp> ext = extension(method, seg, call);
+        if (ext != null) {
+            return ext;
+        }
         String area = seg.get(1);
         switch (area) {
             case "status" -> {
@@ -308,6 +312,19 @@ public final class ApiServer {
             }
         }
         throw new ApiException(404, "no such endpoint: " + method + " /" + String.join("/", seg));
+    }
+
+    /** Routes contributed through {@link ApiExtensions} (resource pack, textures...), or null. */
+    private CompletableFuture<Resp> extension(String method, List<String> seg, Call call) {
+        CompletableFuture<ApiExtensions.Reply> f;
+        try {
+            f = ApiExtensions.dispatch(new ApiExtensions.Request(method, List.copyOf(seg), call.query(), call::body));
+        } catch (ApiException e) {
+            throw e;
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
+        }
+        return f == null ? null : f.thenApply(r -> new Resp(r.status(), r.body()));
     }
 
     private CompletableFuture<Resp> routeModules(String method, List<String> seg, Call call) throws IOException {

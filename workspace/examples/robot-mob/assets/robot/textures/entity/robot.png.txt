@@ -1,0 +1,28 @@
+{
+  "palette": {
+    ".": "transparent",
+    "m": "#b9c2cc", "M": "#dfe6ee", "s": "#8a939d",
+    "d": "#4b525b", "D": "#363b42", "e": "#5f6771",
+    "r": "#ff3b3b", "R": "#ffb0b0", "o": "#a01010",
+    "c": "#3dfcff", "C": "#d8ffff",
+    "k": "#1b1d21", "K": "#2c2f35"
+  },
+  "pixels": [
+    "MmmmmmmsdddddddD",
+    "mmmsmmmsdeddddeD",
+    "mmmmmmmsdddddddD",
+    "smmmmmmsddddeddD",
+    "mmmmsmmsdddddddD",
+    "mmmmmmmsdeddddDD",
+    "mmsmmmmsdddddddD",
+    "sssssssseDDDDDDD",
+    "oooooooooooooooo",
+    "rRrrrrRrrrrRrrrr",
+    "rrrrRrrrrRrrrrRr",
+    "oooooooooooooooo",
+    "cCcc....kKkkKkkK",
+    "Cccc....kkkkkkkk",
+    "ccCc....KkkKkkKk",
+    "cccC....kkkkkkkk"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "palette": {
+    ".": "transparent",
+    "p": "#e8462e", "P": "#ff7a5c", "q": "#b52d1b",
+    "d": "#7a1e12", "D": "#5a150c",
+    "w": "#9fe7ff", "W": "#e6fbff",
+    "t": "#4dfff3", "T": "#d9fffb",
+    "k": "#1d1f24", "K": "#33363d"
+  },
+  "pixels": [
+    "PpppppppdddddddD",
+    "pppPpppqddDddddD",
+    "ppppppPqdddddDdD",
+    "pPpppppqddddddDD",
+    "pppppPpqdDdddddD",
+    "ppPppppqdddddddD",
+    "pppppppqddddDddD",
+    "qqqqqqqqDDDDDDDD",
+    "WwwwwwwWtTttkKkk",
+    "wWwwwwwwTtttkkKk",
+    "wwWwwwwwttTtKkkk",
+    "wwwWwwwwtttTkkkK",
+    "................",
+    "................",
+    "................",
+    "................"
+  ]
+}

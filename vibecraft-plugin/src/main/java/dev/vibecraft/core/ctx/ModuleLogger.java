@@ -52,6 +52,7 @@ public final class ModuleLogger extends Logger {
         if (record.getThrown() != null) {
             msg = msg + " (" + record.getThrown() + ")";
         }
+        msg = dev.vibecraft.ext.SecretStore.scrub(msg); // never let an API key reach logs / dashboard
         ring.add(record.getLevel().getName(), msg);
         Level level = record.getLevel().intValue() < Level.INFO.intValue() ? Level.INFO : record.getLevel();
         if (!acquire()) {

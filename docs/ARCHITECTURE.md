@@ -337,3 +337,38 @@ the same Wi-Fi:
   network, its password is short or `broadcast-rcon-to-ops=true`.
 * **API**: bound to 127.0.0.1, Host/Origin checked; set `api.token` if anything untrusted runs on the laptop.
 * World: `difficulty=easy` + `gamerule spawn_monsters false` (modules may spawn monsters, nature does not).
+
+## 12. Mod-like content: hot resource pack, OpenRouter, secrets (`ext/`, `pack/`)
+
+Wired by `ext/Extensions` (created in `onEnable` right after the ModuleManager, started after `modules.start()`).
+* **Hot resource pack** (`pack/PackService`, `PackBuilder`, `TextureSources`): `modules/<id>/assets/**` of every
+  running module (ENABLED, or COMPILING with a previous generation) is merged into one zip (sorted entries, fixed
+  timestamps -> deterministic SHA-1) with a generated `pack.mcmeta` (`min_format`/`max_format` = `resource_major` of
+  the server's `version.json`, 97 for 26.3). Text sources are compiled: `*.png.txt` / `*.texture.json` (pixel art,
+  shapes, animation frames -> `.png` + `.png.mcmeta`), `*.png.b64`. Validation: JSON syntax (strict; lenient-only =
+  warning), PNG/Ogg signatures, model `parent`/texture references, element bounds (-16..32, angle <= 45), item
+  definitions -> models, font bitmaps -> textures + ascent <= height, path charset, cross-module file and namespace
+  collisions. Errors leave the file out (other files/modules unaffected) and are reported in `.vibe/assets.log`,
+  the module's log ring and `GET /api/pack`. A poller (500 ms, debounce `resource-pack.debounce-ms`) + module events
+  trigger rebuilds on a background thread; a changed SHA-1 is pushed on the main thread to every player with
+  Adventure `sendResourcePacks` (stable pack UUID -> the new version replaces the old one, `replace=false` keeps
+  other packs, `required=false`, French prompt), and on join. The zip is served by a dedicated
+  `com.sun.net.httpserver` on `resource-pack.bind:port` (default `0.0.0.0:8766`, only `/pack.zip` and
+  `/pack/<sha1>.zip`, last 4 builds kept). URL host: `resource-pack.public-host`, `auto` = the virtual host the
+  player connected with, else the LAN IP. `PlayerResourcePackStatusEvent` is tracked (shown in `/api/pack`).
+* **Secrets** (`ext/SecretStore`): `plugins/VibeCraft/secrets.yml` (created empty, re-read when it changes),
+  `secrets:` in config.yml, env `VIBECRAFT_SECRET_<NAME>` / `OPENROUTER_API_KEY`. Values are redacted (`***`) from
+  module log lines and AI job progress/result lines; never in status files, dashboard or API.
+* **OpenRouter** (`ext/OpenRouterClient`, module API `dev.vibecraft.api.OpenRouter` + `Secrets`, new classes; the
+  frozen `ModuleContext` is unchanged): chat completions and image generation on dedicated daemon pools
+  (`max-concurrent`, `max-concurrent-images`), server-wide rate limit, timeouts, French error messages.
+* **Texture generation** (`pack/TextureService`, `TextureProcessor`): `POST /api/modules/<id>/textures` (JSON:
+  path, prompt, kind, size/width/height, transparent, seamless, crop, colors, style, model) -> OpenRouter
+  `POST /images` (fallback: chat completions with `modalities: ["image","text"]`, images in `message.images`) ->
+  border-colour flood-fill keying, crop to subject, box downsampling, binary alpha, median-cut palette,
+  optional offset-blend seamless tiling -> PNG written atomically into the module's `assets/` (the watcher pushes it).
+* Extra API routes are registered through `web/ApiExtensions` (tried before the built-in routes, token-checked):
+  `GET /api/pack`, `POST /api/pack/rebuild`, `GET /api/openrouter`, `POST /api/modules/<id>/textures`.
+* AI jobs: `ai.mcp-config` -> `--mcp-config <abs>` + `mcp__<server>` allowed tools (not in `--tools`), `ai.env`,
+  and `OPENROUTER_API_KEY` from the secrets (read at each job start).
+* Test: `node tests/e2e/assets/run-assets.mjs --sandbox <dir>` (private sandbox server, fake OpenRouter, fake claude).

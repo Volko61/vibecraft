@@ -12,6 +12,7 @@ your code is broken. The demo only works if your module **compiles, loads and do
 2. **Work ONLY in `modules/<id>/`.** Never edit other modules, `examples/`, this file, `data/` or `.vibe/`.
    Other chats are editing other modules at the same time.
 3. If a close pattern exists in `examples/` (table in section 9), read that one file. Don't explore more.
+   Custom textures / 3D items / textured GUIs / new-looking mobs / vehicles: read `ASSETS.md` too (section 7b).
 4. Write `modules/<id>/<Name>Module.java` (or edit the scaffold already there). Prefer **one file**
    (nested classes/records are fine) saved with **one Write**: every save is compiled ~2 s later and a
    half-done edit is announced to the presenter as "nouvelle version refusée". Several Edits? Make each
@@ -37,7 +38,8 @@ mention it in your answer. A follow-up request in the same chat = edit your modu
   French text belongs in your Java sources (UTF-8), not in test commands.
 - No build tool: the server compiles your sources in memory (`javac --release 25`: records, `var`, switch
   patterns, text blocks are fine). Keep modules small (max ~1 MB of sources, 1000 classes).
-- Available libraries: Paper API 26.3, Adventure 5.2 + MiniMessage, Gson, SnakeYAML, Guava, JOML, the JDK.
+- Available libraries: Paper API 26.3, Adventure 5.2 + MiniMessage, Gson, SnakeYAML, Guava, JOML, the JDK
+  (incl. `java.net.http`), plus `dev.vibecraft.api.OpenRouter` (LLM calls) and `Secrets` (section 5).
   Nothing else (no Maven dependencies, no other plugins' APIs).
 - Humans watch the dashboard at http://127.0.0.1:8765/ and in-game chat (reloads are announced there).
 
@@ -114,6 +116,8 @@ If your prompt gives another API base URL or an `X-Vibe-Token` header, use them 
 | online players | `curl -s http://127.0.0.1:8765/api/players` |
 | scaffold a new module (optional) | `curl -s -X POST http://127.0.0.1:8765/api/modules/<id>/create --data "description"` |
 | re-enable a disabled module | `curl -s -X POST http://127.0.0.1:8765/api/modules/<id>/enable` |
+| resource pack status + asset problems (`issues`) | `curl -s http://127.0.0.1:8765/api/pack` |
+| generate a texture with AI (ASSETS.md section 2) | `curl -s -X POST http://127.0.0.1:8765/api/modules/<id>/textures -d '{"path":"assets/<ns>/textures/item/x.png","prompt":"..."}'` |
 
 Reload answer:
 ```json
@@ -208,7 +212,20 @@ public interface ModuleStore {           // data/<id>/store.yml, dotted paths "p
     void set(String path, Object value); // null removes; String/number/boolean/List/Map, ItemStack, Location (others throw: store instant.toString())
     void save();                         // rarely needed (async): saved on unload and every 60 s when dirty
 }
+
+public final class OpenRouter {          // LLM via OpenRouter, server's key (never visible); runs OFF the main thread
+    static boolean available();          // false: no key configured (calls fail with a French message)
+    static CompletableFuture<String> chat(String prompt);
+    static CompletableFuture<String> chat(String system, String prompt);
+    static CompletableFuture<String> chat(List<OpenRouter.Message> messages);   // Message.system/user/assistant(text)
+    static CompletableFuture<String> chat(String model, List<OpenRouter.Message> messages, int maxTokens); // null/0 = defaults
+    static String errorMessage(Throwable error);   // short French text for players
+}
+public final class Secrets { static String get(String name); static boolean has(String name); } // null if unset; never log it
 ```
+OpenRouter futures complete on a background thread: touch the world only inside `ctx.later(0, ...)`:
+`OpenRouter.chat(persona, question).thenAccept(a -> ctx.later(0, () -> p.sendMessage(...))).exceptionally(e -> { ctx.later(0, () -> p.sendRichMessage("<red>" + OpenRouter.errorMessage(e))); return null; });`
+Server-wide rate limit (~30 requests/min): add a per-player cooldown. Full AI NPC: `examples/ai-npc`.
 
 ## 6. Guard rules (they protect the live server)
 
@@ -259,7 +276,9 @@ public interface ModuleStore {           // data/<id>/store.yml, dotted paths "p
   (`/pluiecochons`, not `/jeu` or `/menu`). A name already used (other module, vanilla, plugin) makes the
   load fail with "command /x is already used by ..."; a taken alias is skipped (WARNING). Module commands
   are open to everyone; check `sender.isOp()` for admin-only actions.
-- Files only under `ctx.dataFolder()`. Outgoing HTTP (`java.net.http.HttpClient`) only inside `ctx.async`.
+- Never run `stop`, `reload`, `restart`, `whitelist`, `op`/`deop`, `ban` or `/vibe ...` from module code.
+- Files only under `ctx.dataFolder()`. No sockets/servers. Outgoing HTTP (`java.net.http.HttpClient`) only inside
+  `ctx.async` (or `OpenRouter`, already async).
 
 Audience requests: keep them fun, local and reversible. Make a harmless version of anything destructive
 (no wiping the world, no mass ban/kick/op, no lag machines, no offensive content) and say so kindly.
@@ -393,6 +412,19 @@ don't explode, then do your own effect); Paper: `com.destroystokyo.paper.event.p
 `Player#isOnGround()` is deprecated (client-reported): check the block below instead
 (`p.getLocation().add(0, -0.1, 0).getBlock().isSolid()`). Module commands also exist as `/vibe:<name>`.
 
+## 7b. Mod-like content (vanilla clients): **read `ASSETS.md`**
+
+Put resource-pack files in `modules/<id>/assets/<ns>/...` (own namespace, lowercase paths): the server merges the
+assets of all running modules, validates them and pushes the pack to players ~1 s after a change (no disconnect).
+- Textures: best = AI generation, ONE curl: `curl -s -X POST http://127.0.0.1:8765/api/modules/<id>/textures -d
+  '{"path":"assets/<ns>/textures/item/ruby.png","prompt":"a shiny red ruby gem"}'` (English ASCII prompt; `"kind":"block"`
+  = seamless tile). 503 = no key: draw pixel art in `ruby.png.txt` (`{"palette": {...}, "pixels": [16 rows of 16 chars]}`).
+- 3D item: `models/item/x.json` (cuboids `from`/`to` within -16..32, `faces` with `uv`) + `items/x.json`
+  `{"model":{"type":"minecraft:model","model":"<ns>:item/x"}}`, then on any base item `meta.setItemModel(new NamespacedKey("<ns>", "x"))`.
+- New mob = invisible `Husk` + `ItemDisplay` parts (custom models) as passengers, animated with interpolated
+  `setTransformation`; textured chest GUI = font glyph in the inventory title; vehicle = `Interaction` + `getCurrentInput()`.
+- Always check `curl -s http://127.0.0.1:8765/api/pack`: fix every `issues` entry of your module.
+
 ## 8. Patterns
 
 - Per-player cooldown: instance field `Map<UUID, Long>`; compare with `System.currentTimeMillis()`.
@@ -416,6 +448,11 @@ don't explode, then do your own effect); Paper: `com.destroystokyo.paper.event.p
 | `magic-wand` | custom item with PDC tag, right-click listener, shaped recipe, particle beam, `/wand [player]` |
 | `boss-bar` | Adventure boss bar countdown, `ctx.track` cleanup, late joiners, titles |
 | `scoreboard` | live sidebar on the main scoreboard, `ctx.track(obj, Objective::unregister)`, store |
+| `laser-gun` | 3D custom item: pixel-art texture, cuboid model, item definition, `setItemModel`, ray-trace beam |
+| `robot-mob` | new mob: invisible Husk + animated ItemDisplay parts (custom models), custom AI + laser attack |
+| `custom-gui` | textured chest GUI: background = custom font glyph (negative spaces), clickable buttons |
+| `hover-car` | rideable flying car: Interaction vehicle + model, steered with `Player#getCurrentInput()` |
+| `ai-npc` | AI villager answering in chat through `OpenRouter.chat` (async, history, cooldown, error message) |
 
 ## 10. Final answer
 

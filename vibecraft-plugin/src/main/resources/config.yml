@@ -56,8 +56,55 @@ ai:
   broadcast-progress: true
   # Keep one Claude conversation per module so follow-up requests have context.
   resume-sessions: true
+  # Optional Claude Code MCP config for AI jobs (JSON: {"mcpServers": {...}}), absolute or relative to the
+  # server directory or plugins/VibeCraft/. Every server listed is allowed (tools mcp__<server>). "" = no MCP.
+  mcp-config: ""
+  # Extra environment variables for AI jobs (the OpenRouter key of secrets.yml is added as OPENROUTER_API_KEY).
+  env: {}
 
 ideas:
   enabled: true
   # Cooldown between two /idea from the same player.
   cooldown-seconds: 20
+
+# Hot resource pack: modules/<id>/assets/** of every running module, merged, served over HTTP and pushed
+# to players (on join and ~1 s after any asset change; the client reloads in place, nobody is disconnected).
+resource-pack:
+  enabled: true
+  # HTTP server for the zip (players' clients download from it: it must be reachable from their machines).
+  bind: 0.0.0.0
+  port: 8766
+  # Host put in the pack URL. "auto" = the address each player typed to join (localhost, LAN IP, domain...),
+  # else this machine's LAN IP. Set it explicitly (LAN IP / public domain) if players get FAILED_DOWNLOAD.
+  public-host: auto
+  # true = players who decline the pack are kicked (not recommended for a demo).
+  required: false
+  # Prompt shown by the client (MiniMessage). Empty = default French text.
+  prompt: ""
+  debounce-ms: 1000
+  # Pack format; 0 = auto (read from the server's version.json, 97 for 26.3).
+  min-format: 0
+  max-format: 0
+
+# OpenRouter (LLM + image generation) for modules (dev.vibecraft.api.OpenRouter) and texture generation
+# (POST /api/modules/<id>/textures). The KEY goes in plugins/VibeCraft/secrets.yml ("openrouter: sk-or-...")
+# or in the OPENROUTER_API_KEY environment variable, never here.
+openrouter:
+  base-url: https://openrouter.ai/api/v1
+  # Default chat model for modules (cheap and fast).
+  model: google/gemini-2.5-flash-lite
+  # Image model for texture generation.
+  image-model: google/gemini-2.5-flash-image
+  # images = POST /images, chat = chat completions with modalities [image, text], auto = images then chat.
+  image-api: auto
+  max-tokens: 400
+  timeout-seconds: 60
+  image-timeout-seconds: 120
+  # Whole-server limits (protect the credit during a live demo).
+  max-requests-per-minute: 30
+  max-concurrent: 4
+  max-concurrent-images: 2
+
+# Secrets can also be listed here (name: value), but prefer plugins/VibeCraft/secrets.yml (never shared,
+# re-read live). Environment variables VIBECRAFT_SECRET_<NAME> work too.
+secrets: {}

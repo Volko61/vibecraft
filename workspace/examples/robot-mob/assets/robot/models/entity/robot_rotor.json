@@ -1,0 +1,8 @@
+{
+  "textures": {"0": "robot:entity/robot", "particle": "robot:entity/robot"},
+  "elements": [
+    {"name": "hub", "from": [6.5, 0, 6.5], "to": [9.5, 2, 9.5], "faces": {"north": {"uv": [8, 0, 16, 8], "texture": "#0"}, "east": {"uv": [8, 0, 16, 8], "texture": "#0"}, "south": {"uv": [8, 0, 16, 8], "texture": "#0"}, "west": {"uv": [8, 0, 16, 8], "texture": "#0"}, "up": {"uv": [8, 0, 16, 8], "texture": "#0"}, "down": {"uv": [8, 0, 16, 8], "texture": "#0"}}},
+    {"name": "blade_x", "from": [0, 1, 7], "to": [16, 1.5, 9], "faces": {"north": {"uv": [0, 0, 8, 8], "texture": "#0"}, "east": {"uv": [0, 0, 8, 8], "texture": "#0"}, "south": {"uv": [0, 0, 8, 8], "texture": "#0"}, "west": {"uv": [0, 0, 8, 8], "texture": "#0"}, "up": {"uv": [0, 0, 8, 8], "texture": "#0"}, "down": {"uv": [0, 0, 8, 8], "texture": "#0"}}},
+    {"name": "blade_z", "from": [7, 1, 0], "to": [9, 1.5, 16], "faces": {"north": {"uv": [0, 0, 8, 8], "texture": "#0"}, "east": {"uv": [0, 0, 8, 8], "texture": "#0"}, "south": {"uv": [0, 0, 8, 8], "texture": "#0"}, "west": {"uv": [0, 0, 8, 8], "texture": "#0"}, "up": {"uv": [0, 0, 8, 8], "texture": "#0"}, "down": {"uv": [0, 0, 8, 8], "texture": "#0"}}}
+  ]
+}

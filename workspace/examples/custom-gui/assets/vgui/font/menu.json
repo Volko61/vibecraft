@@ -1,0 +1,6 @@
+{
+  "providers": [
+    {"type": "space", "advances": {"": -8, "": -169}},
+    {"type": "bitmap", "file": "vgui:gui/menu.png", "ascent": 13, "height": 166, "chars": [""]}
+  ]
+}

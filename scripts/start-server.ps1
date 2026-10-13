@@ -12,6 +12,14 @@ $server = Join-Path $root "server"
 if (-not (Test-Path $java)) { throw "JDK 25 introuvable : $java" }
 if (-not (Test-Path (Join-Path $server "paper.jar"))) { throw "paper.jar introuvable dans $server" }
 
+# Installe la dernière version compilée du plugin (vibecraft-plugin/out) si elle est plus récente.
+$built = Join-Path $root "vibecraft-plugin\out\VibeCraft.jar"
+$deployed = Join-Path $server "plugins\VibeCraft.jar"
+if ((Test-Path $built) -and (-not (Test-Path $deployed) -or (Get-Item $built).LastWriteTime -gt (Get-Item $deployed).LastWriteTime)) {
+    Copy-Item $built $deployed -Force
+    Write-Host "  Plugin VibeCraft mis a jour." -ForegroundColor Green
+}
+
 Write-Host ""
 Write-Host "  VibeCraft - serveur Minecraft live-coding" -ForegroundColor Magenta
 Write-Host "  Connexion Minecraft : localhost (port 25565)" -ForegroundColor Gray

@@ -46,7 +46,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class VibeCommand implements TabExecutor {
 
     private static final List<String> SUBCOMMANDS = List.of(
-            "help", "list", "info", "reload", "enable", "disable", "errors", "logs", "new",
+            "help", "menu", "list", "info", "reload", "enable", "disable", "errors", "logs", "new",
             "ai", "stop", "jobs", "reset", "ideas", "accept", "dismiss", "dashboard");
 
     private static final Map<String, String> ALIASES = Map.ofEntries(
@@ -63,24 +63,33 @@ public final class VibeCommand implements TabExecutor {
     private final IdeaQueue ideas;
     /** Depth of onCommand on the main thread (replies sent while > 0 are synchronous). */
     private int executing;
+    private final VibeMenu menu;
 
     public VibeCommand(JavaPlugin plugin, ModuleManager modules, AiJobService ai, IdeaQueue ideas) {
         this.plugin = plugin;
         this.modules = modules;
         this.ai = ai;
         this.ideas = ideas;
+        this.menu = new VibeMenu(plugin, modules, ai, ideas);
     }
 
     // ------------------------------------------------------------------ execution
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        String sub = args.length == 0 ? "help" : args[0].toLowerCase(Locale.ROOT);
+        String sub = args.length == 0 ? (sender instanceof Player ? "menu" : "help") : args[0].toLowerCase(Locale.ROOT);
         sub = ALIASES.getOrDefault(sub, sub);
         executing++;
         try {
             switch (sub) {
                 case "help" -> help(sender, label);
+                case "menu" -> {
+                    if (sender instanceof Player p) {
+                        menu.open(p);
+                    } else {
+                        error(sender, "Le menu est réservé aux joueurs : utilise <white>/vibe list</white>.");
+                    }
+                }
                 case "list" -> list(sender);
                 case "info" -> withId(sender, args, label, "info <id>", id -> info(sender, id));
                 case "reload" -> withId(sender, args, label, "reload <id|all>", id -> reload(sender, id));
@@ -136,6 +145,7 @@ public final class VibeCommand implements TabExecutor {
 
     private void help(CommandSender sender, String label) {
         send(sender, Msg.pmm("<white>Coder le serveur en direct</white> <dark_gray>(clique pour remplir)</dark_gray>"));
+        helpLine(sender, "menu", "", "menu graphique (inventaire)");
         helpLine(sender, "list", "", "modules et leur état");
         helpLine(sender, "info", " <id>", "détails d'un module");
         helpLine(sender, "reload", " <id|all>", "recompiler à chaud");

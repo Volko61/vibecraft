@@ -164,6 +164,7 @@ public final class PackBuilder {
         if (files.isEmpty()) {
             return new Result(null, "", 0, List.of(), List.copyOf(issues), namespaces);
         }
+        addAtlases(files);
         byte[] zip = zip(files, packMeta(minFormat, maxFormat, description));
         return new Result(zip, sha1Hex(zip), files.size(), List.copyOf(contributing), List.copyOf(issues), namespaces);
     }
@@ -487,6 +488,59 @@ public final class PackBuilder {
                 issues.add(new Issue(e.module, e.source, "WARNING", "bitmap height " + height + " looks wrong"));
             }
         }
+    }
+
+    // ------------------------------------------------------------------ atlases
+
+    /**
+     * The client only stitches textures/block/** and textures/item/** into the atlases models use. Any other
+     * texture a model references (textures/entity/..., textures/custom/...) would render purple-black, so each
+     * one is added as a single source to the blocks and items atlases (atlas files merge across packs).
+     */
+    private static void addAtlases(Map<String, Entry> files) {
+        java.util.TreeSet<String> extra = new java.util.TreeSet<>();
+        for (Map.Entry<String, Entry> f : files.entrySet()) {
+            String key = f.getKey();
+            if (!key.startsWith("assets/") || !key.contains("/models/") || !key.endsWith(".json")) {
+                continue;
+            }
+            try {
+                JsonElement json = JsonParser.parseString(new String(f.getValue().data, StandardCharsets.UTF_8));
+                if (!json.isJsonObject() || !json.getAsJsonObject().has("textures")
+                        || !json.getAsJsonObject().get("textures").isJsonObject()) {
+                    continue;
+                }
+                for (Map.Entry<String, JsonElement> t : json.getAsJsonObject().getAsJsonObject("textures").entrySet()) {
+                    if (!t.getValue().isJsonPrimitive() || t.getValue().getAsString().startsWith("#")) {
+                        continue;
+                    }
+                    String[] p = id(t.getValue().getAsString());
+                    if (p[1].startsWith("block/") || p[1].startsWith("item/")) {
+                        continue; // already stitched by the vanilla directory sources
+                    }
+                    if (files.containsKey("assets/" + p[0] + "/textures/" + p[1] + ".png")) {
+                        extra.add(p[0] + ":" + p[1]);
+                    }
+                }
+            } catch (RuntimeException ignored) {
+                // invalid JSON is reported by the validator
+            }
+        }
+        if (extra.isEmpty()) {
+            return;
+        }
+        JsonArray sources = new JsonArray();
+        for (String res : extra) {
+            JsonObject src = new JsonObject();
+            src.addProperty("type", "minecraft:single");
+            src.addProperty("resource", res);
+            sources.add(src);
+        }
+        JsonObject atlas = new JsonObject();
+        atlas.add("sources", sources);
+        byte[] data = atlas.toString().getBytes(StandardCharsets.UTF_8);
+        files.put("assets/minecraft/atlases/blocks.json", new Entry("vibecraft", "(generated atlas)", data));
+        files.put("assets/minecraft/atlases/items.json", new Entry("vibecraft", "(generated atlas)", data));
     }
 
     // ------------------------------------------------------------------ zip

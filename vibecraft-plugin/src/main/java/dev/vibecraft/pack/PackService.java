@@ -288,15 +288,52 @@ public final class PackService implements Listener {
         builtAt = System.currentTimeMillis();
         PackBuilder.Result prev = current;
         current = r;
+        ModelRegistry.update(r.models());
         if (!r.empty()) {
             served.put(r.sha1(), r.zip());
         }
+        writePreviews(in, r);
         reportIssues(in, r);
         boolean changed = prev == null ? !r.empty() : !prev.sha1().equals(r.sha1());
         if (changed) {
             log.info("Resource pack: " + (r.empty() ? "no module assets" : r.files() + " file(s) from " + r.modules()
                     + ", " + r.zip().length / 1024 + " KB, sha1 " + r.sha1().substring(0, 10)) + " (" + buildMs + " ms)");
             Bukkit.getScheduler().runTask(plugin, this::pushAll);
+        }
+    }
+
+    /** "car:sports_car" -> "car_sports_car.png" (relative to modules/<id>/.vibe/previews/). */
+    static String previewName(String id) {
+        return id.replace(':', '_').replace('/', '_') + ".png";
+    }
+
+    private final Map<String, String> previewHashes = new ConcurrentHashMap<>();
+
+    private void writePreviews(List<PackBuilder.Input> in, PackBuilder.Result r) {
+        for (dev.vibecraft.pack.mesh.MeshCompiler.ObjectInfo o : r.models()) {
+            byte[] png = r.previews().get(o.id());
+            if (png == null) {
+                continue;
+            }
+            for (PackBuilder.Input m : in) {
+                if (!m.moduleId().equals(o.module())) {
+                    continue;
+                }
+                File f = new File(m.moduleDir(), ".vibe/previews/" + previewName(o.id()));
+                String h = PackBuilder.sha1Hex(png);
+                if (h.equals(previewHashes.get(f.getPath())) && f.isFile()) {
+                    continue;
+                }
+                try {
+                    Files.createDirectories(f.getParentFile().toPath());
+                    Path tmp = new File(f.getParentFile(), "." + f.getName() + ".tmp").toPath();
+                    Files.write(tmp, png);
+                    Files.move(tmp, f.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    previewHashes.put(f.getPath(), h);
+                } catch (IOException ignored) {
+                    // module directory vanished
+                }
+            }
         }
     }
 
@@ -307,6 +344,14 @@ public final class PackService implements Listener {
             StringBuilder sb = new StringBuilder();
             for (PackBuilder.Issue i : issues) {
                 sb.append(i).append('\n');
+            }
+            for (dev.vibecraft.pack.mesh.MeshCompiler.ObjectInfo o : r.models()) {
+                if (o.module().equals(m.moduleId())) {
+                    sb.append("3D ").append(o.id()).append(": ").append(o.elements()).append(" elements, ")
+                            .append(o.parts().size()).append(" part(s), atlas ").append(o.atlasWidth()).append('x')
+                            .append(o.atlasHeight()).append(", mode ").append(o.mode()).append(", preview .vibe/previews/")
+                            .append(previewName(o.id())).append('\n');
+                }
             }
             String text = sb.toString();
             String prev = lastIssueText.put(m.moduleId(), text);
@@ -334,6 +379,11 @@ public final class PackService implements Listener {
             }
             if (issues.isEmpty()) {
                 moduleLog.accept(m.moduleId(), "INFO assets: OK (resource pack rebuilt)");
+            }
+            for (String line : text.split("\n")) {
+                if (line.startsWith("3D ")) {
+                    moduleLog.accept(m.moduleId(), "INFO assets: " + line);
+                }
             }
         }
     }
@@ -560,6 +610,15 @@ public final class PackService implements Listener {
             }
         }
         m.put("issues", issues);
+        List<Map<String, Object>> models = new ArrayList<>();
+        if (r != null) {
+            for (dev.vibecraft.pack.mesh.MeshCompiler.ObjectInfo o : r.models()) {
+                Map<String, Object> d = dev.vibecraft.pack.mesh.MeshCompiler.describe(o);
+                d.put("preview", "modules/" + o.module() + "/.vibe/previews/" + previewName(o.id()));
+                models.add(d);
+            }
+        }
+        m.put("models", models);
         Map<String, String> players = new TreeMap<>();
         playerStatus.forEach((u, s) -> {
             Player p = Bukkit.getPlayer(u);

@@ -155,7 +155,9 @@ public final class TextureService {
                     + ") produces the same PNG: delete it, the generated PNG is used");
         }
         r.put("next", "resource pack rebuilt and pushed to players in ~1-2 s; reference it as "
-                + resourceId(spec.path()) + " in your models");
+                + resourceId(spec.path()) + " in your models"
+                + (spec.kind().equals("realistic") || spec.kind().equals("decal")
+                ? " or in a .shape.json material: {\"texture\": \"" + resourceId(spec.path()) + "\"}" : ""));
         moduleLog.accept(moduleId, "INFO texture generated: " + spec.path() + " (" + out.getWidth() + "x" + out.getHeight()
                 + ", " + img.model() + (img.cost() >= 0 ? String.format(Locale.ROOT, ", $%.4f", img.cost()) : "") + ")");
         return Reply.ok(r);
@@ -211,12 +213,14 @@ public final class TextureService {
             };
         }
         kind = kind.strip().toLowerCase(Locale.ROOT);
-        if (!kind.matches("item|block|entity|gui|skin|other")) {
-            throw new IllegalArgumentException("\"kind\" must be item, block, entity, skin, gui or other");
+        if (!kind.matches("item|block|entity|gui|skin|other|realistic|decal")) {
+            throw new IllegalArgumentException("\"kind\" must be item, block, entity, skin, gui, realistic, decal or other");
         }
+        // realistic = photo-like seamless material for 3D objects (shape.json materials), decal = photo-like picture
+        boolean photo = kind.equals("realistic") || kind.equals("decal");
         int defSize = switch (kind) {
             case "entity", "skin" -> 64;
-            case "gui" -> 128;
+            case "gui", "realistic", "decal" -> 128;
             default -> 16;
         };
         int size = intVal(o, "size", defSize);
@@ -225,10 +229,15 @@ public final class TextureService {
         if (width < 4 || height < 4 || width > 512 || height > 512) {
             throw new IllegalArgumentException("size/width/height must be between 4 and 512 (Minecraft items are 16, blocks 16, entities 64)");
         }
-        boolean seamless = boolVal(o, "seamless", kind.equals("block"));
+        if (photo) {
+            // multiples of 16: other sizes lower the mip level of the whole texture atlas on clients
+            width = Math.min(512, (width + 15) / 16 * 16);
+            height = Math.min(512, (height + 15) / 16 * 16);
+        }
+        boolean seamless = boolVal(o, "seamless", kind.equals("block") || kind.equals("realistic"));
         boolean transparent = !seamless && boolVal(o, "transparent", kind.equals("item"));
         boolean crop = boolVal(o, "crop", kind.equals("item"));
-        int colors = intVal(o, "colors", width * height <= 256 ? 16 : width * height <= 1024 ? 24 : 48);
+        int colors = intVal(o, "colors", photo ? 0 : width * height <= 256 ? 16 : width * height <= 1024 ? 24 : 48);
         if (colors < 0 || colors > 256) {
             throw new IllegalArgumentException("\"colors\" must be between 0 (no palette reduction) and 256");
         }
@@ -246,6 +255,9 @@ public final class TextureService {
                     + "seamless tileable pattern, no border, no perspective, no shadows, even lighting";
             case "entity", "skin" -> "flat texture sheet for a Minecraft mob, pixel art, simple flat shading, fills the whole frame";
             case "gui" -> "flat Minecraft-style user interface panel, pixel art, beveled gray frame, readable at small size";
+            case "realistic" -> "photorealistic seamless tileable material texture (albedo map), flat orthographic top-down view "
+                    + "filling the entire square edge to edge, even diffuse lighting, no shadows, no perspective, no objects, fine detail";
+            case "decal" -> "photorealistic detailed picture, flat front view, fills the frame, even lighting";
             default -> "Minecraft style pixel art, flat shading";
         };
         StringBuilder p = new StringBuilder();
@@ -253,8 +265,12 @@ public final class TextureService {
         if (s.transparent()) {
             p.append(" Isolated on a plain, perfectly uniform solid magenta (#FF00FF) background, no shadow, no ground.");
         }
-        p.append(" The result will be downscaled to ").append(s.width()).append('x').append(s.height())
-                .append(" pixels: use large clear shapes and strong contrast.");
+        if (s.kind().equals("realistic") || s.kind().equals("decal")) {
+            p.append(" High quality, realistic colors and texture.");
+        } else {
+            p.append(" The result will be downscaled to ").append(s.width()).append('x').append(s.height())
+                    .append(" pixels: use large clear shapes and strong contrast.");
+        }
         return p.toString();
     }
 

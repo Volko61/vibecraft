@@ -346,7 +346,8 @@ Wired by `ext/Extensions` (created in `onEnable` right after the ModuleManager, 
   timestamps -> deterministic SHA-1) with a generated `pack.mcmeta` (`min_format`/`max_format` = `resource_major` of
   the server's `version.json`, 97 for 26.3). Text sources are compiled: `*.png.txt` / `*.texture.json` (pixel art,
   shapes, animation frames -> `.png` + `.png.mcmeta`), `*.png.b64`. Validation: JSON syntax (strict; lenient-only =
-  warning), PNG/Ogg signatures, model `parent`/texture references, element bounds (-16..32, angle <= 45), item
+  warning), PNG/Ogg signatures, model `parent`/texture references, element rules of the 26.3 client (from/to in
+  -16..32, 1..6 faces, rotation = axis+angle with any angle or Euler x/y/z, light_emission 0..15), item
   definitions -> models, font bitmaps -> textures + ascent <= height, path charset, cross-module file and namespace
   collisions. Errors leave the file out (other files/modules unaffected) and are reported in `.vibe/assets.log`,
   the module's log ring and `GET /api/pack`. A poller (500 ms, debounce `resource-pack.debounce-ms`) + module events
@@ -367,6 +368,26 @@ Wired by `ext/Extensions` (created in `onEnable` right after the ModuleManager, 
   `POST /images` (fallback: chat completions with `modalities: ["image","text"]`, images in `message.images`) ->
   border-colour flood-fill keying, crop to subject, box downsampling, binary alpha, median-cut palette,
   optional offset-blend seamless tiling -> PNG written atomically into the module's `assets/` (the watcher pushes it).
+  `kind: realistic` (seamless photo-like material, 128, no palette reduction) and `decal` feed 3D object materials.
+* **Realistic 3D objects** (`pack/mesh/`, module API `dev.vibecraft.api.Models`): `assets/<ns>/**/<name>.shape.json`
+  (primitive scene: box/rounded box, cylinder, cone, sphere/ellipsoid, capsule, torus, lathe, extrude, polygon, mesh;
+  materials; parts with pivots; mirror) and `<name>.obj` (+ `.mtl`) are compiled at pack build (`MeshCompiler`,
+  after the module's textures, cached by content) into object `<ns>:<name>`. Client limits (read in the 26.3 jar,
+  `client/resources/model/cuboid/*`): from/to in -16..32 only (rotated corners may exceed), any rotation angle and
+  Euler `x/y/z` (`Matrix4f.rotationZYX`), display translation clamped to +-80 px and scale to +-4, item display
+  renderer = entity yaw/pitch * transformation * Ry(180) * item transform (-0.5 offset). Exact mode: everything
+  becomes oriented cuboids (`Geometry`): boxes 1 element, n-gon prisms n/2 overlapping "side-to-side" boxes (exact
+  polygon), planar facets coplanar zero-thickness plates (strips, outline error <= tolerance = size / (4 x segments)),
+  hidden faces culled. Voxel mode (`Voxelizer`, dense meshes / `"mode": "voxel"`): rasterise + flood fill + greedy
+  per-slice faces merged by geometry. `Baker`: atlas `textures/item/mesh/<name>.png` (16x16 colour cells with baked
+  directional light, texture/voxel patches deduplicated, shelf packing, width 2^n, height multiple of 16, max 1024).
+  Output: `models|items/<name>.json` (whole object fitted in 1 block, vanilla block display transforms) and
+  `models|items/<name>/<part>[.n].json` (frame centred on the part pivot, Ry(180) baked in, split every 1024
+  elements); manifest `ObjectInfo` (pivots, display unit) -> `pack/ModelRegistry` -> `Models.spawn` (one ItemDisplay
+  per part model, transform NONE, translation = pivot x scale, scale = unit x scale, tracked by `ctx.entity`),
+  `teleport/setYaw/rotatePart/ride/item`. `Preview` software-rasterises the generated JSON into
+  `modules/<id>/.vibe/previews/<ns>_<name>.png` (4 views); `GET /api/pack` lists `models`. Offline: `MeshTool`.
+  Test: `node tests/e2e/assets/run-mesh.mjs --sandbox <dir>` (ports 25660/25661/8860/8861/8862).
 * Extra API routes are registered through `web/ApiExtensions` (tried before the built-in routes, token-checked):
   `GET /api/pack`, `POST /api/pack/rebuild`, `GET /api/openrouter`, `POST /api/modules/<id>/textures`.
 * AI jobs: `ai.mcp-config` -> `--mcp-config <abs>` + `mcp__<server>` allowed tools (not in `--tools`), `ai.env`,

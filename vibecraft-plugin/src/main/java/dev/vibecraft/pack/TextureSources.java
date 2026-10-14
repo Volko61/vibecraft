@@ -386,7 +386,7 @@ public final class TextureSources {
     }
 
     /** "#rgb", "#rrggbb", "#rrggbbaa", "transparent"/"none"/"clear" -> ARGB. */
-    static int color(String s, String key) throws SourceException {
+    public static int color(String s, String key) throws SourceException {
         String v = s.strip().toLowerCase(Locale.ROOT);
         if (v.equals("transparent") || v.equals("none") || v.equals("clear") || v.isEmpty()) {
             return 0;

@@ -1,0 +1,88 @@
+{
+  "detail": "high",
+  "light": 0.6,
+  "materials": {
+    "paint": "#c8102e",
+    "paint_dark": "#8e0b20",
+    "black": "#16161a",
+    "trim": "#2a2a30",
+    "chrome": "#c9ced6",
+    "rim": "#a7adb7",
+    "tire": "#1c1c1e",
+    "leather": {"texture": "sportscar:block/leather", "tile": 0.5},
+    "glass": {"color": "#a9d4ff70", "double_sided": true},
+    "headlight": {"color": "#fff7d6", "glow": 13},
+    "taillight": {"color": "#ff2a2a", "glow": 10},
+    "plate": "#f2f2ea"
+  },
+  "parts": {
+    "body": {
+      "shapes": [
+        {"type": "extrude", "material": "paint", "rotate": [0, -90, 0], "depth": 1.86,
+         "points": [[-2.22, 0.30], [-1.76, 0.30], [-1.77, 0.38], [-1.71, 0.52], [-1.60, 0.64], [-1.45, 0.72], [-1.27, 0.74],
+                    [-1.10, 0.70], [-0.97, 0.60], [-0.92, 0.47], [-0.92, 0.30], [0.92, 0.30], [0.92, 0.47], [0.97, 0.60],
+                    [1.10, 0.70], [1.27, 0.74], [1.45, 0.72], [1.60, 0.64], [1.71, 0.52], [1.77, 0.38], [1.76, 0.30],
+                    [2.12, 0.30], [2.27, 0.40], [2.27, 0.52], [2.16, 0.66], [1.60, 0.76], [0.80, 0.83], [0.30, 0.86],
+                    [-1.30, 0.88], [-2.00, 0.90], [-2.24, 0.82], [-2.28, 0.60], [-2.26, 0.40]]},
+        {"type": "box", "material": "black", "from": [-0.78, 0.18, -1.70], "to": [0.78, 0.31, 1.70]},
+        {"type": "box", "material": "black", "from": [-0.72, 0.84, -0.95], "to": [0.72, 0.90, 0.28]},
+        {"type": "box", "material": "trim", "from": [-0.94, 0.30, -0.90], "to": [-0.92, 0.38, 0.90], "mirror": "x"},
+
+        {"type": "box", "material": "leather", "size": [0.5, 0.12, 0.5], "at": [0.36, 0.86, -0.40], "mirror": "x"},
+        {"type": "box", "material": "leather", "size": [0.5, 0.48, 0.12], "at": [0.36, 1.08, -0.68], "rotate": [-12, 0, 0], "round": 0.05, "mirror": "x"},
+        {"type": "sphere", "material": "paint", "radii": [0.24, 0.20, 0.55], "at": [0.36, 0.88, -1.20], "segments": 16, "rings": 8, "mirror": "x"},
+
+        {"type": "box", "material": "black", "size": [1.50, 0.10, 0.30], "at": [0, 0.92, 0.18], "rotate": [-10, 0, 0]},
+        {"type": "torus", "material": "black", "radius": 0.16, "tube": 0.025, "at": [0.36, 1.02, 0.02], "rotate": [-60, 0, 0], "segments": 16, "tube_segments": 4},
+        {"type": "cylinder", "material": "trim", "radius": 0.025, "height": 0.25, "at": [0.36, 0.95, 0.12], "rotate": [-60, 0, 0], "segments": 6},
+
+        {"type": "polygon", "material": "glass", "points": [[-0.80, 0.86, 0.52], [0.80, 0.86, 0.52], [0.74, 1.22, 0.24], [-0.74, 1.22, 0.24]]},
+        {"type": "box", "material": "black", "size": [0.04, 0.46, 0.04], "at": [0.79, 1.04, 0.38], "rotate": [-38, 0, 0], "mirror": "x"},
+        {"type": "box", "material": "black", "size": [1.52, 0.04, 0.05], "at": [0, 1.22, 0.24]},
+        {"type": "box", "material": "paint", "size": [0.14, 0.08, 0.06], "at": [0.98, 0.95, 0.38], "round": 0.03, "mirror": "x"},
+        {"type": "box", "material": "chrome", "size": [0.02, 0.06, 0.04], "at": [1.04, 0.95, 0.38], "mirror": "x"},
+
+        {"type": "box", "material": "headlight", "size": [0.42, 0.09, 0.30], "at": [0.62, 0.68, 2.02], "rotate": [-16, 0, 0], "mirror": "x"},
+        {"type": "box", "material": "black", "size": [0.90, 0.14, 0.04], "at": [0, 0.44, 2.27]},
+        {"type": "box", "material": "chrome", "size": [0.94, 0.02, 0.05], "at": [0, 0.52, 2.27]},
+        {"type": "box", "material": "taillight", "size": [0.42, 0.12, 0.04], "at": [0.60, 0.74, -2.27], "rotate": [12, 0, 0], "mirror": "x"},
+        {"type": "box", "material": "plate", "size": [0.46, 0.13, 0.02], "at": [0, 0.50, -2.28]},
+        {"type": "cylinder", "material": "chrome", "axis": "z", "radius": 0.055, "height": 0.30, "at": [0.42, 0.33, -2.18], "cap_material": "black", "segments": 12, "mirror": "x"},
+        {"type": "box", "material": "paint_dark", "size": [1.60, 0.04, 0.26], "at": [0, 1.00, -2.02], "rotate": [6, 0, 0]},
+        {"type": "box", "material": "black", "size": [0.05, 0.12, 0.10], "at": [0.55, 0.93, -2.02], "mirror": "x"}
+      ]
+    },
+    "wheel_fl": {"pivot": [0.80, 0.36, 1.35], "shapes": [
+      {"type": "cylinder", "material": "tire", "axis": "x", "radius": 0.36, "height": 0.27, "at": [0.80, 0.36, 1.35], "segments": 28},
+      {"type": "cylinder", "material": "rim", "axis": "x", "radius": 0.24, "height": 0.29, "at": [0.80, 0.36, 1.35], "segments": 20},
+      {"type": "cylinder", "material": "chrome", "axis": "x", "radius": 0.06, "height": 0.31, "at": [0.80, 0.36, 1.35], "segments": 8},
+      {"type": "box", "material": "trim", "size": [0.30, 0.40, 0.05], "at": [0.80, 0.36, 1.35], "rotate": [0, 0, 0]},
+      {"type": "box", "material": "trim", "size": [0.30, 0.40, 0.05], "at": [0.80, 0.36, 1.35], "rotate": [60, 0, 0]},
+      {"type": "box", "material": "trim", "size": [0.30, 0.40, 0.05], "at": [0.80, 0.36, 1.35], "rotate": [120, 0, 0]}
+    ]},
+    "wheel_fr": {"pivot": [-0.80, 0.36, 1.35], "shapes": [
+      {"type": "cylinder", "material": "tire", "axis": "x", "radius": 0.36, "height": 0.27, "at": [-0.80, 0.36, 1.35], "segments": 28},
+      {"type": "cylinder", "material": "rim", "axis": "x", "radius": 0.24, "height": 0.29, "at": [-0.80, 0.36, 1.35], "segments": 20},
+      {"type": "cylinder", "material": "chrome", "axis": "x", "radius": 0.06, "height": 0.31, "at": [-0.80, 0.36, 1.35], "segments": 8},
+      {"type": "box", "material": "trim", "size": [0.30, 0.40, 0.05], "at": [-0.80, 0.36, 1.35], "rotate": [0, 0, 0]},
+      {"type": "box", "material": "trim", "size": [0.30, 0.40, 0.05], "at": [-0.80, 0.36, 1.35], "rotate": [60, 0, 0]},
+      {"type": "box", "material": "trim", "size": [0.30, 0.40, 0.05], "at": [-0.80, 0.36, 1.35], "rotate": [120, 0, 0]}
+    ]},
+    "wheel_rl": {"pivot": [0.80, 0.36, -1.35], "shapes": [
+      {"type": "cylinder", "material": "tire", "axis": "x", "radius": 0.36, "height": 0.29, "at": [0.80, 0.36, -1.35], "segments": 28},
+      {"type": "cylinder", "material": "rim", "axis": "x", "radius": 0.24, "height": 0.31, "at": [0.80, 0.36, -1.35], "segments": 20},
+      {"type": "cylinder", "material": "chrome", "axis": "x", "radius": 0.06, "height": 0.33, "at": [0.80, 0.36, -1.35], "segments": 8},
+      {"type": "box", "material": "trim", "size": [0.32, 0.40, 0.05], "at": [0.80, 0.36, -1.35], "rotate": [0, 0, 0]},
+      {"type": "box", "material": "trim", "size": [0.32, 0.40, 0.05], "at": [0.80, 0.36, -1.35], "rotate": [60, 0, 0]},
+      {"type": "box", "material": "trim", "size": [0.32, 0.40, 0.05], "at": [0.80, 0.36, -1.35], "rotate": [120, 0, 0]}
+    ]},
+    "wheel_rr": {"pivot": [-0.80, 0.36, -1.35], "shapes": [
+      {"type": "cylinder", "material": "tire", "axis": "x", "radius": 0.36, "height": 0.29, "at": [-0.80, 0.36, -1.35], "segments": 28},
+      {"type": "cylinder", "material": "rim", "axis": "x", "radius": 0.24, "height": 0.31, "at": [-0.80, 0.36, -1.35], "segments": 20},
+      {"type": "cylinder", "material": "chrome", "axis": "x", "radius": 0.06, "height": 0.33, "at": [-0.80, 0.36, -1.35], "segments": 8},
+      {"type": "box", "material": "trim", "size": [0.32, 0.40, 0.05], "at": [-0.80, 0.36, -1.35], "rotate": [0, 0, 0]},
+      {"type": "box", "material": "trim", "size": [0.32, 0.40, 0.05], "at": [-0.80, 0.36, -1.35], "rotate": [60, 0, 0]},
+      {"type": "box", "material": "trim", "size": [0.32, 0.40, 0.05], "at": [-0.80, 0.36, -1.35], "rotate": [120, 0, 0]}
+    ]}
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "palette": {"a": "#b07a4a", "b": "#a46f42", "c": "#bb8655", "d": "#8f5d36", "e": "#c4925f"},
+  "pixels": [
+    "aabacaabaacabaab",
+    "abaacaabdaacaaba",
+    "aacaaebaaacaabaa",
+    "daaabaacaaabaaca",
+    "dddddddddddddddd",
+    "aabacaebaacabaae",
+    "baacaabaabacaaba",
+    "aaebaacaabaacaba",
+    "acaabaaabacaaeaa",
+    "dddddddddddddddd",
+    "aabacaabaacabaab",
+    "abaacebaaaacaaba",
+    "aacaabbaaacaabea",
+    "caaabaacaaabaaca",
+    "abacaabaacaebaaa",
+    "dddddddddddddddd"
+  ]
+}

@@ -32,6 +32,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.Strictness;
 import com.google.gson.stream.JsonReader;
+import dev.vibecraft.pack.mesh.MeshCompiler;
 
 /**
  * Merges the {@code assets/} folders of modules into one resource pack zip (deterministic bytes,
@@ -60,7 +61,13 @@ public final class PackBuilder {
      * @param namespaces namespace -> modules using it
      */
     public record Result(byte[] zip, String sha1, int files, List<String> modules, List<Issue> issues,
-                         Map<String, Set<String>> namespaces) {
+                         Map<String, Set<String>> namespaces, List<MeshCompiler.ObjectInfo> models,
+                         Map<String, byte[]> previews) {
+        public Result(byte[] zip, String sha1, int files, List<String> modules, List<Issue> issues,
+                      Map<String, Set<String>> namespaces) {
+            this(zip, sha1, files, modules, issues, namespaces, List.of(), Map.of());
+        }
+
         public boolean empty() {
             return zip == null;
         }
@@ -100,12 +107,15 @@ public final class PackBuilder {
         List<Input> sorted = new ArrayList<>(inputs);
         sorted.sort((a, b) -> a.moduleId().compareTo(b.moduleId()));
 
+        List<MeshCompiler.ObjectInfo> models = new ArrayList<>();
+        Map<String, byte[]> previews = new TreeMap<>();
         for (Input in : sorted) {
             Path assets = new File(in.moduleDir(), "assets").toPath();
             if (!Files.isDirectory(assets)) {
                 continue;
             }
             Map<String, byte[]> raw = readTree(in, assets, issues);
+            List<String> meshSources = new ArrayList<>();
             for (Map.Entry<String, byte[]> f : raw.entrySet()) {
                 String rel = f.getKey(); // "assets/ns/..."
                 String[] parts = rel.split("/");
@@ -126,6 +136,14 @@ public final class PackBuilder {
                     continue;
                 }
                 namespaces.computeIfAbsent(ns, k -> new TreeSet<>()).add(in.moduleId());
+                String fileName = rel.substring(rel.lastIndexOf('/') + 1);
+                if (MeshCompiler.isSource(fileName)) {
+                    meshSources.add(rel); // compiled once the module's textures are converted
+                    continue;
+                }
+                if (MeshCompiler.isAuxiliary(fileName)) {
+                    continue; // .mtl: read by .obj sources only
+                }
                 List<Map.Entry<String, byte[]>> outputs;
                 try {
                     outputs = convert(rel, f.getValue(), issues, in.moduleId());
@@ -134,23 +152,10 @@ public final class PackBuilder {
                     continue;
                 }
                 for (Map.Entry<String, byte[]> o : outputs) {
-                    Entry prev = files.get(o.getKey());
-                    if (prev != null) {
-                        if (prev.module.equals(in.moduleId())) {
-                            issues.add(new Issue(in.moduleId(), rel, "WARNING", o.getKey() + " is produced twice (by "
-                                    + prev.source + " and " + rel + "); keeping " + prev.source));
-                        } else {
-                            issues.add(new Issue(in.moduleId(), rel, "WARNING", o.getKey() + " is already provided by module '"
-                                    + prev.module + "' (kept); rename your file or use your own namespace"));
-                            issues.add(new Issue(prev.module, prev.source, "WARNING", o.getKey()
-                                    + " is also provided by module '" + in.moduleId() + "' (yours is kept)"));
-                        }
-                        continue;
-                    }
-                    files.put(o.getKey(), new Entry(in.moduleId(), rel, o.getValue()));
-                    contributing.add(in.moduleId());
+                    put(files, issues, contributing, in.moduleId(), rel, o.getKey(), o.getValue());
                 }
             }
+            compileMeshes(in, raw, meshSources, files, issues, contributing, models, previews);
         }
         for (Map.Entry<String, Set<String>> ns : namespaces.entrySet()) {
             if (ns.getValue().size() > 1 && !ns.getKey().equals("minecraft")) {
@@ -162,11 +167,93 @@ public final class PackBuilder {
         }
         validateReferences(files, issues);
         if (files.isEmpty()) {
-            return new Result(null, "", 0, List.of(), List.copyOf(issues), namespaces);
+            return new Result(null, "", 0, List.of(), List.copyOf(issues), namespaces, List.copyOf(models), previews);
         }
         addAtlases(files);
         byte[] zip = zip(files, packMeta(minFormat, maxFormat, description));
-        return new Result(zip, sha1Hex(zip), files.size(), List.copyOf(contributing), List.copyOf(issues), namespaces);
+        return new Result(zip, sha1Hex(zip), files.size(), List.copyOf(contributing), List.copyOf(issues), namespaces,
+                List.copyOf(models), previews);
+    }
+
+    private static boolean put(Map<String, Entry> files, List<Issue> issues, Set<String> contributing, String module,
+                               String rel, String key, byte[] data) {
+        Entry prev = files.get(key);
+        if (prev != null) {
+            if (prev.module.equals(module)) {
+                issues.add(new Issue(module, rel, "WARNING", key + " is produced twice (by "
+                        + prev.source + " and " + rel + "); keeping " + prev.source));
+            } else {
+                issues.add(new Issue(module, rel, "WARNING", key + " is already provided by module '"
+                        + prev.module + "' (kept); rename your file or use your own namespace"));
+                issues.add(new Issue(prev.module, prev.source, "WARNING", key
+                        + " is also provided by module '" + module + "' (yours is kept)"));
+            }
+            return false;
+        }
+        files.put(key, new Entry(module, rel, data));
+        contributing.add(module);
+        return true;
+    }
+
+    /**
+     * Compiles the module's 3D sources ({@code *.shape.json}, then {@code *.obj} not used by a shape) into item
+     * models + atlas (see {@link MeshCompiler}). Textures are read from the files converted so far.
+     */
+    private static void compileMeshes(Input in, Map<String, byte[]> raw, List<String> sources, Map<String, Entry> files,
+                                      List<Issue> issues, Set<String> contributing, List<MeshCompiler.ObjectInfo> models,
+                                      Map<String, byte[]> previews) {
+        if (sources.isEmpty()) {
+            return;
+        }
+        MeshCompiler.Resolver resolver = p -> {
+            Entry e = files.get(p);
+            return e != null ? e.data : raw.get(p);
+        };
+        List<String> ordered = new ArrayList<>();
+        sources.stream().filter(s -> s.endsWith(".shape.json")).forEach(ordered::add);
+        sources.stream().filter(s -> !s.endsWith(".shape.json")).forEach(ordered::add);
+        Set<String> usedObjs = new TreeSet<>();
+        for (String rel : ordered) {
+            if (rel.endsWith(".obj") && usedObjs.contains(rel)) {
+                continue; // part of a shape.json
+            }
+            if (rel.endsWith(".shape.json")) {
+                usedObjs.addAll(objReferences(raw.get(rel), rel));
+            }
+            MeshCompiler.Output out;
+            try {
+                out = MeshCompiler.compile(in.moduleId(), rel, raw.get(rel), resolver);
+            } catch (TextureSources.SourceException e) {
+                issues.add(new Issue(in.moduleId(), rel, "ERROR", e.getMessage() + " (object left out of the pack)"));
+                continue;
+            } catch (RuntimeException e) {
+                issues.add(new Issue(in.moduleId(), rel, "ERROR", "3D compile failed: " + e + " (object left out of the pack)"));
+                continue;
+            }
+            for (String w : out.info().warnings()) {
+                issues.add(new Issue(in.moduleId(), rel, "WARNING", w));
+            }
+            for (Map.Entry<String, byte[]> o : out.files().entrySet()) {
+                put(files, issues, contributing, in.moduleId(), rel, o.getKey(), o.getValue());
+            }
+            models.add(out.info());
+            if (out.preview() != null) {
+                previews.put(out.info().id(), out.preview());
+            }
+        }
+    }
+
+    /** OBJ files referenced by "obj" fields of a shape source (resolved like ShapeSpec does), best effort. */
+    private static Set<String> objReferences(byte[] data, String rel) {
+        Set<String> out = new TreeSet<>();
+        String text = new String(data, StandardCharsets.UTF_8);
+        java.util.regex.Matcher m = Pattern.compile("\"obj\"\\s*:\\s*\"([^\"]+)\"").matcher(text);
+        String dir = rel.substring(0, rel.lastIndexOf('/') + 1);
+        while (m.find()) {
+            String p = java.nio.file.Paths.get(dir + m.group(1)).normalize().toString().replace('\\', '/');
+            out.add(p);
+        }
+        return out;
     }
 
     // ------------------------------------------------------------------ reading & converting
@@ -385,11 +472,23 @@ public final class PackBuilder {
                         }
                     }
                 }
-                if (c.has("rotation") && c.get("rotation").isJsonObject()) {
-                    JsonElement a = c.getAsJsonObject("rotation").get("angle");
-                    if (a != null && a.isJsonPrimitive() && Math.abs(a.getAsDouble()) > 45) {
-                        issues.add(new Issue(e.module, e.source, "ERROR", "elements[" + i
-                                + "].rotation.angle must be between -45 and 45"));
+                // 26.3 client (CuboidModelElement.Deserializer): rotation = {origin, axis + angle} or
+                // {origin, x/y/z} (Euler, any angle); faces: 1 to 6; light_emission 0..15. Else the model fails.
+                if (c.has("rotation")) {
+                    String rerr = rotationError(c.get("rotation"));
+                    if (rerr != null) {
+                        issues.add(new Issue(e.module, e.source, "ERROR", "elements[" + i + "].rotation: " + rerr));
+                    }
+                }
+                if (!c.has("faces") || !c.get("faces").isJsonObject() || c.getAsJsonObject("faces").size() == 0) {
+                    issues.add(new Issue(e.module, e.source, "ERROR", "elements[" + i
+                            + "] needs \"faces\" with 1 to 6 faces (the client rejects the whole model otherwise)"));
+                }
+                if (c.has("light_emission")) {
+                    JsonElement le = c.get("light_emission");
+                    if (!le.isJsonPrimitive() || !le.getAsJsonPrimitive().isNumber() || le.getAsDouble() < 0 || le.getAsDouble() > 15
+                            || le.getAsDouble() != Math.floor(le.getAsDouble())) {
+                        issues.add(new Issue(e.module, e.source, "ERROR", "elements[" + i + "].light_emission must be an integer 0..15"));
                     }
                 }
                 if (c.has("faces") && c.get("faces").isJsonObject()) {
@@ -407,6 +506,37 @@ public final class PackBuilder {
                 i++;
             }
         }
+    }
+
+    /** Null if the element rotation is accepted by the 26.3 client, else why not. */
+    static String rotationError(JsonElement r) {
+        if (!r.isJsonObject()) {
+            return "must be an object";
+        }
+        JsonObject o = r.getAsJsonObject();
+        JsonElement origin = o.get("origin");
+        if (origin == null || !origin.isJsonArray() || origin.getAsJsonArray().size() != 3) {
+            return "needs \"origin\": [x, y, z]";
+        }
+        boolean axisForm = o.has("axis") || o.has("angle");
+        if (axisForm) {
+            if (!o.has("axis") || !o.get("axis").isJsonPrimitive() || !o.get("axis").getAsString().toLowerCase(java.util.Locale.ROOT).matches("[xyz]")) {
+                return "\"axis\" must be \"x\", \"y\" or \"z\"";
+            }
+            if (!o.has("angle") || !o.get("angle").isJsonPrimitive() || !o.get("angle").getAsJsonPrimitive().isNumber()) {
+                return "needs a numeric \"angle\" (any value is accepted by 26.3 clients)";
+            }
+            return null;
+        }
+        if (!o.has("x") && !o.has("y") && !o.has("z")) {
+            return "needs either \"axis\" + \"angle\" or Euler angles \"x\", \"y\", \"z\" (degrees)";
+        }
+        for (String k : List.of("x", "y", "z")) {
+            if (o.has(k) && (!o.get(k).isJsonPrimitive() || !o.get(k).getAsJsonPrimitive().isNumber())) {
+                return "\"" + k + "\" must be a number (degrees)";
+            }
+        }
+        return null;
     }
 
     private static void checkItem(JsonElement json, Map<String, Entry> files, Entry e, List<Issue> issues) {

@@ -39,7 +39,8 @@ mention it in your answer. A follow-up request in the same chat = edit your modu
 - No build tool: the server compiles your sources in memory (`javac --release 25`: records, `var`, switch
   patterns, text blocks are fine). Keep modules small (max ~1 MB of sources, 1000 classes).
 - Available libraries: Paper API 26.3, Adventure 5.2 + MiniMessage, Gson, SnakeYAML, Guava, JOML, the JDK
-  (incl. `java.net.http`), plus `dev.vibecraft.api.OpenRouter` (LLM calls) and `Secrets` (section 5).
+  (incl. `java.net.http`), plus `dev.vibecraft.api.OpenRouter` (LLM calls), `Secrets` (section 5) and `Models`
+  (3D objects, ASSETS.md section 9).
   Nothing else (no Maven dependencies, no other plugins' APIs).
 - Humans watch the dashboard at http://127.0.0.1:8765/ and in-game chat (reloads are announced there).
 
@@ -421,6 +422,10 @@ assets of all running modules, validates them and pushes the pack to players ~1 
   = seamless tile). 503 = no key: draw pixel art in `ruby.png.txt` (`{"palette": {...}, "pixels": [16 rows of 16 chars]}`).
 - 3D item: `models/item/x.json` (cuboids `from`/`to` within -16..32, `faces` with `uv`) + `items/x.json`
   `{"model":{"type":"minecraft:model","model":"<ns>:item/x"}}`, then on any base item `meta.setItemModel(new NamespacedKey("<ns>", "x"))`.
+- **Realistic 3D object** (car, guitar, lamp, statue, furniture...): write `assets/<ns>/shapes/<name>.shape.json`
+  (boxes, cylinders, spheres, lathes, extrusions... in blocks, front = +z) or a `.obj` text mesh; the server compiles it
+  (any angle, baked colours/textures). Check the preview image `.vibe/previews/<ns>_<name>.png` (Read it), place it
+  with `Models.spawn(ctx, "<ns>:<name>", loc, scale)`: **ASSETS.md section 9**, examples `sports-car`, `floor-lamp`.
 - New mob = invisible `Husk` + `ItemDisplay` parts (custom models) as passengers, animated with interpolated
   `setTransformation`; textured chest GUI = font glyph in the inventory title; vehicle = `Interaction` + `getCurrentInput()`.
 - Always check `curl -s http://127.0.0.1:8765/api/pack`: fix every `issues` entry of your module.
@@ -453,6 +458,8 @@ assets of all running modules, validates them and pushes the pack to players ~1 
 | `custom-gui` | textured chest GUI: background = custom font glyph (negative spaces), clickable buttons |
 | `hover-car` | rideable flying car: Interaction vehicle + model, steered with `Player#getCurrentInput()` |
 | `ai-npc` | AI villager answering in chat through `OpenRouter.chat` (async, history, cooldown, error message) |
+| `sports-car` | realistic drivable roadster from a `.shape.json` (extruded profile, cylinder wheels as animated parts), `Models.spawn` + `ride` |
+| `floor-lamp` | realistic decorative object from a hand-written `.obj` + `.mtl`, light block, `Models.item` |
 
 ## 10. Final answer
 

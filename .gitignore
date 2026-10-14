@@ -27,3 +27,5 @@ tests/**/reports/
 vibecraft-plugin/out-*/
 # user secrets (API keys) of the VibeCraft plugin: never commit
 **/secrets.yml
+workspace/modules/*
+!workspace/modules/.gitkeep

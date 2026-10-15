@@ -21,6 +21,7 @@ import javax.imageio.ImageIO;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import dev.vibecraft.ext.MeshyClient;
 import dev.vibecraft.ext.OpenRouterClient;
 import dev.vibecraft.ext.OpenRouterClient.OpenRouterException;
 import dev.vibecraft.web.ApiExtensions.Reply;
@@ -37,12 +38,27 @@ public final class TextureService {
     private static final int MAX_PROMPT = 1500;
 
     private final OpenRouterClient client;
+    private final java.util.function.Supplier<MeshyClient> meshy;
+    private final java.util.function.UnaryOperator<String> defaultProvider;
     private final File modulesDir;
     private final Runnable onWritten;
     private final BiConsumer<String, String> moduleLog;
 
     public TextureService(OpenRouterClient client, File modulesDir, Runnable onWritten, BiConsumer<String, String> moduleLog) {
+        this(client, () -> null, id -> "auto", modulesDir, onWritten, moduleLog);
+    }
+
+    /**
+     * @param meshy           Meshy client (text-to-image), may supply null
+     * @param defaultProvider module id -> provider used when the request has no "provider" (the running job's choice,
+     *                        else the configured default): "auto", "openrouter" or "meshy"
+     */
+    public TextureService(OpenRouterClient client, java.util.function.Supplier<MeshyClient> meshy,
+                          java.util.function.UnaryOperator<String> defaultProvider, File modulesDir, Runnable onWritten,
+                          BiConsumer<String, String> moduleLog) {
         this.client = client;
+        this.meshy = meshy;
+        this.defaultProvider = defaultProvider;
         this.modulesDir = modulesDir;
         this.onWritten = onWritten;
         this.moduleLog = moduleLog;
@@ -50,7 +66,26 @@ public final class TextureService {
 
     /** Parsed request. */
     record Spec(String path, String prompt, String kind, String style, String model, int width, int height,
-                boolean transparent, boolean seamless, boolean crop, int colors) {
+                boolean transparent, boolean seamless, boolean crop, int colors, String provider) {
+    }
+
+    /** "openrouter" or "meshy" for this request: explicit > job / config default > whichever has a key. */
+    String resolveProvider(String moduleId, Spec spec) {
+        String p = spec.provider();
+        if (p == null || p.equals("auto")) {
+            String d = null;
+            try {
+                d = defaultProvider.apply(moduleId);
+            } catch (RuntimeException ignored) {
+                // no default
+            }
+            p = d == null || d.isBlank() ? "auto" : d;
+        }
+        if (p.equals("auto")) {
+            MeshyClient m = meshy.get();
+            p = (client == null || !client.hasKey()) && m != null && m.hasKey() ? "meshy" : "openrouter";
+        }
+        return p;
     }
 
     public CompletableFuture<Reply> handle(String moduleId, String body) {
@@ -74,16 +109,30 @@ public final class TextureService {
         } catch (IOException e) {
             return CompletableFuture.completedFuture(Reply.error(400, "invalid path: " + e.getMessage()));
         }
-        if (client == null) {
-            return CompletableFuture.completedFuture(Reply.error(503, "OpenRouter indisponible"));
-        }
-        if (!client.hasKey()) {
-            return CompletableFuture.completedFuture(Reply.error(503, OpenRouterClient.NO_KEY
-                    + " En attendant, écrivez la texture en pixel art (fichier .png.txt, voir ASSETS.md)."));
-        }
+        String provider = resolveProvider(moduleId, spec);
         String fullPrompt = buildPrompt(spec);
         long t0 = System.currentTimeMillis();
-        return client.image(spec.model(), fullPrompt, spec.transparent())
+        CompletableFuture<OpenRouterClient.Image> image;
+        if (provider.equals("meshy")) {
+            MeshyClient m = meshy.get();
+            if (m == null || !m.hasKey()) {
+                return CompletableFuture.completedFuture(Reply.error(503, MeshyClient.NO_KEY
+                        + " En attendant, écrivez la texture en pixel art (fichier .png.txt, voir ASSETS.md)."));
+            }
+            String model = spec.model() == null || spec.model().isBlank() ? m.imageModel() : spec.model();
+            image = m.textToImage(fullPrompt, model, spec.transparent(), null)
+                    .thenApply(bytes -> new OpenRouterClient.Image(bytes, null, -1, "meshy/" + model));
+        } else {
+            if (client == null) {
+                return CompletableFuture.completedFuture(Reply.error(503, "OpenRouter indisponible"));
+            }
+            if (!client.hasKey()) {
+                return CompletableFuture.completedFuture(Reply.error(503, OpenRouterClient.NO_KEY
+                        + " (ou \"provider\":\"meshy\" avec une clé Meshy). En attendant, écrivez la texture en pixel art (fichier .png.txt, voir ASSETS.md)."));
+            }
+            image = client.image(spec.model(), fullPrompt, spec.transparent());
+        }
+        return image
                 .thenApply(img -> write(moduleId, moduleDir, target, spec, img, System.currentTimeMillis() - t0))
                 .orTimeout(300, TimeUnit.SECONDS)
                 .exceptionally(err -> {
@@ -93,6 +142,9 @@ public final class TextureService {
                     }
                     if (c instanceof OpenRouterException oe) {
                         return Reply.error(oe.status() == 401 || oe.status() == 403 ? 502 : oe.status(), oe.getMessage());
+                    }
+                    if (c instanceof MeshyClient.MeshyException me) {
+                        return Reply.error(me.status(), me.getMessage());
                     }
                     if (c instanceof java.util.concurrent.TimeoutException) {
                         return Reply.error(504, "génération d'image trop longue (timeout)");
@@ -145,6 +197,7 @@ public final class TextureService {
         r.put("transparent", spec.transparent());
         r.put("seamless", spec.seamless());
         r.put("model", img.model());
+        r.put("provider", img.model() != null && img.model().startsWith("meshy/") ? "meshy" : "openrouter");
         r.put("cost", img.cost() >= 0 ? img.cost() : null);
         r.put("sourceSize", src.getWidth() + "x" + src.getHeight());
         r.put("ms", ms);
@@ -154,7 +207,7 @@ public final class TextureService {
             r.put("warning", "a text source (" + (txt.exists() ? txt.getName() : b64.getName())
                     + ") produces the same PNG: delete it, the generated PNG is used");
         }
-        r.put("next", "resource pack rebuilt and pushed to players in ~1-2 s; reference it as "
+        r.put("next", "resource pack rebuilt in ~1-2 s (players load it with a right click holding a compass); reference it as "
                 + resourceId(spec.path()) + " in your models"
                 + (spec.kind().equals("realistic") || spec.kind().equals("decal")
                 ? " or in a .shape.json material: {\"texture\": \"" + resourceId(spec.path()) + "\"}" : ""));
@@ -243,8 +296,13 @@ public final class TextureService {
         }
         String style = str(o, "style");
         String model = str(o, "model");
+        String provider = str(o, "provider");
+        provider = provider == null || provider.isBlank() ? null : provider.strip().toLowerCase(Locale.ROOT);
+        if (provider != null && !provider.matches("auto|openrouter|meshy")) {
+            throw new IllegalArgumentException("\"provider\" must be \"openrouter\", \"meshy\" or \"auto\"");
+        }
         return new Spec(path, prompt.strip(), kind, style == null ? null : style.strip(), model == null ? null : model.strip(),
-                width, height, transparent, seamless, crop, colors);
+                width, height, transparent, seamless, crop, colors, provider);
     }
 
     static String buildPrompt(Spec s) {

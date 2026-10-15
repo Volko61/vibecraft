@@ -1,10 +1,13 @@
 # Mod-like content with vanilla clients: textures, 3D models, GUIs, mobs, vehicles
 
-Players use an unmodified client. Everything visual comes from a **resource pack that the server builds and
-pushes live**: put standard resource-pack files in `modules/<id>/assets/<namespace>/...`; about 1 s after you
-save (or after a reload / disable), the server merges the `assets/` of every running module, validates them,
-and sends the new pack to every player. The client reloads its resources in place (a short loading screen,
-**no disconnect**). Players who decline the pack see the vanilla base items instead (keep the game playable).
+Players use an unmodified client. Everything visual comes from a **resource pack that the server builds
+live**: put standard resource-pack files in `modules/<id>/assets/<namespace>/...`; about 1 s after you
+save (or after a reload / disable), the server merges the `assets/` of every running module and validates them.
+The pack is **not pushed automatically** (a resource reload freezes the client for a moment): players are told
+"🧭 Nouvelles textures dispo : clic droit avec une boussole" and get the new pack when they **right-click holding a
+compass** (everyone receives one on join). The client reloads its resources in place (a short loading screen,
+**no disconnect**). So never tell the audience that textures "appear by themselves": tell them to right-click
+with their compass. Players who decline the pack see the vanilla base items instead (keep the game playable).
 
 ## 1. Layout and rules
 
@@ -34,14 +37,15 @@ modules/<id>/
 
 ## 2. Textures: generate them (preferred)
 
-The server calls an image model (OpenRouter, key kept server side), converts the picture to a Minecraft-looking
-PNG (background removed, cropped, downscaled, palette reduced, optionally seamless) and writes it into your module:
+The server calls an image model (OpenRouter or Meshy AI, keys kept server side), converts the picture to a
+Minecraft-looking PNG (background removed, cropped, downscaled, palette reduced, optionally seamless) and writes it
+into your module:
 
 ```bash
 curl -s -X POST http://127.0.0.1:8765/api/modules/<id>/textures -d '{"path":"assets/<ns>/textures/item/ruby.png","prompt":"a shiny red ruby gem"}'
 ```
 Answer: `{"ok":true,"path":...,"width":16,"height":16,"colors":14,"model":...,"cost":0.04,...}` (takes 5-30 s).
-Then reference it as `<ns>:item/ruby` in a model. The pack is rebuilt and pushed automatically.
+Then reference it as `<ns>:item/ruby` in a model. The pack is rebuilt automatically (players load it with the compass).
 
 | field | default | |
 |---|---|---|
@@ -51,9 +55,10 @@ Then reference it as `<ns>:item/ruby` in a model. The pack is rebuilt and pushed
 | `size` / `width`,`height` | by kind | 4..512 |
 | `transparent`, `seamless`, `crop` | by kind | booleans |
 | `colors` | 16 / 24 / 48 | palette size (0 = keep all colours) |
-| `style`, `model` | | override the style sentence / the OpenRouter image model |
+| `style`, `model` | | override the style sentence / the image model |
+| `provider` | the job's choice | `openrouter` or `meshy` (Meshy AI text-to-image); default = the provider chosen with the request (your prompt says which), else whichever has a key. `GET /api/providers` tells which are available |
 
-Errors: 503 = no OpenRouter key on the server (then use pixel art, section 3), 429 = too many requests (wait),
+Errors: 503 = no key for that provider on the server (try the other one, or pixel art, section 3), 429 = too many requests (wait),
 400 = bad field (message says which). One curl per texture; generate only what you need (it costs money).
 Good prompts: one object, simple shapes, strong colours ("a green slime ball with a white highlight").
 For a 3D model, generate small material textures (`kind:"block"`, e.g. "rusty metal plates") and map them on cuboids.
@@ -177,7 +182,7 @@ vehicle with `vehicle.teleport(to, TeleportFlag.EntityState.RETAIN_PASSENGERS)` 
 | 3D object looks hollow / inside out | OBJ faces must be counter-clockwise seen from outside; look at `.vibe/previews/` |
 | GUI background shifted | wrong `ascent`/`height`/space advances, or the title font set on the parent component |
 | "non-standard JSON" warning | no comments, no trailing commas, double quotes only |
-| nothing changes in game | `GET /api/pack`: is your module listed in `modules`? (only ENABLED modules contribute) |
+| nothing changes in game | `GET /api/pack`: is your module listed in `modules`? (only ENABLED modules contribute). Did the player right-click with the compass to load the new pack? |
 
 ## 9. Realistic 3D objects (car, guitar, lamp, statue, furniture, spaceship...): `*.shape.json` / `*.obj`
 
@@ -246,6 +251,21 @@ Worked example (`examples/sports-car/assets/sportscar/shapes/roadster.shape.json
   `# vibecraft {"size": 1.6, "detail": "high"}`. Origin: bottom centre. Dense meshes switch to voxel mode (stairs).
 - Budget: 200-1500 elements per object is fine (car ~850, lamp ~750); part models are split every 1024 elements.
   Round shapes cost the most: give small round parts fewer `segments`.
+
+**Generated by Meshy AI (text-to-3D)** when a Meshy key is configured (`GET /api/providers` -> `meshy.available`): the
+server asks Meshy for a mesh + texture, decimates it, bakes the texture into colours and writes `<name>.obj` +
+`<name>.mtl` into your module (originals kept in `.vibe/meshy/`). It is ASYNCHRONOUS (2-5 minutes):
+```bash
+curl -s -X POST http://127.0.0.1:8765/api/modules/<id>/models3d -d '{"path":"assets/<ns>/shapes/<name>","prompt":"a red vintage sports car"}'
+# -> 202 {"taskId":"m3d-1","status":"PENDING","statusUrl":"/api/modules/<id>/models3d/m3d-1",...}
+curl -s "http://127.0.0.1:8765/api/modules/<id>/models3d/m3d-1?wait=50"   # repeat until "status":"SUCCEEDED" (or FAILED + "error")
+```
+Fields: `path` (required, no extension), `prompt` (required, English, max 800), `size` (largest dimension in blocks,
+default 2), `texture` (default true; false = untextured grey, faster), `texturePrompt`, `maxFaces` (default 3000),
+`resolution` (voxel grid of the compiler, default 40), `colors` (palette, default 32). Status: PENDING, PREVIEW,
+REFINING, DOWNLOADING, CONVERTING, SUCCEEDED, FAILED; `result.compiled` = the compiled object (elements...). Then
+`Models.spawn(ctx, "<ns>:<name>", loc, 1.0)` and check the preview. 503 = no Meshy key: describe it as `.shape.json`.
+Meshy objects are compiled in voxel mode (a slightly blocky look); a hand-written `.shape.json` is sharper for simple shapes.
 
 Place it in the world (Java, main thread):
 ```java

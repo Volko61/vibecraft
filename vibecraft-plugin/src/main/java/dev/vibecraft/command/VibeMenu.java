@@ -39,6 +39,7 @@ public final class VibeMenu implements Listener {
     private static final int MODULE_SLOTS = 45;
     private static final int SLOT_IDEAS = 45;
     private static final int SLOT_JOBS = 47;
+    private static final int SLOT_CLAUDE = 48;
     private static final int SLOT_RELOAD_ALL = 49;
     private static final int SLOT_DASHBOARD = 51;
     private static final int SLOT_CLOSE = 53;
@@ -66,6 +67,12 @@ public final class VibeMenu implements Listener {
     private final ModuleManager modules;
     private final AiJobService ai;
     private final IdeaQueue ideas;
+    private volatile java.util.function.Consumer<Player> claudeAction;
+
+    /** "Claude" button of the modules page (opens the conversations dialog). */
+    public void setClaudeAction(java.util.function.Consumer<Player> action) {
+        this.claudeAction = action;
+    }
 
     public VibeMenu(JavaPlugin plugin, ModuleManager modules, AiJobService ai, IdeaQueue ideas) {
         this.plugin = plugin;
@@ -178,6 +185,12 @@ public final class VibeMenu implements Listener {
         h.inventory.setItem(SLOT_JOBS, icon(Material.AMETHYST_SHARD, "<light_purple><b>🤖 Tâches IA", jobLore));
         h.actions[SLOT_JOBS] = "jobs||";
 
+        if (claudeAction != null) {
+            h.inventory.setItem(SLOT_CLAUDE, icon(Material.ENCHANTED_BOOK, "<light_purple><b>💬 Claude",
+                    List.of("<gray>Conversations avec l'IA :", "<gray>lire, écrire, arrêter", "", "<yellow>Clic</yellow> <gray>: ouvrir")));
+            h.actions[SLOT_CLAUDE] = "#claude";
+        }
+
         h.inventory.setItem(SLOT_RELOAD_ALL, icon(Material.CLOCK, "<green><b>⟳ Tout recharger",
                 List.of("<gray>Recompile tous les modules")));
         h.actions[SLOT_RELOAD_ALL] = "reload all||";
@@ -244,6 +257,13 @@ public final class VibeMenu implements Listener {
         switch (action) {
             case "#close" -> player.closeInventory();
             case "#ideas" -> open(player, Page.IDEAS);
+            case "#claude" -> {
+                java.util.function.Consumer<Player> c = claudeAction;
+                player.closeInventory();
+                if (c != null) {
+                    c.accept(player);
+                }
+            }
             case "#back" -> open(player, Page.MODULES);
             case "#dashboard" -> {
                 player.closeInventory();

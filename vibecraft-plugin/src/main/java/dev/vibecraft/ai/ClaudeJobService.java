@@ -36,6 +36,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class ClaudeJobService implements AiJobService {
 
     private final AiJobEngine engine;
+    private final ConversationStore conversations;
 
     public ClaudeJobService(JavaPlugin plugin, ModuleManager modules) {
         FileConfiguration c = plugin.getConfig();
@@ -86,6 +87,10 @@ public final class ClaudeJobService implements AiJobService {
         PromptTemplate template = PromptTemplate.load(ClaudeJobService.class.getClassLoader());
         engine = new AiJobEngine(s, plugin.getLogger(), sessions, template,
                 (id, description) -> ensureModule(modules, modulesDir, id, description));
+        conversations = new ConversationStore(new File(plugin.getDataFolder(), "conversations"), plugin.getLogger(),
+                SecretStore::scrub);
+        engine.setTranscript(conversations);
+        AiJobEngine.setJobSettingsFile(c.getBoolean("ai.thinking", true) ? writeJobSettings(plugin) : null);
     }
 
     /**
@@ -172,6 +177,33 @@ public final class ClaudeJobService implements AiJobService {
         }
     }
 
+    /**
+     * {@code plugins/VibeCraft/ai-job-settings.json}, passed with {@code --settings}: thinking enabled with summaries,
+     * so the stream-json output contains the agent's {@code thinking} blocks (shown in the conversations).
+     */
+    private static File writeJobSettings(JavaPlugin plugin) {
+        File f = new File(plugin.getDataFolder(), "ai-job-settings.json");
+        try {
+            Files.createDirectories(plugin.getDataFolder().toPath());
+            Files.writeString(f.toPath(), "{\n  \"alwaysThinkingEnabled\": true,\n  \"showThinkingSummaries\": true\n}\n",
+                    StandardCharsets.UTF_8);
+            return f;
+        } catch (IOException e) {
+            plugin.getLogger().warning("[AI] cannot write " + f + ": " + e.getMessage());
+            return null;
+        }
+    }
+
+    /** Conversations (transcripts) of every module. */
+    public ConversationStore conversations() {
+        return conversations;
+    }
+
+    /** Start with per-job options (image provider, model). */
+    public AiJob start(String moduleId, String prompt, String requestedBy, JobOptions options) {
+        return engine.start(moduleId, prompt, requestedBy, options);
+    }
+
     /** The underlying engine (CLI info, auth state). */
     public AiJobEngine engine() {
         return engine;
@@ -220,5 +252,6 @@ public final class ClaudeJobService implements AiJobService {
     @Override
     public void shutdown() {
         engine.shutdown();
+        conversations.close();
     }
 }

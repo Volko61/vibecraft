@@ -5,6 +5,9 @@ import java.util.Objects;
 
 import dev.vibecraft.ai.AiJobService;
 import dev.vibecraft.ai.ClaudeJobService;
+import dev.vibecraft.ai.Conversations;
+import dev.vibecraft.ai.JobOptions;
+import dev.vibecraft.web.ConversationRoutes;
 import dev.vibecraft.command.IdeaCommand;
 import dev.vibecraft.command.VibeCommand;
 import dev.vibecraft.core.ModuleManager;
@@ -25,6 +28,7 @@ public final class VibeCraftPlugin extends JavaPlugin {
     private IdeaQueue ideas;
     private ApiServer api;
     private Extensions extensions;
+    private ConversationRoutes conversationRoutes;
 
     @Override
     public void onEnable() {
@@ -36,7 +40,18 @@ public final class VibeCraftPlugin extends JavaPlugin {
         ai = new ClaudeJobService(this, modules);
         new Notifier(this, modules, ai).register();
 
-        VibeCommand vibe = new VibeCommand(this, modules, ai, ideas);
+        Conversations conversations = null;
+        if (ai instanceof ClaudeJobService cjs) {
+            conversations = new Conversations(cjs, modules);
+            extensions.setJobProvider(id -> {
+                JobOptions o = cjs.engine().activeOptions(id);
+                return o == null ? null : o.imageProvider();
+            });
+            conversationRoutes = new ConversationRoutes(conversations);
+            conversationRoutes.register();
+        }
+
+        VibeCommand vibe = new VibeCommand(this, modules, ai, ideas, conversations);
         PluginCommand vibeCmd = Objects.requireNonNull(getCommand("vibe"));
         vibeCmd.setExecutor(vibe);
         vibeCmd.setTabCompleter(vibe);
@@ -47,7 +62,10 @@ public final class VibeCraftPlugin extends JavaPlugin {
         ideaCmd.setTabCompleter(idea);
 
         modules.start();
-        extensions.start(); // hot resource pack, OpenRouter, texture generation, /api/pack...
+        extensions.start(); // hot resource pack, OpenRouter, Meshy, texture / 3D generation, /api/pack...
+        if (extensions.pack() != null && getConfig().getBoolean("ui.compass-opens-claude", true)) {
+            extensions.pack().setSneakAction(vibe::openClaude); // sneak + right click with a compass (ops)
+        }
 
         if (getConfig().getBoolean("api.enabled", true)) {
             api = new ApiServer(this, modules, ai, ideas);
@@ -62,6 +80,9 @@ public final class VibeCraftPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (conversationRoutes != null) {
+            conversationRoutes.unregister();
+        }
         if (extensions != null) {
             extensions.stop();
         }

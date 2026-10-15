@@ -27,7 +27,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
  *   <li>{@code plugins/VibeCraft/secrets.yml} (re-read automatically when the file changes: no restart needed);</li>
  *   <li>{@code secrets:} section of config.yml;</li>
  *   <li>environment variable {@code VIBECRAFT_SECRET_<NAME>} (upper case, {@code -} -> {@code _});</li>
- *   <li>for {@code openrouter}: environment variable {@code OPENROUTER_API_KEY}.</li>
+ *   <li>for {@code openrouter}: environment variable {@code OPENROUTER_API_KEY}; for {@code meshy}: {@code MESHY_API_KEY}.</li>
  * </ol>
  */
 public final class SecretStore {
@@ -95,6 +95,9 @@ public final class SecretStore {
         if (blank(v) && n.equals("openrouter")) {
             v = env.get("OPENROUTER_API_KEY");
         }
+        if (blank(v) && n.equals("meshy")) {
+            v = env.get("MESHY_API_KEY");
+        }
         return blank(v) ? null : v.strip();
     }
 
@@ -111,6 +114,9 @@ public final class SecretStore {
         }
         if (!blank(env.get("OPENROUTER_API_KEY"))) {
             out.add("openrouter");
+        }
+        if (!blank(env.get("MESHY_API_KEY"))) {
+            out.add("meshy");
         }
         return out;
     }
@@ -174,7 +180,7 @@ public final class SecretStore {
             }
             for (Map.Entry<String, String> e : env.entrySet()) {
                 String k = e.getKey();
-                if ((k.startsWith("VIBECRAFT_SECRET_") || k.equals("OPENROUTER_API_KEY")) && e.getValue() != null
+                if ((k.startsWith("VIBECRAFT_SECRET_") || k.equals("OPENROUTER_API_KEY") || k.equals("MESHY_API_KEY")) && e.getValue() != null
                         && e.getValue().strip().length() >= 6) {
                     values.add(e.getValue().strip());
                 }
@@ -202,6 +208,7 @@ public final class SecretStore {
                     # Environment variables also work: OPENROUTER_API_KEY, VIBECRAFT_SECRET_<NAME>.
                     #
                     # openrouter: "sk-or-v1-..."
+                    # meshy: "msy_..."        (Meshy AI: textures and text-to-3D, env MESHY_API_KEY also works)
                     """, StandardCharsets.UTF_8);
         } catch (IOException e) {
             log.warning("cannot create " + file + ": " + e.getMessage());

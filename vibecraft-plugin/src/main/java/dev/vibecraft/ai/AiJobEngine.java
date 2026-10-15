@@ -55,6 +55,27 @@ public final class AiJobEngine implements AiJobService {
 
     private static final Pattern ID = Pattern.compile("[a-z0-9][a-z0-9_-]{0,39}");
 
+    /**
+     * Receives the full conversation of every job (user prompt, raw stream-json lines, end of job), e.g. the
+     * {@link ConversationStore}. Called from the caller / worker threads: must be fast and never throw.
+     */
+    public interface Transcript {
+        void userMessage(String moduleId, String jobId, String prompt, String requestedBy, JobOptions options);
+
+        void streamLine(String moduleId, String jobId, String line);
+
+        void jobFinished(String moduleId, String jobId, AiJobState state, String finalLine);
+
+        void conversationReset(String moduleId);
+    }
+
+    /** Optional {@code --settings <file>} for every job (thinking enabled + summaries), used when the CLI supports it. */
+    private static volatile File jobSettingsFile;
+
+    public static void setJobSettingsFile(File f) {
+        jobSettingsFile = f;
+    }
+
     /** Extra environment computed at each job start (e.g. OPENROUTER_API_KEY from secrets.yml, editable live). */
     private static volatile Supplier<Map<String, String>> dynamicEnv = Map::of;
     /** Applied to every progress / final line before it is shown (removes secrets an agent might echo). */
@@ -90,6 +111,7 @@ public final class AiJobEngine implements AiJobService {
     private final ArrayDeque<AiJob> finished = new ArrayDeque<>();
     private final Map<String, AiJob> lastByModule = new HashMap<>();
     private final Map<String, Integer> resetEpoch = new HashMap<>();
+    private volatile Transcript transcript;
 
     private volatile ClaudeCli cli;
     private volatile String locateInfo = "";
@@ -153,8 +175,24 @@ public final class AiJobEngine implements AiJobService {
         return "";
     }
 
+    public void setTranscript(Transcript t) {
+        this.transcript = t;
+    }
+
     @Override
     public AiJob start(String moduleId, String prompt, String requestedBy) {
+        return start(moduleId, prompt, requestedBy, JobOptions.DEFAULT);
+    }
+
+    /** Options of the module's queued / running job (null if none). */
+    public synchronized JobOptions activeOptions(String moduleId) {
+        Job j = active.get(moduleId);
+        return j == null ? null : j.options;
+    }
+
+    /** Like {@link #start(String, String, String)} with per-job options (image provider, model). */
+    public AiJob start(String moduleId, String prompt, String requestedBy, JobOptions options) {
+        JobOptions opts = options == null ? JobOptions.DEFAULT : options;
         if (moduleId == null || !ID.matcher(moduleId).matches()) {
             throw new IllegalArgumentException("identifiant de module invalide : " + moduleId
                     + " (attendu : minuscules, chiffres, - ou _, 40 caractères max)");
@@ -175,7 +213,7 @@ public final class AiJobEngine implements AiJobService {
             if (cur != null) {
                 throw new IllegalStateException("une IA travaille déjà sur " + moduleId + " (" + cur.state() + ")");
             }
-            job = new Job("job-" + seq.incrementAndGet(), moduleId, prompt.strip(), who);
+            job = new Job("job-" + seq.incrementAndGet(), moduleId, prompt.strip(), who, opts);
             active.put(moduleId, job); // reserve the module while it is being scaffolded
         }
         try {
@@ -195,6 +233,14 @@ public final class AiJobEngine implements AiJobService {
                     archive(job);
                 }
                 return job.snapshot();
+            }
+            Transcript t = transcript;
+            if (t != null) {
+                try {
+                    t.userMessage(moduleId, job.id, job.prompt, who, opts);
+                } catch (RuntimeException e) {
+                    log.log(Level.FINE, "[AI] transcript failed", e);
+                }
             }
             queue.addLast(job);
             pump();
@@ -261,6 +307,14 @@ public final class AiJobEngine implements AiJobService {
         }
         if (sessions.remove(moduleId)) {
             log.info("[AI] conversation of " + moduleId + " forgotten");
+        }
+        Transcript t = transcript;
+        if (t != null) {
+            try {
+                t.conversationReset(moduleId);
+            } catch (RuntimeException e) {
+                log.log(Level.FINE, "[AI] transcript failed", e);
+            }
         }
     }
 
@@ -442,6 +496,11 @@ public final class AiJobEngine implements AiJobService {
                 extra.add("--max-budget-usd");
                 extra.add(String.format(Locale.ROOT, "%.2f", settings.maxBudgetUsd()));
             }
+            File sf = jobSettingsFile;
+            if (sf != null && sf.isFile() && info.supports("--settings")) {
+                extra.add("--settings"); // a file, not inline JSON: Windows argv quoting would eat the quotes
+                extra.add(sf.getAbsolutePath());
+            }
             if (settings.restrictTools() && info.supports("--tools")) {
                 tools = toolNames(settings.allowedTools());
             }
@@ -450,10 +509,22 @@ public final class AiJobEngine implements AiJobService {
             extra.addAll(settings.extraArgs());
         }
         Map<String, String> env = ClaudeCli.childEnv(System.getenv(), childExtraEnv(job.moduleId));
+        env.put("VIBECRAFT_IMAGE_PROVIDER", job.options.imageProvider());
+        String model = job.options.model().isEmpty() ? settings.model() : job.options.model();
         ClaudeRunner.Request req = new ClaudeRunner.Request(c.commandPrefix(), settings.workspaceDir(), prompt,
-                settings.model(), settings.permissionMode(), settings.allowedTools(), tools, resume,
+                model, settings.permissionMode(), settings.allowedTools(), tools, resume,
                 settings.timeout(), env, extra, job.moduleId);
         ClaudeRunner runner = new ClaudeRunner(req, line -> progress(job, line));
+        Transcript t = transcript;
+        if (t != null) {
+            runner.rawSink(line -> {
+                try {
+                    t.streamLine(job.moduleId, job.id, line);
+                } catch (RuntimeException e) {
+                    log.log(Level.FINE, "[AI] transcript failed", e);
+                }
+            });
+        }
         job.runner = runner;
         if (job.stopRequested) {
             runner.stop();
@@ -485,6 +556,8 @@ public final class AiJobEngine implements AiJobService {
         v.put("REQUEST", job.prompt.replaceAll("(?i)<\\s*/?\\s*demande\\s*>", "«demande»"));
         v.put("REQUESTED_BY", job.requestedBy);
         v.put("CONVERSATION_NOTE", resumed ? PromptTemplate.NOTE_RESUMED : PromptTemplate.NOTE_FIRST);
+        v.put("IMAGE_PROVIDER", job.options.imageProvider());
+        v.put("IMAGE_PROVIDER_NOTE", PromptTemplate.imageProviderNote(job.options.imageProvider()));
         return template.render(v);
     }
 
@@ -618,6 +691,15 @@ public final class AiJobEngine implements AiJobService {
         }
         lastByModule.put(j.moduleId, snap);
         dispatch(l -> l.onFinished(snap));
+        Transcript t = transcript;
+        if (t != null) {
+            try {
+                List<String> p = snap.progress();
+                t.jobFinished(j.moduleId, j.id, snap.state(), p.isEmpty() ? "" : p.get(p.size() - 1));
+            } catch (RuntimeException e) {
+                log.log(Level.FINE, "[AI] transcript failed", e);
+            }
+        }
     }
 
     private void progress(Job job, String rawLine) {
@@ -778,6 +860,7 @@ public final class AiJobEngine implements AiJobService {
         final String moduleId;
         final String prompt;
         final String requestedBy;
+        final JobOptions options;
         private AiJobState state = AiJobState.QUEUED;
         private long startedAt;
         private long endedAt;
@@ -788,8 +871,9 @@ public final class AiJobEngine implements AiJobService {
         volatile ClaudeRunner runner;
         volatile boolean stopRequested;
 
-        Job(String id, String moduleId, String prompt, String requestedBy) {
+        Job(String id, String moduleId, String prompt, String requestedBy, JobOptions options) {
             this.id = id;
+            this.options = options;
             this.moduleId = moduleId;
             this.prompt = prompt;
             this.requestedBy = requestedBy;

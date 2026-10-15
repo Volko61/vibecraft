@@ -61,16 +61,35 @@ ai:
   mcp-config: ""
   # Extra environment variables for AI jobs (the OpenRouter key of secrets.yml is added as OPENROUTER_API_KEY).
   env: {}
+  # Thinking enabled with summaries for every job (passed with --settings plugins/VibeCraft/ai-job-settings.json),
+  # so the conversations (dashboard, in-game dialog, /api/conversations) show Claude's reasoning.
+  # Conversations are kept in plugins/VibeCraft/conversations/<module>.json (last 300 messages, secrets redacted).
+  thinking: true
+
+# In-game interface.
+ui:
+  # What /vibe without arguments opens for a player: "claude" (conversations dialog) or "menu" (chest menu).
+  vibe-opens: claude
+  # Sneak + right click with a compass opens the Claude dialog (players with vibecraft.admin).
+  compass-opens-claude: true
 
 ideas:
   enabled: true
   # Cooldown between two /idea from the same player.
   cooldown-seconds: 20
 
-# Hot resource pack: modules/<id>/assets/** of every running module, merged, served over HTTP and pushed
-# to players (on join and ~1 s after any asset change; the client reloads in place, nobody is disconnected).
+# Hot resource pack: modules/<id>/assets/** of every running module, merged and rebuilt ~1 s after any asset
+# change, served over HTTP. By default players get it ON DEMAND: they are told "🧭 Nouvelles textures dispo :
+# clic droit avec une boussole" and the pack is sent when they right-click holding a compass (the client
+# reloads in place, nobody is disconnected).
 resource-pack:
   enabled: true
+  # true = old behaviour: pushed automatically on join and after every change (the client freezes a moment each time).
+  auto-push: false
+  # Give one compass on join to players who have none (on-demand mode).
+  give-compass: true
+  # Minimum time between two compass uses of the same player.
+  compass-cooldown-ms: 3000
   # HTTP server for the zip (players' clients download from it: it must be reachable from their machines).
   bind: 0.0.0.0
   port: 8766
@@ -104,6 +123,25 @@ openrouter:
   max-requests-per-minute: 30
   max-concurrent: 4
   max-concurrent-images: 2
+
+# Meshy AI (https://docs.meshy.ai): textures (text-to-image, "provider":"meshy" in POST /api/modules/<id>/textures)
+# and realistic 3D objects (text-to-3D, POST /api/modules/<id>/models3d). KEY in plugins/VibeCraft/secrets.yml
+# ("meshy: msy_...") or the MESHY_API_KEY environment variable, never here.
+meshy:
+  base-url: https://api.meshy.ai
+  # Text-to-image model (nano-banana, nano-banana-2, gpt-image-2...).
+  image-model: nano-banana
+  # Text-to-3D model (latest, meshy-6, meshy-6-lite...) and polygon budget asked to Meshy (decimated again by VibeCraft).
+  model-3d: latest
+  target-polycount: 8000
+  poll-interval-ms: 3000
+  timeout-seconds: 900
+  max-concurrent-3d: 2
+
+# Default image provider of the texture endpoint when neither the request nor the AI job chose one:
+# auto (OpenRouter if it has a key, else Meshy), openrouter or meshy.
+images:
+  default-provider: auto
 
 # Secrets can also be listed here (name: value), but prefer plugins/VibeCraft/secrets.yml (never shared,
 # re-read live). Environment variables VIBECRAFT_SECRET_<NAME> work too.

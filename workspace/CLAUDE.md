@@ -119,6 +119,8 @@ If your prompt gives another API base URL or an `X-Vibe-Token` header, use them 
 | re-enable a disabled module | `curl -s -X POST http://127.0.0.1:8765/api/modules/<id>/enable` |
 | resource pack status + asset problems (`issues`) | `curl -s http://127.0.0.1:8765/api/pack` |
 | generate a texture with AI (ASSETS.md section 2) | `curl -s -X POST http://127.0.0.1:8765/api/modules/<id>/textures -d '{"path":"assets/<ns>/textures/item/x.png","prompt":"..."}'` |
+| which image / 3D providers have a key | `curl -s http://127.0.0.1:8765/api/providers` |
+| generate a 3D object with Meshy (async, ASSETS.md section 9) | `curl -s -X POST http://127.0.0.1:8765/api/modules/<id>/models3d -d '{"path":"assets/<ns>/shapes/x","prompt":"..."}'` then `GET <statusUrl>?wait=50` |
 
 Reload answer:
 ```json
@@ -416,16 +418,20 @@ don't explode, then do your own effect); Paper: `com.destroystokyo.paper.event.p
 ## 7b. Mod-like content (vanilla clients): **read `ASSETS.md`**
 
 Put resource-pack files in `modules/<id>/assets/<ns>/...` (own namespace, lowercase paths): the server merges the
-assets of all running modules, validates them and pushes the pack to players ~1 s after a change (no disconnect).
+assets of all running modules and validates them ~1 s after a change. The pack is NOT pushed automatically: players
+are told "🧭 Nouvelles textures dispo" and load it by **right-clicking with a compass** (no disconnect). Say so to the
+audience ("clic droit avec votre boussole pour voir les nouvelles textures"), never "the textures appear by themselves".
 - Textures: best = AI generation, ONE curl: `curl -s -X POST http://127.0.0.1:8765/api/modules/<id>/textures -d
   '{"path":"assets/<ns>/textures/item/ruby.png","prompt":"a shiny red ruby gem"}'` (English ASCII prompt; `"kind":"block"`
-  = seamless tile). 503 = no key: draw pixel art in `ruby.png.txt` (`{"palette": {...}, "pixels": [16 rows of 16 chars]}`).
+  = seamless tile; `"provider":"meshy"` = Meshy AI instead of OpenRouter). 503 = no key: draw pixel art in `ruby.png.txt`
+  (`{"palette": {...}, "pixels": [16 rows of 16 chars]}`).
 - 3D item: `models/item/x.json` (cuboids `from`/`to` within -16..32, `faces` with `uv`) + `items/x.json`
   `{"model":{"type":"minecraft:model","model":"<ns>:item/x"}}`, then on any base item `meta.setItemModel(new NamespacedKey("<ns>", "x"))`.
 - **Realistic 3D object** (car, guitar, lamp, statue, furniture...): write `assets/<ns>/shapes/<name>.shape.json`
   (boxes, cylinders, spheres, lathes, extrusions... in blocks, front = +z) or a `.obj` text mesh; the server compiles it
   (any angle, baked colours/textures). Check the preview image `.vibe/previews/<ns>_<name>.png` (Read it), place it
   with `Models.spawn(ctx, "<ns>:<name>", loc, scale)`: **ASSETS.md section 9**, examples `sports-car`, `floor-lamp`.
+  With a Meshy key, `POST /api/modules/<id>/models3d` generates the mesh from a prompt (async, 2-5 min, ASSETS.md section 9).
 - New mob = invisible `Husk` + `ItemDisplay` parts (custom models) as passengers, animated with interpolated
   `setTransformation`; textured chest GUI = font glyph in the inventory title; vehicle = `Interaction` + `getCurrentInput()`.
 - Always check `curl -s http://127.0.0.1:8765/api/pack`: fix every `issues` entry of your module.

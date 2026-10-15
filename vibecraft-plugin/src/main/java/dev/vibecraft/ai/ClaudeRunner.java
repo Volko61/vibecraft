@@ -60,10 +60,16 @@ public final class ClaudeRunner {
     private volatile boolean stopRequested;
     private volatile boolean timedOut;
     private final CountDownLatch killDone = new CountDownLatch(1);
+    private volatile Consumer<String> rawSink;
 
     public ClaudeRunner(Request req, Consumer<String> progress) {
         this.req = req;
         this.progress = progress;
+    }
+
+    /** Also receives every raw stdout line (stream-json), after the translator (transcript capture). */
+    public void rawSink(Consumer<String> sink) {
+        this.rawSink = sink;
     }
 
     /** The exact argv (without the prompt, which goes to stdin). */
@@ -235,6 +241,10 @@ public final class ClaudeRunner {
             while ((line = r.readLine()) != null) {
                 try {
                     tr.accept(line);
+                    Consumer<String> raw = rawSink;
+                    if (raw != null) {
+                        raw.accept(line);
+                    }
                 } catch (Throwable t) {
                     // keep draining stdout whatever happens, or the CLI would block on a full pipe
                     if (!reported) {

@@ -130,6 +130,13 @@ async function main() {
   }
   fs.mkdirSync(path.join(MODULES, 'or-probe'), { recursive: true });
   fs.writeFileSync(path.join(MODULES, 'or-probe', 'OrProbeModule.java'), PROBE);
+  // this test checks the automatic push (join + asset change): force resource-pack.auto-push: true
+  // (the default is on-demand delivery with a compass, checked by run-conv.mjs)
+  const cfgFile = path.join(SERVER, 'plugins', 'VibeCraft', 'config.yml');
+  const cfg = fs.readFileSync(cfgFile, 'utf8');
+  if (!/\n  auto-push: true/.test(cfg)) {
+    fs.writeFileSync(cfgFile, cfg.replace(/\n  auto-push: \w+/, '').replace(/\nresource-pack:\n/, '\nresource-pack:\n  auto-push: true\n'));
+  }
   const secretsFile = path.join(SERVER, 'plugins', 'VibeCraft', 'secrets.yml');
   fs.writeFileSync(secretsFile, `openrouter: "${FAKE_KEY}"\n`);
   const dumpFile = path.join(SANDBOX, 'claude-dump.json');

@@ -59,10 +59,16 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 /**
  * Hot resource pack: merges the {@code assets/} of every running module (see {@link PackBuilder}),
- * serves the zip over HTTP ({@code resource-pack.port}) and pushes it to every player on join and
- * whenever its content changes (asset edit, module reload/disable). One stable pack UUID, so a new
- * version replaces the previous one on the client, which reloads its resources in place (no
- * disconnect). Builds run on a background thread; only the push touches Bukkit (main thread).
+ * serves the zip over HTTP ({@code resource-pack.port}) and rebuilds it whenever its content changes (asset
+ * edit, module reload/disable). One stable pack UUID, so a new version replaces the previous one on the client,
+ * which reloads its resources in place (no disconnect).
+ *
+ * <p>Delivery is ON DEMAND by default ({@code resource-pack.auto-push: false}): a resource reload freezes the
+ * client for a moment, so players are only told that new textures exist ("🧭 Nouvelles textures dispo : clic
+ * droit avec une boussole") and get the pack when they right-click with any compass (main or off hand; the
+ * normal use is cancelled, small cooldown, "déjà à jour" if nothing changed). A compass is given on join when
+ * the player has none ({@code resource-pack.give-compass}). {@code auto-push: true} restores the old behaviour
+ * (pushed on join and after every change). Builds run on a background thread; Bukkit calls on the main thread.
  */
 public final class PackService implements Listener {
 
@@ -85,6 +91,16 @@ public final class PackService implements Listener {
     private final long debounceMs;
     private final int minFormat;
     private final int maxFormat;
+    private final boolean autoPush;
+    private final boolean giveCompass;
+    private final long cooldownMs;
+    /** Sneak + right click with a compass (ops): e.g. open the Claude dialog. Null = none. */
+    private volatile java.util.function.Consumer<Player> sneakAction;
+    /** sha1 of the pack last sent to each player ("" = removed), cleared on quit. */
+    private final Map<UUID, String> sentSha = new ConcurrentHashMap<>();
+    private final Map<UUID, String> notifiedSha = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastCompassUse = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> lastCompassTick = new ConcurrentHashMap<>();
 
     private ScheduledExecutorService exec;
     private HttpServer http;
@@ -110,7 +126,7 @@ public final class PackService implements Listener {
         }
     });
     private final Map<UUID, String> playerStatus = new ConcurrentHashMap<>();
-    private volatile String pushedSha = "";
+
 
     public PackService(JavaPlugin plugin, ModuleManager modules, BiConsumer<String, String> moduleLog) {
         this.plugin = plugin;
@@ -134,6 +150,17 @@ public final class PackService implements Listener {
         int cfgMax = c == null ? 0 : c.getInt("max-format", 0);
         this.minFormat = cfgMin > 0 ? cfgMin : fmt[0];
         this.maxFormat = cfgMax > 0 ? cfgMax : fmt[0];
+        this.autoPush = c != null && c.getBoolean("auto-push", false);
+        this.giveCompass = c == null || c.getBoolean("give-compass", true);
+        this.cooldownMs = c == null ? 3000 : Math.max(0, c.getLong("compass-cooldown-ms", 3000));
+    }
+
+    public boolean autoPush() {
+        return autoPush;
+    }
+
+    public void setSneakAction(java.util.function.Consumer<Player> action) {
+        this.sneakAction = action;
     }
 
     public boolean enabled() {
@@ -298,7 +325,7 @@ public final class PackService implements Listener {
         if (changed) {
             log.info("Resource pack: " + (r.empty() ? "no module assets" : r.files() + " file(s) from " + r.modules()
                     + ", " + r.zip().length / 1024 + " KB, sha1 " + r.sha1().substring(0, 10)) + " (" + buildMs + " ms)");
-            Bukkit.getScheduler().runTask(plugin, this::pushAll);
+            Bukkit.getScheduler().runTask(plugin, autoPush ? this::pushAll : this::announceAll);
         }
     }
 
@@ -398,16 +425,77 @@ public final class PackService implements Listener {
         for (Player p : Bukkit.getOnlinePlayers()) {
             push(p, r);
         }
-        pushedSha = r.empty() ? "" : r.sha1();
+    }
+
+    /** Sha1 the player should have ("" = no pack). */
+    private static String shaOf(PackBuilder.Result r) {
+        return r == null || r.empty() ? "" : r.sha1();
+    }
+
+    /** On-demand mode: tell every player whose pack is outdated (once per version). Main thread. */
+    private void announceAll() {
+        PackBuilder.Result r = current;
+        if (r == null) {
+            return;
+        }
+        String sha = shaOf(r);
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            String had = sentSha.getOrDefault(p.getUniqueId(), "");
+            if (had.equals(sha) || sha.equals(notifiedSha.get(p.getUniqueId()))) {
+                continue;
+            }
+            notifiedSha.put(p.getUniqueId(), sha);
+            announce(p);
+        }
+    }
+
+    private void announce(Player p) {
+        try {
+            p.sendRichMessage("<gold>🧭 Nouvelles textures dispo :</gold> <yellow>clic droit avec une boussole</yellow> "
+                    + "<gray>pour les charger.");
+            p.sendActionBar(MiniMessage.miniMessage().deserialize("<gold>🧭 Nouvelles textures dispo : <yellow>clic droit avec une boussole"));
+        } catch (RuntimeException e) {
+            log.fine("Resource pack: cannot notify " + p.getName() + ": " + e);
+        }
+    }
+
+    /**
+     * Sends the current pack to this player now (compass / dialog). Returns false (and tells the player) when
+     * they already have this version. Main thread.
+     */
+    public boolean requestPack(Player p) {
+        PackBuilder.Result r = current;
+        if (!enabled) {
+            p.sendRichMessage("<gray>Le pack de ressources est désactivé sur ce serveur.");
+            return false;
+        }
+        String sha = shaOf(r);
+        String had = sentSha.getOrDefault(p.getUniqueId(), "");
+        String st = playerStatus.getOrDefault(p.getUniqueId(), "");
+        boolean failed = st.startsWith("FAILED") || st.equals("INVALID_URL") || st.equals("DECLINED") || st.equals("DISCARDED");
+        if (r == null || (sha.isEmpty() && had.isEmpty())) {
+            p.sendActionBar(MiniMessage.miniMessage().deserialize("<gray>🧭 Aucune texture créée pour l'instant"));
+            return false;
+        }
+        if (had.equals(sha) && !failed) {
+            p.sendActionBar(MiniMessage.miniMessage().deserialize("<green>🧭 Textures déjà à jour ✔"));
+            return false;
+        }
+        push(p, r);
+        notifiedSha.put(p.getUniqueId(), sha);
+        p.sendActionBar(MiniMessage.miniMessage().deserialize(sha.isEmpty() ? "<gray>🧭 Textures retirées"
+                : "<gold>🧭 Chargement des nouvelles textures…"));
+        return true;
     }
 
     private void push(Player p, PackBuilder.Result r) {
         try {
             if (r.empty()) {
-                if (!pushedSha.isEmpty()) {
+                if (!sentSha.getOrDefault(p.getUniqueId(), "").isEmpty()) {
                     p.removeResourcePacks(PACK_ID);
                     playerStatus.remove(p.getUniqueId());
                 }
+                sentSha.put(p.getUniqueId(), "");
                 return;
             }
             URI uri = URI.create("http://" + hostFor(p) + ":" + port + "/pack/" + r.sha1() + ".zip");
@@ -418,6 +506,7 @@ public final class PackService implements Listener {
                     .replace(false)
                     .build();
             p.sendResourcePacks(req);
+            sentSha.put(p.getUniqueId(), r.sha1());
             playerStatus.put(p.getUniqueId(), "SENT " + r.sha1().substring(0, 10));
             pushes++;
         } catch (RuntimeException e) {
@@ -428,17 +517,111 @@ public final class PackService implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
         Player p = e.getPlayer();
+        sentSha.remove(p.getUniqueId());
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            PackBuilder.Result r = current;
-            if (p.isOnline() && r != null && !r.empty()) {
-                push(p, r);
+            if (!p.isOnline()) {
+                return;
             }
-        }, 10L);
+            PackBuilder.Result r = current;
+            if (autoPush) {
+                if (r != null && !r.empty()) {
+                    push(p, r);
+                }
+                return;
+            }
+            if (giveCompass && !hasCompass(p)) {
+                p.getInventory().addItem(compassItem());
+            }
+            if (r != null && !r.empty()) {
+                notifiedSha.put(p.getUniqueId(), r.sha1());
+                p.sendRichMessage("<gold>🧭 Textures VibeCraft disponibles :</gold> <yellow>clic droit avec une boussole</yellow> "
+                        + "<gray>pour les charger (et à chaque nouvelle version).");
+            }
+        }, 20L);
+    }
+
+    /** A player who died lost the compass: give it back on respawn (on-demand mode). */
+    @EventHandler
+    public void onRespawn(org.bukkit.event.player.PlayerRespawnEvent e) {
+        if (autoPush || !giveCompass) {
+            return;
+        }
+        Player p = e.getPlayer();
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (p.isOnline() && !hasCompass(p)) {
+                p.getInventory().addItem(compassItem());
+            }
+        }, 5L);
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
-        playerStatus.remove(e.getPlayer().getUniqueId());
+        UUID u = e.getPlayer().getUniqueId();
+        playerStatus.remove(u);
+        sentSha.remove(u);
+        notifiedSha.remove(u);
+        lastCompassUse.remove(u);
+        lastCompassTick.remove(u);
+    }
+
+    private static boolean isCompass(org.bukkit.inventory.ItemStack it) {
+        return it != null && (it.getType() == org.bukkit.Material.COMPASS || it.getType() == org.bukkit.Material.RECOVERY_COMPASS);
+    }
+
+    private static boolean hasCompass(Player p) {
+        for (org.bukkit.inventory.ItemStack it : p.getInventory().getContents()) {
+            if (isCompass(it)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static org.bukkit.inventory.ItemStack compassItem() {
+        org.bukkit.inventory.ItemStack it = new org.bukkit.inventory.ItemStack(org.bukkit.Material.COMPASS);
+        org.bukkit.inventory.meta.ItemMeta meta = it.getItemMeta();
+        MiniMessage mm = MiniMessage.miniMessage();
+        meta.displayName(mm.deserialize("<!italic><gold>Boussole VibeCraft"));
+        meta.lore(List.of(mm.deserialize("<!italic><gray>Clic droit : charger les nouvelles textures"),
+                mm.deserialize("<!italic><dark_gray>Accroupi + clic droit : Claude (organisateurs)")));
+        it.setItemMeta(meta);
+        return it;
+    }
+
+    /** Right click with any compass (main or off hand): pack on demand; sneaking ops: {@link #sneakAction}. */
+    @EventHandler(priority = org.bukkit.event.EventPriority.LOW)
+    public void onInteract(org.bukkit.event.player.PlayerInteractEvent e) {
+        org.bukkit.event.block.Action a = e.getAction();
+        if (a != org.bukkit.event.block.Action.RIGHT_CLICK_AIR && a != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+        if (!isCompass(e.getItem())) {
+            return;
+        }
+        Player p = e.getPlayer();
+        java.util.function.Consumer<Player> sneak = sneakAction;
+        boolean claude = p.isSneaking() && sneak != null && p.hasPermission("vibecraft.admin");
+        if (autoPush && !claude) {
+            return; // old behaviour: the compass is an ordinary compass
+        }
+        e.setUseItemInHand(org.bukkit.event.Event.Result.DENY);
+        e.setUseInteractedBlock(org.bukkit.event.Event.Result.DENY);
+        int tick = Bukkit.getCurrentTick();
+        Integer last = lastCompassTick.put(p.getUniqueId(), tick);
+        if (last != null && last == tick) {
+            return; // the other hand of the same click
+        }
+        long now = System.currentTimeMillis();
+        Long prev = lastCompassUse.get(p.getUniqueId());
+        if (prev != null && now - prev < cooldownMs) {
+            return;
+        }
+        lastCompassUse.put(p.getUniqueId(), now);
+        if (claude) {
+            sneak.accept(p);
+            return;
+        }
+        requestPack(p);
     }
 
     @EventHandler
@@ -596,6 +779,7 @@ public final class PackService implements Listener {
         m.put("builtAt", builtAt);
         m.put("buildMs", buildMs);
         m.put("pushes", pushes);
+        m.put("autoPush", autoPush);
         Map<String, Set<String>> ns = r == null ? Map.of() : r.namespaces();
         m.put("namespaces", ns);
         List<Map<String, String>> issues = new ArrayList<>();

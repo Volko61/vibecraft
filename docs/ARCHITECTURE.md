@@ -252,17 +252,36 @@ Bukkit calls happen on the main thread (`Bukkit.getScheduler().callSyncMethod` o
 | `POST /api/ideas` | text | `Idea` |
 | `POST /api/ideas/{n}/accept?module=<id>` | | `AiJob` (starts AI job with the idea text) |
 | `POST /api/ideas/{n}/dismiss` | | `Idea` |
+| `GET /api/conversations` | | `[{id, title, state, updatedAt, lastLine, moduleState, generation}]` newest first (every conversation + every module; `state` idle/running/queued/failed, `title` = first request cut to 60 or the id) |
+| `GET /api/conversations/{id}` | | `{id, title, state, moduleState, generation, messages:[{id, role: user/assistant/system, at, blocks:[{type: text/thinking/tool_use/tool_result/status, text?, name?, input?, ok?}]}]}` |
+| `GET /api/conversations/{id}/events?since=N` | | `{messages, state, count}`: the client's last message again (the assistant message being streamed) + the new ones |
+| `POST /api/conversations/{id}/messages` | JSON `{text, imageProvider: auto/openrouter/meshy, model?}` | 201 `{jobId}` (same 400/409/413/503 as `POST /api/ai/{id}`; creates the module) |
+| `POST /api/conversations/{id}/stop` | | `{ok}` |
+| `DELETE /api/conversations/{id}` | | `{ok, deleted}` (transcript + Claude session forgotten, module files kept; 409 while a job runs) |
+| `GET /api/providers` | | `{openrouter:{available, imageModel}, meshy:{available}, claude:{available, reason}}` |
+| `POST /api/modules/{id}/models3d` | JSON `{path: assets/<ns>/shapes/<name>, prompt, size?, texture?, maxFaces?, resolution?, colors?}` | 202 `{taskId, status, statusUrl, ...}` (Meshy text-to-3D, async) |
+| `GET /api/modules/{id}/models3d/{taskId}?wait=<s>` | | task `{status: PENDING/PREVIEW/REFINING/DOWNLOADING/CONVERTING/SUCCEEDED/FAILED, progress, error, result}`; `wait` (<= 55 s) blocks until it ends |
 
 Errors: `{error:"..."}` with 4xx/5xx. Unknown module id → 404.
 
 ## 6. Commands (INTERFACE)
 
-`/vibe` (alias `/vc`, perm `vibecraft.admin`):
-`help`, `list`, `info <id>`, `reload <id|all>`, `enable <id>`, `disable <id>`, `errors <id>`,
+`/vibe` (alias `/vc`, perm `vibecraft.admin`): without arguments a player gets the **Claude dialog** (`ui.vibe-opens:
+claude`, or `menu` for the chest menu); `claude [id]` (conversations dialog, see below), `menu`, `help`, `list`, `info <id>`, `reload <id|all>`, `enable <id>`, `disable <id>`, `errors <id>`,
 `new <id> [description]`, `ai <id> <request...>` (creates module if needed), `stop <id>`,
 `jobs`, `reset <id>` (forget AI conversation), `ideas`, `accept <n> [id]` (idea → AI job; id defaults
 to a slug of the idea), `dismiss <n>`, `dashboard` (prints URL). Tab completion everywhere.
 Messages in **French**, colourful (MiniMessage), concise.
+
+In-game Claude interface (`command/ClaudeDialogs`, native 26.3 dialog screens through Paper's dialog API, no mod):
+conversations list (state icon, id, title; last line as tooltip) + "Nouvelle conversation" + "Modules" (chest menu);
+a conversation shows its last messages compactly (user / assistant text, thinking collapsed "💭 réflexion…" with an
+expand button, tool steps, status lines), a multiline input, an image provider selector (Auto / OpenRouter / Meshy),
+buttons Envoyer / Arrêter / Rafraîchir / Retour. Buttons are `minecraft:dynamic/custom` actions `vibecraft:claude`
+with `{a, c}` + the inputs, handled in `PlayerCustomClickEvent` on the main thread. While a job runs the dialog is
+re-sent every ~2 s when the conversation changed (no text input then, so nothing typed is lost), once more at the
+end, then never again (no spam); Escape = the exit action (stops refreshing). Also opened with sneak + right click
+holding a compass (`ui.compass-opens-claude`) and from the chest menu ("Claude" button).
 
 `/idea <text>` (perm `vibecraft.idea`, everyone): adds to the queue (cooldown), thanks the player,
 notifies ops with a clickable `[Accepter]`.
@@ -291,6 +310,14 @@ a job runs. All Bukkit calls on the main thread.
 * Persist module → session id in `plugins/VibeCraft/ai-sessions.yml` (resume next time if
   `ai.resume-sessions`); if resume fails (session not found), retry once without it.
 * `stop` kills the process tree (`ProcessHandle.descendants()`), state STOPPED.
+* Conversations (`ai/ConversationStore`, `ai/Conversations`): every job's stream-json is also recorded as messages of
+  blocks (user request; assistant text, `thinking`, `tool_use` name + short input, `tool_result` ok + excerpt; status
+  lines for reload ok/refused and the end of the job; sub-agent chatter skipped), secrets redacted, persisted in
+  `plugins/VibeCraft/conversations/<id>.json` (last 300 messages, written ~1 s after a change and at job end, survive
+  restarts). Thinking: `--settings plugins/VibeCraft/ai-job-settings.json` (`alwaysThinkingEnabled` +
+  `showThinkingSummaries`, a file because Windows argv quoting eats inline JSON; `ai.thinking: false` to disable).
+  Per-job options (`ai/JobOptions`): `imageProvider` (prompt placeholder `{{IMAGE_PROVIDER_NOTE}}`, env
+  `VIBECRAFT_IMAGE_PROVIDER`, default provider of the texture / 3D endpoints while the job runs) and `model`.
 * Env: strip nothing special; set `CLAUDE_CODE_ENTRYPOINT`? not needed. Never block the main thread.
 
 ## 8. Dashboard (INTERFACE) — single self-contained `web/index.html`
@@ -351,14 +378,20 @@ Wired by `ext/Extensions` (created in `onEnable` right after the ModuleManager, 
   definitions -> models, font bitmaps -> textures + ascent <= height, path charset, cross-module file and namespace
   collisions. Errors leave the file out (other files/modules unaffected) and are reported in `.vibe/assets.log`,
   the module's log ring and `GET /api/pack`. A poller (500 ms, debounce `resource-pack.debounce-ms`) + module events
-  trigger rebuilds on a background thread; a changed SHA-1 is pushed on the main thread to every player with
-  Adventure `sendResourcePacks` (stable pack UUID -> the new version replaces the old one, `replace=false` keeps
-  other packs, `required=false`, French prompt), and on join. The zip is served by a dedicated
+  trigger rebuilds on a background thread. Delivery is **on demand** (`resource-pack.auto-push: false`, default: a
+  resource reload freezes the client a moment): a changed SHA-1 is announced (chat + action bar "🧭 Nouvelles textures
+  dispo : clic droit avec une boussole", once per version and player), and the pack is sent when the player
+  right-clicks with any compass (COMPASS / RECOVERY_COMPASS, main or off hand; use cancelled; same-tick dedupe of the
+  two hands; `compass-cooldown-ms`; "Textures déjà à jour" if that version was already sent and not failed/declined).
+  A named compass is given on join to players without one (`give-compass`). `auto-push: true` = the old behaviour
+  (pushed on join and after every change). Sending = Adventure `sendResourcePacks` on the main thread (stable pack
+  UUID -> the new version replaces the old one, `replace=false` keeps other packs, `required=false`, French prompt).
+  The zip is served by a dedicated
   `com.sun.net.httpserver` on `resource-pack.bind:port` (default `0.0.0.0:8766`, only `/pack.zip` and
   `/pack/<sha1>.zip`, last 4 builds kept). URL host: `resource-pack.public-host`, `auto` = the virtual host the
   player connected with, else the LAN IP. `PlayerResourcePackStatusEvent` is tracked (shown in `/api/pack`).
 * **Secrets** (`ext/SecretStore`): `plugins/VibeCraft/secrets.yml` (created empty, re-read when it changes),
-  `secrets:` in config.yml, env `VIBECRAFT_SECRET_<NAME>` / `OPENROUTER_API_KEY`. Values are redacted (`***`) from
+  `secrets:` in config.yml, env `VIBECRAFT_SECRET_<NAME>` / `OPENROUTER_API_KEY` / `MESHY_API_KEY`. Values are redacted (`***`) from
   module log lines and AI job progress/result lines; never in status files, dashboard or API.
 * **OpenRouter** (`ext/OpenRouterClient`, module API `dev.vibecraft.api.OpenRouter` + `Secrets`, new classes; the
   frozen `ModuleContext` is unchanged): chat completions and image generation on dedicated daemon pools
@@ -367,7 +400,17 @@ Wired by `ext/Extensions` (created in `onEnable` right after the ModuleManager, 
   path, prompt, kind, size/width/height, transparent, seamless, crop, colors, style, model) -> OpenRouter
   `POST /images` (fallback: chat completions with `modalities: ["image","text"]`, images in `message.images`) ->
   border-colour flood-fill keying, crop to subject, box downsampling, binary alpha, median-cut palette,
-  optional offset-blend seamless tiling -> PNG written atomically into the module's `assets/` (the watcher pushes it).
+  optional offset-blend seamless tiling -> PNG written atomically into the module's `assets/` (the pack is rebuilt).
+  `"provider": "openrouter" | "meshy"`; default = the running AI job's `imageProvider`, else `images.default-provider`
+  (`auto` = OpenRouter if it has a key, else Meshy).
+* **Meshy AI** (`ext/MeshyClient`, key `meshy` in secrets.yml / `MESHY_API_KEY`, config `meshy.*`): text-to-image
+  (`POST /openapi/v1/text-to-image`, `remove_background` for transparent kinds) and text-to-3D (`POST /openapi/v2/text-to-3d`
+  preview with remesh + `target_formats:["obj"]`, then refine for the texture), tasks polled (`poll-interval-ms`) until
+  SUCCEEDED, files downloaded (https or the API host only, 64 MB max). `pack/Model3dService` (`/models3d`, 202 + status
+  URL, tasks in memory, `max-concurrent-3d`) -> `pack/mesh/MeshImport`: base-colour texture sampled at the UVs into
+  per-face colours (the compiler ignores UVs), vertex-clustering decimation to `maxFaces`, median-cut palette (one MTL
+  material per colour), `# vibecraft {"size", "mode": "voxel", "resolution"}` -> `assets/<ns>/shapes/<name>.obj` + `.mtl`
+  (originals in `.vibe/meshy/`), then a pack rebuild; `result.compiled` = the compiled object.
   `kind: realistic` (seamless photo-like material, 128, no palette reduction) and `decal` feed 3D object materials.
 * **Realistic 3D objects** (`pack/mesh/`, module API `dev.vibecraft.api.Models`): `assets/<ns>/**/<name>.shape.json`
   (primitive scene: box/rounded box, cylinder, cone, sphere/ellipsoid, capsule, torus, lathe, extrude, polygon, mesh;
@@ -389,7 +432,12 @@ Wired by `ext/Extensions` (created in `onEnable` right after the ModuleManager, 
   `modules/<id>/.vibe/previews/<ns>_<name>.png` (4 views); `GET /api/pack` lists `models`. Offline: `MeshTool`.
   Test: `node tests/e2e/assets/run-mesh.mjs --sandbox <dir>` (ports 25660/25661/8860/8861/8862).
 * Extra API routes are registered through `web/ApiExtensions` (tried before the built-in routes, token-checked):
-  `GET /api/pack`, `POST /api/pack/rebuild`, `GET /api/openrouter`, `POST /api/modules/<id>/textures`.
+  `GET /api/pack`, `POST /api/pack/rebuild`, `GET /api/openrouter`, `POST /api/modules/<id>/textures`, `/api/modules/<id>/models3d[/<task>]`
+  (ext/Extensions), `/api/conversations/**` and `GET /api/providers` (web/ConversationRoutes).
 * AI jobs: `ai.mcp-config` -> `--mcp-config <abs>` + `mcp__<server>` allowed tools (not in `--tools`), `ai.env`,
   and `OPENROUTER_API_KEY` from the secrets (read at each job start).
-* Test: `node tests/e2e/assets/run-assets.mjs --sandbox <dir>` (private sandbox server, fake OpenRouter, fake claude).
+* Test: `node tests/e2e/assets/run-assets.mjs --sandbox <dir>` (private sandbox server, fake OpenRouter, fake claude;
+  forces `auto-push: true`).
+* Test of the pack on demand, conversations, Claude dialogs and Meshy: `node tests/e2e/assets/run-conv.mjs --sandbox <dir>`
+  (copy of `.sandbox-assets`; ports 25670/25671/8870/8871, fake OpenRouter 8872, fake Meshy 8873, fake claude with
+  thinking / tool blocks; restarts the server to check persistence).

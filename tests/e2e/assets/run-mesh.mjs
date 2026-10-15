@@ -238,6 +238,12 @@ async function main() {
   // element without faces: the client rejects the whole model -> must be reported as ERROR
   w('assets/lab/models/item/nofaces.json', JSON.stringify({ textures: { 0: 'lab:item/mesh/crate' }, elements: [{ from: [0, 0, 0], to: [1, 1, 1], faces: {} }] }));
   fs.writeFileSync(path.join(SERVER, 'plugins', 'VibeCraft', 'secrets.yml'), `openrouter: "${FAKE_KEY}"\n`);
+  // this test checks the automatic push: force resource-pack.auto-push: true (default = on demand, see run-conv.mjs)
+  const cfgFile = path.join(SERVER, 'plugins', 'VibeCraft', 'config.yml');
+  const cfg = fs.readFileSync(cfgFile, 'utf8');
+  if (!/\n  auto-push: true/.test(cfg)) {
+    fs.writeFileSync(cfgFile, cfg.replace(/\n  auto-push: \w+/, '').replace(/\nresource-pack:\n/, '\nresource-pack:\n  auto-push: true\n'));
+  }
 
   log('starting sandbox server in', SERVER, 'with', JAVA_BIN);
   const serverLog = fs.createWriteStream(path.join(SANDBOX, 'server-run.log'));

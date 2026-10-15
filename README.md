@@ -6,8 +6,8 @@
 - Chaque fonctionnalité = un **module** Java dans `workspace/modules/<id>/` = une conversation d'IA. Plusieurs IA travaillent **en parallèle**.
 - Les modules sont **compilés en mémoire et rechargés à chaud** (~150 ms). Si ça ne compile pas ou plante, l'ancienne version continue de tourner.
 - **Garde-fous** : boucles infinies coupées (250 ms), exceptions isolées, appels dangereux refusés (`System.exit`, kick/ban/op, sockets…), disjoncteur par module, retour automatique à la version précédente.
-- **Contenu « comme un mod »** : resource pack généré et poussé à chaud (modèles 3D, textures, GUI texturés), textures générées par IA via OpenRouter, objets 3D réalistes décrits en texte (`*.shape.json`, `.obj`) compilés en modèles vanilla.
-- **Pilotage** : `/vibe` (menu en jeu), `/vibe ai <id> <demande>` (lance Claude Code en tâche de fond), `/idea` pour le public, dashboard web projetable sur `http://127.0.0.1:8765/`.
+- **Contenu « comme un mod »** : resource pack généré à chaud (modèles 3D, textures, GUI texturés) et chargé à la demande (les joueurs sont prévenus et font **clic droit avec une boussole**), textures générées par IA via OpenRouter ou Meshy AI, objets 3D réalistes décrits en texte (`*.shape.json`, `.obj`) ou générés par Meshy (text-to-3D), compilés en modèles vanilla.
+- **Pilotage** : `/vibe` (fenêtre « Claude » native du jeu : conversations par module, envoyer / arrêter, réflexions et étapes de l'IA ; le menu coffre reste dans « Modules »), `/vibe ai <id> <demande>` (lance Claude Code en tâche de fond), `/idea` pour le public, dashboard web projetable sur `http://127.0.0.1:8765/` (API `/api/conversations`).
 - **Filet de sécurité optionnel** : proxy Velocity + serveur d'attente ; si le serveur principal redémarre, les joueurs patientent et reviennent tout seuls.
 
 ## Démarrage rapide (Windows)
@@ -18,7 +18,7 @@ Prérequis : un JDK 25 dans `runtime/jdk-25/` et Paper 26.3 dans `server/paper.j
 2. Lancer : `scripts\start-server.bat` (installe automatiquement le dernier plugin compilé).
 3. Dans la console : `op <ton pseudo>`. Se connecter sur `localhost` en 26.3.
 4. Une fois : connecter Claude Code (`claude auth login`) pour `/vibe ai`.
-5. Optionnel : clé OpenRouter dans `server/plugins/VibeCraft/secrets.yml` (`openrouter: "sk-or-..."`) pour générer des textures.
+5. Optionnel : clés dans `server/plugins/VibeCraft/secrets.yml` : `openrouter: "sk-or-..."` (textures) et/ou `meshy: "msy_..."` (textures et objets 3D Meshy AI).
 
 Pour coder avec Claude Desktop : ouvrir une session sur le dossier `workspace/` (une session par module). Les IA y lisent [`workspace/CLAUDE.md`](workspace/CLAUDE.md) et [`workspace/ASSETS.md`](workspace/ASSETS.md).
 

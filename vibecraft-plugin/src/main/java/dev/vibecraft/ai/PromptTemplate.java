@@ -10,7 +10,7 @@ import dev.vibecraft.core.ModuleIds;
 /**
  * The job prompt template ({@code ai/job-prompt.md} resource) with {@code {{PLACEHOLDER}}} substitution.
  * Placeholders: MODULE_ID, MODULE_DIR, MODULE_DIR_ABS, PACKAGE, API_BASE, AUTH_HEADER, REQUEST,
- * REQUESTED_BY, CONVERSATION_NOTE. Pure JDK.
+ * REQUESTED_BY, CONVERSATION_NOTE, IMAGE_PROVIDER, IMAGE_PROVIDER_NOTE. Pure JDK.
  */
 public final class PromptTemplate {
 
@@ -32,6 +32,16 @@ public final class PromptTemplate {
             Recharge avec : curl -s -X POST {{API_BASE}}/api/modules/{{MODULE_ID}}/reload{{AUTH_HEADER}}
             et corrige jusqu'à "ok":true. Sois rapide. Termine par 1 à 2 phrases en français pour le public.
             """;
+
+    /** Sentence for {{IMAGE_PROVIDER_NOTE}}: which image / 3D generator the requester chose. */
+    public static String imageProviderNote(String provider) {
+        return switch (provider == null ? "auto" : provider) {
+            case "meshy" -> "Générateur d'images choisi pour cette demande : Meshy AI. Les appels /textures l'utilisent par défaut, "
+                    + "et pour un objet 3D réaliste tu peux le faire générer par Meshy (POST /models3d, voir ASSETS.md).";
+            case "openrouter" -> "Générateur d'images choisi pour cette demande : OpenRouter (les appels /textures l'utilisent par défaut).";
+            default -> "Générateur d'images : automatique (OpenRouter si une clé est configurée, sinon Meshy).";
+        };
+    }
 
     private final String template;
 

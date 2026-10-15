@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 // VibeCraft dashboard mock server: zero dependencies, follows docs/ARCHITECTURE.md section 5.
 // Serves src/main/resources/web/index.html (re-read on every request) and a fake, evolving JSON API:
-// modules compiling / reloading / rolling back / tripping, AI jobs streaming progress lines,
-// audience ideas arriving.
+// modules compiling / reloading / rolling back / tripping, AI conversations (one per module) whose jobs stream
+// thinking -> tool_use -> tool_result -> text -> status blocks, audience ideas arriving.
+// Conversation API: GET /api/conversations, GET /api/conversations/{id}, GET .../{id}/events?since=n,
+// POST .../{id}/messages {text, imageProvider, model?}, POST .../{id}/stop, DELETE .../{id}, GET /api/providers.
 //
 // Usage: node vibecraft-plugin/dev/mock-api.mjs [--port 8768] [--host 127.0.0.1]
 //          [--token secret]   require the X-Vibe-Token header (401 otherwise)
-//          [--no-ai]          ai.available=false (POST /api/ai/{id} -> 503)
+//          [--no-ai]          ai.available=false (POST /api/ai/{id} and conversation messages -> 503)
+//          [--meshy]          Meshy AI available (off by default, to show the disabled pill)
+//          [--no-openrouter]  OpenRouter unavailable
 //          [--static]         no automatic demo activity (only reacts to requests)
 //          [--verbose]        log every request
 // Test helpers (outside /api, never need the token):
@@ -14,6 +18,7 @@
 //   GET /__mock/ai?on=0|1            toggle AI availability
 //   GET /__mock/token?value=xyz      change the required token at runtime (empty = none)
 //   GET /__mock/job?module=x&prompt=y  start a fake AI job
+//   GET /__mock/providers?meshy=1&openrouter=0  toggle image providers
 
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
@@ -213,9 +218,18 @@ addModule('sapin-geant', {
   listeners: 1, tasks: 2, _baseMs: 1.6
 });
 
-// ---------------------------------------------------------------------------- AI jobs
+// ---------------------------------------------------------------------------- conversations & AI jobs
+// One conversation per module. A job is one "run" of Claude Code inside a conversation: its script is a list of
+// structured steps (thinking / tool_use / tool_result / text / status) streamed into the conversation messages.
 let jobSeq = 0;
+let msgSeq = 0;
 const jobs = []; // internal job records, creation order
+const conversations = new Map(); // id -> { id, title, createdAt, updatedAt, messages: [...], _cur }
+
+const providers = {
+  openrouter: { available: !args['no-openrouter'], imageModel: 'google/gemini-2.5-flash-image' },
+  meshy: { available: !!args.meshy }
+};
 
 function job(j) {
   return {
@@ -225,52 +239,153 @@ function job(j) {
   };
 }
 
-function scriptFor(moduleId, prompt, fail) {
-  const file = `modules/${moduleId}/${pascal(moduleId)}Module.java`;
+function ensureConversation(id, title, at = Date.now()) {
+  let c = conversations.get(id);
+  if (!c) {
+    c = { id, title: short(title || id, 52), createdAt: at, updatedAt: at, messages: [], _cur: null };
+    conversations.set(id, c);
+  }
+  return c;
+}
+
+function touch(c, msg, at = Date.now()) {
+  c.updatedAt = Math.max(c.updatedAt, at);
+  if (msg) msg._upd = Date.now();
+}
+
+function pushMessage(c, role, blocks, at = Date.now()) {
+  const m = { id: `m${++msgSeq}`, role, at, blocks, _upd: Date.now() };
+  c.messages.push(m);
+  touch(c, m, at);
+  return m;
+}
+
+/** Current assistant message to append blocks to (a new one if the last message is not an assistant message). */
+function assistantMessage(c, at) {
+  const last = c.messages[c.messages.length - 1];
+  if (c._cur && last === c._cur) return c._cur;
+  c._cur = pushMessage(c, 'assistant', [], at);
+  return c._cur;
+}
+
+const JAVA_SNIPPET = (id) => `package modules.${id.replace(/-/g, '_')};
+
+import dev.vibecraft.api.Module;
+import dev.vibecraft.api.ModuleContext;
+import org.bukkit.Location;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+
+public final class ${pascal(id)}Module implements Module, Listener {
+    @Override
+    public void enable(ModuleContext ctx) {
+        ctx.listen(this);
+    }
+
+    @EventHandler
+    public void onJump(com.destroystokyo.paper.event.player.PlayerJumpEvent e) {
+        Location loc = e.getPlayer().getLocation();
+        loc.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, loc, 20);
+    }
+}
+`;
+
+function scriptFor(moduleId, prompt, fail, opts = {}) {
+  const dir = `modules/${moduleId}`;
+  const file = `${dir}/${pascal(moduleId)}Module.java`;
+  const reloadCmd = `curl -s -X POST http://127.0.0.1:8765/api/modules/${moduleId}/reload`;
+  const cmd = moduleId.split('-')[0].slice(0, 12);
+  const wantsImage = opts.imageProvider === 'meshy' || /textur|image|mod[eè]le|3d|skin|bloc/i.test(prompt);
   const steps = [
-    { line: '🚀 Démarrage de Claude Code…', wait: 900 },
-    { line: '📖 CLAUDE.md', wait: 1300 },
-    { line: `💬 Je vais implémenter : ${short(prompt, 80)}`, wait: 1600 },
-    { line: `📖 ${file}`, wait: 1100 },
-    { line: `✏ ${file}`, wait: 2300 },
-    { line: '🔄 rechargement', wait: 700, act: 'compile' },
-    { line: '⚠ erreur de compilation', wait: 1900 },
-    { line: '💬 Il manque un import, je corrige.', wait: 1300 },
-    { line: `✏ ${file}`, wait: 1700 }
+    { think: `L'utilisateur demande : « ${short(prompt, 110)} ». Je relis d'abord CLAUDE.md pour l'API des modules (ctx.listen, ctx.command, ctx.every), puis je regarde ce qui existe déjà dans ${dir}. Il faut rester simple et rapide : un seul fichier, pas de boucle lourde dans les événements.` },
+    { tool: 'Read', input: { file_path: 'CLAUDE.md' } },
+    { result: '# VibeCraft — guide des modules\n\nChaque module vit dans modules/<id>/ et implémente dev.vibecraft.api.Module.\nRechargez avec curl -X POST .../api/modules/<id>/reload jusqu\'à ok:true.\n… (214 lignes)', ok: true },
+    { tool: 'Glob', input: { pattern: `${dir}/**/*.java` } },
+    { result: conversations.get(moduleId)?.messages.length > 2 ? file : 'No files found', ok: true },
+    { text: `Je vais implémenter ça dans **${moduleId}**. Le plan :\n\n1. un écouteur sur le saut du joueur ;\n2. l'effet demandé autour de lui ;\n3. une commande \`/${cmd}\` pour l'activer ou le couper.\n\nVoici le cœur de l'idée :\n\n\`\`\`java\n@EventHandler\npublic void onJump(PlayerJumpEvent e) {\n    Location loc = e.getPlayer().getLocation();\n    loc.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, loc, 20);\n}\n\`\`\`` },
+    { tool: 'Write', input: { file_path: file, content: JAVA_SNIPPET(moduleId) } },
+    { result: `File created successfully at: ${file}`, ok: true }
   ];
+  if (wantsImage) {
+    const provider = opts.imageProvider === 'meshy' ? 'meshy' : 'openrouter';
+    steps.push(
+      { think: provider === 'meshy' ? 'Il faut un vrai modèle 3D : je passe par Meshy puis je le compile en modèle vanilla.' : 'Il me faut une texture 16×16 : je la génère avec OpenRouter, puis le resource pack est poussé à chaud.' },
+      { tool: 'Bash', input: { command: provider === 'meshy'
+        ? `curl -s -X POST http://127.0.0.1:8765/api/models/${moduleId}/generate -d "un champignon lumineux low-poly"`
+        : `curl -s -X POST http://127.0.0.1:8765/api/textures/${moduleId}/generate -d "bloc de slime arc-en-ciel, pixel art 16x16"`, description: 'Générer l\'asset' } },
+      { result: provider === 'meshy' ? '{"ok":true,"model":"vibecraft:item/champignon","faces":412}' : '{"ok":true,"texture":"vibecraft:block/slime_rainbow","size":"16x16"}', ok: true }
+    );
+  }
+  steps.push(
+    { tool: 'Bash', input: { command: reloadCmd, description: 'Recharger le module' }, act: 'compile' },
+    { result: () => `{"ok":false,"error":"compilation failed: 1 error(s)","diagnostics":[{"kind":"ERROR","file":"${pascal(moduleId)}Module.java","line":18,"message":"cannot find symbol\\n  symbol: variable Particle"}]}`, ok: false },
+    { status: `⚠ ${moduleId} : compilation échouée, version précédente conservée`, ok: false },
+    { think: 'Il manque l\'import org.bukkit.Particle. Je l\'ajoute et je recharge.' },
+    { tool: 'Edit', input: { file_path: file, old_string: 'import org.bukkit.Location;', new_string: 'import org.bukkit.Location;\nimport org.bukkit.Particle;' } },
+    { result: `The file ${file} has been updated successfully.`, ok: true }
+  );
   if (fail) {
-    steps.push({ line: '🔄 rechargement', wait: 700, act: 'enable' });
-    steps.push({ line: '⚠ enable() a levé une exception, version précédente conservée', wait: 1500 });
-    steps.push({ end: 'FAILED', result: 'Je n\'ai pas réussi à finir : l\'API utilisée n\'existe pas dans cette version de Paper.' });
+    steps.push(
+      { tool: 'Bash', input: { command: reloadCmd, description: 'Recharger le module' }, act: 'enable' },
+      { result: '{"ok":false,"error":"enable() a lancé IllegalStateException: monde introuvable","rolledBack":true}', ok: false },
+      { status: `✖ ${moduleId} : enable() a levé une exception`, ok: false },
+      { text: 'Je n\'ai pas réussi à finir : l\'API utilisée **n\'existe pas** dans cette version de Paper. Il faudra une autre approche (par exemple passer par `ctx.every` au lieu de l\'événement).' },
+      { end: 'FAILED' }
+    );
   } else {
-    steps.push({ line: '🔄 rechargement', wait: 700, act: 'ok' });
-    steps.push({ line: `💬 Le module ${moduleId} est chargé, je vérifie son statut.`, wait: 1400 });
-    steps.push({ end: 'SUCCEEDED', result: pick([
-      `C'est en ligne ! Tapez /${moduleId.split('-')[0]} pour essayer.`,
-      `Fonctionnalité ajoutée au module ${moduleId}, rechargée à chaud sans redémarrer le serveur.`,
-      'Voilà ! Sautez pour voir le résultat, tout est déjà actif sur le serveur.'
-    ]) });
+    steps.push(
+      { tool: 'Bash', input: { command: reloadCmd, description: 'Recharger le module' }, act: 'ok' },
+      { result: () => { const m = modules.get(moduleId); return `{"ok":true,"state":"ENABLED","generation":${m ? m.generation : 1},"durationMs":143}`; }, ok: true },
+      { status: () => { const m = modules.get(moduleId); return `✔ ${moduleId} v${m ? m.generation : 1} chargé à chaud`; }, ok: true },
+      { text: pick([
+        `C'est en ligne ! Sautez pour voir l'effet, et tapez \`/${cmd}\` pour l'activer ou le couper.`,
+        `Fonctionnalité ajoutée au module **${moduleId}**, rechargée à chaud sans redémarrer le serveur :\n\n- l'effet se déclenche à chaque saut ;\n- \`/${cmd}\` l'active ou le coupe.`,
+        'Voilà ! Tout est déjà actif sur le serveur, *aucun redémarrage* nécessaire.'
+      ]) },
+      { end: 'SUCCEEDED' }
+    );
   }
   return steps;
 }
 
-function createJob(moduleId, prompt, requestedBy) {
+function progressLine(step, value) {
+  if (step.tool) {
+    const i = step.input || {};
+    if (step.tool === 'Read') return `📖 ${i.file_path}`;
+    if (step.tool === 'Write' || step.tool === 'Edit') return `✏ ${i.file_path}`;
+    if (step.tool === 'Bash' && /reload/.test(i.command || '')) return '🔄 rechargement';
+    return `🔧 ${step.tool}`;
+  }
+  if (step.result && step.ok === false) return '⚠ erreur';
+  if (step.text) return `💬 ${short(value.replace(/\s+/g, ' '), 90)}`;
+  return null;
+}
+
+function createJob(moduleId, prompt, requestedBy, opts = {}) {
+  const at = opts.at || Date.now();
+  const c = ensureConversation(moduleId, opts.title || prompt, at);
+  pushMessage(c, 'user', [{ type: 'text', text: prompt }], at);
+  c._cur = null;
   const j = {
     id: `job-${++jobSeq}`, moduleId, prompt, requestedBy, state: 'QUEUED', startedAt: 0, endedAt: 0,
-    progress: [], result: null, sessionId: null, costUsd: 0,
-    _steps: scriptFor(moduleId, prompt, Math.random() < 0.2), _i: 0, _next: 0
+    progress: [], result: null, sessionId: null, costUsd: 0, imageProvider: opts.imageProvider || 'auto', model: opts.model || null,
+    _steps: scriptFor(moduleId, prompt, opts.fail ?? Math.random() < 0.2, opts), _i: 0, _next: 0, _stream: null
   };
   jobs.push(j);
   if (!modules.has(moduleId)) {
     const m = addModule(moduleId, { description: short(prompt, 60) });
     log(m, 'INFO', 'module créé par l\'IA');
   }
-  startQueued();
+  if (!opts.instant) startQueued();
   return j;
 }
 
 function activeJob(moduleId) {
   return jobs.find((j) => j.moduleId === moduleId && (j.state === 'QUEUED' || j.state === 'RUNNING'));
+}
+function lastJob(moduleId) {
+  for (let i = jobs.length - 1; i >= 0; i--) if (jobs[i].moduleId === moduleId) return jobs[i];
+  return null;
 }
 
 function startQueued() {
@@ -281,69 +396,164 @@ function startQueued() {
     j.state = 'RUNNING';
     j.startedAt = Date.now();
     j.sessionId = j.sessionId || `sess-${Math.random().toString(16).slice(2, 10)}`;
-    j._next = Date.now() + 600;
+    j.progress.push('🚀 Démarrage de Claude Code…');
+    j._next = Date.now() + 700;
     running++;
   }
 }
 
-function finishJob(j, state, result) {
+function flushStream(j) {
+  const s = j._stream;
+  if (!s) return;
+  s.block.text = s.full;
+  touch(conversations.get(j.moduleId), s.msg);
+  j._stream = null;
+}
+
+function finishJob(j, state, opts = {}) {
+  flushStream(j);
   j.state = state;
   j.endedAt = Date.now();
-  j.result = result;
-  if (state !== 'STOPPED' || j.startedAt) j.costUsd = Math.round(rnd(0.03, 0.42) * 100) / 100;
   if (!j.startedAt) j.startedAt = j.endedAt;
-  startQueued();
+  if (state !== 'STOPPED' || j.progress.length > 1) j.costUsd = Math.round(rnd(0.03, 0.42) * 100) / 100;
+  const c = conversations.get(j.moduleId);
+  if (c) {
+    const secs = Math.max(1, Math.round((j.endedAt - j.startedAt) / 1000));
+    const cost = j.costUsd ? ` · ${j.costUsd.toFixed(2).replace('.', ',')} $` : '';
+    const text = state === 'SUCCEEDED' ? `Tâche terminée en ${secs} s${cost}`
+      : state === 'FAILED' ? `Tâche échouée après ${secs} s${cost}` : 'Tâche arrêtée';
+    pushMessage(c, 'system', [{ type: 'status', text, ok: state === 'SUCCEEDED' }], opts.at || Date.now());
+    c._cur = null;
+  }
+  if (state === 'SUCCEEDED') {
+    j.progress.push('✅ Terminé');
+    const m = modules.get(j.moduleId);
+    if (m) m._broken = null;
+  } else if (state === 'STOPPED') j.progress.push('⏹ arrêté');
+  if (!opts.instant) startQueued();
+}
+
+/** Applies one step. instant = no streaming / no simulated reload (seeding history). */
+function applyStep(j, step, instant, at = Date.now()) {
+  const c = conversations.get(j.moduleId);
+  if (!c) return;
+  const value = typeof step.result === 'function' ? step.result()
+    : typeof step.status === 'function' ? step.status()
+      : step.think || step.text || step.result || step.status || '';
+  if (step.think || step.text) {
+    const msg = assistantMessage(c, at);
+    const block = { type: step.think ? 'thinking' : 'text', text: instant ? value : '' };
+    msg.blocks.push(block);
+    touch(c, msg, at);
+    if (!instant) j._stream = { msg, block, full: value, pos: 0 };
+    if (step.text) j.result = value;
+  } else if (step.tool) {
+    const msg = assistantMessage(c, at);
+    msg.blocks.push({ type: 'tool_use', name: step.tool, input: step.input });
+    touch(c, msg, at);
+  } else if (step.result) {
+    const msg = assistantMessage(c, at);
+    msg.blocks.push({ type: 'tool_result', text: value, ok: step.ok !== false });
+    touch(c, msg, at);
+  } else if (step.status) {
+    pushMessage(c, 'system', [{ type: 'status', text: value, ok: step.ok !== false }], at);
+    c._cur = null;
+  }
+  const line = progressLine(step, value);
+  if (line) j.progress.push(line);
+  if (j.progress.length > 200) j.progress.splice(0, j.progress.length - 200);
+  if (!instant && step.act) {
+    const m = modules.get(j.moduleId);
+    if (m) {
+      if (step.act === 'ok') m._broken = null;
+      simReload(m, step.act, 900);
+    }
+  }
+}
+
+/** Streams the current thinking/text block a few words at a time. Returns true while streaming. */
+function streamTick(j) {
+  const s = j._stream;
+  if (!s) return false;
+  const rest = s.full.slice(s.pos);
+  const m = /^(\s*\S+){1,4}/.exec(rest);
+  const n = m ? m[0].length : rest.length;
+  s.pos += Math.max(1, n);
+  s.block.text = s.full.slice(0, s.pos);
+  touch(conversations.get(j.moduleId), s.msg);
+  if (s.pos >= s.full.length) { j._stream = null; j._next = Date.now() + rnd(500, 1100); }
+  return true;
 }
 
 function advanceJobs() {
   const t = Date.now();
   for (const j of jobs) {
-    if (j.state !== 'RUNNING' || t < j._next) continue;
+    if (j.state !== 'RUNNING') continue;
+    if (streamTick(j)) continue;
+    if (t < j._next) continue;
     const step = j._steps[j._i++];
-    if (!step) { finishJob(j, 'SUCCEEDED', 'Terminé.'); continue; }
-    if (step.end) {
-      if (step.end === 'SUCCEEDED') j.progress.push('✅ Terminé');
-      finishJob(j, step.end, step.result);
-      if (step.end === 'SUCCEEDED') {
-        const m = modules.get(j.moduleId);
-        if (m) m._broken = null;
-      }
-      continue;
-    }
-    j.progress.push(step.line);
-    if (j.progress.length > 200) j.progress.splice(0, j.progress.length - 200);
-    const m = modules.get(j.moduleId);
-    if (m && step.act) {
-      if (step.act === 'ok') m._broken = null;
-      simReload(m, step.act === 'ok' ? 'ok' : step.act, 900);
-    }
-    j._next = t + step.wait * rnd(0.8, 1.25);
+    if (!step || step.end) { finishJob(j, step ? step.end : 'SUCCEEDED'); continue; }
+    applyStep(j, step, false);
+    const wait = step.tool ? rnd(700, 1600) : step.result ? rnd(500, 1000) : step.status ? rnd(700, 1200) : 300;
+    j._next = t + wait;
   }
 }
 
-// Seed a few finished jobs + one running + one queued.
+/** Runs a whole job instantly in the past (seeded history). stopAfter = number of steps before a STOP. */
+function seedRun(moduleId, prompt, by, startedAt, opts = {}) {
+  const j = createJob(moduleId, prompt, by, { ...opts, at: startedAt, instant: true });
+  j.state = 'RUNNING';
+  j.startedAt = startedAt + 400;
+  j.sessionId = `sess-${(4096 + jobSeq).toString(16)}`;
+  let at = startedAt + 1500;
+  let n = 0;
+  for (const step of j._steps) {
+    if (opts.stopAfter != null && n >= opts.stopAfter) { j.endedAt = at; finishJob(j, 'STOPPED', { at, instant: true }); j.endedAt = at; return j; }
+    if (step.end) { finishJob(j, step.end, { at, instant: true }); j.endedAt = at; return j; }
+    applyStep(j, step, true, at);
+    at += Math.round(rnd(1500, 6000));
+    n++;
+  }
+  return j;
+}
+
+function conversationState(id) {
+  const a = activeJob(id);
+  if (a) return a.state === 'RUNNING' ? 'running' : 'queued';
+  const l = lastJob(id);
+  return l && l.state === 'FAILED' ? 'failed' : 'idle';
+}
+
+function msgOut(m) { return { id: m.id, role: m.role, at: m.at, blocks: m.blocks.map((b) => ({ ...b })) }; }
+
+function conversationSummary(c) {
+  const mod = modules.get(c.id);
+  const a = activeJob(c.id) || lastJob(c.id);
+  let lastLine = '';
+  if (a && a.progress.length) lastLine = a.progress[a.progress.length - 1];
+  return {
+    id: c.id, title: c.title, state: conversationState(c.id), updatedAt: c.updatedAt, lastLine,
+    moduleState: mod ? mod.state : null, generation: mod ? mod.generation : 0
+  };
+}
+function conversationFull(c) {
+  return { ...conversationSummary(c), messages: c.messages.map(msgOut) };
+}
+const conversationList = () => [...conversations.values()].sort((a, b) => b.updatedAt - a.updatedAt).map(conversationSummary);
+
+// Seed history + one running + one queued.
 (function seedJobs() {
   const t = Date.now();
-  const done = [
-    ['pluie-de-cochons', 'Fais pleuvoir des cochons quand quelqu\'un saute', 'Steve', 'SUCCEEDED', 'C\'est en ligne ! Sautez et regardez le ciel : des cochons tombent autour de vous.'],
-    ['arc-explosif', 'Les flèches explosent quand elles touchent un bloc', 'Alex', 'FAILED', 'Je n\'ai pas réussi : le type de projectile est mal géré, il faut une autre approche.'],
-    ['meteo-folle', 'Change la météo toutes les 10 secondes', 'dashboard', 'STOPPED', null],
-    ['sapin-geant', 'Ajoute une commande /sapin qui fait pousser un sapin géant', 'console', 'SUCCEEDED', 'Tapez /sapin pour faire pousser un sapin de 30 blocs devant vous.']
-  ];
-  done.forEach(([moduleId, prompt, by, state, result], i) => {
-    const startedAt = t - (done.length - i) * 300e3;
-    const j = {
-      id: `job-${++jobSeq}`, moduleId, prompt, requestedBy: by, state, startedAt, endedAt: startedAt + Math.round(rnd(40e3, 160e3)),
-      progress: ['🚀 Démarrage de Claude Code…', '📖 CLAUDE.md', `💬 Je vais implémenter : ${prompt}`, `✏ modules/${moduleId}/${pascal(moduleId)}Module.java`, '🔄 rechargement', state === 'SUCCEEDED' ? '✅ Terminé' : '⚠ erreur de compilation'],
-      result, sessionId: `sess-${(1000 + i).toString(16)}`, costUsd: state === 'STOPPED' ? 0 : Math.round(rnd(0.05, 0.4) * 100) / 100,
-      _steps: [], _i: 0, _next: 0
-    };
-    jobs.push(j);
-  });
-  createJob('double-saut', 'Corrige le double saut : il faut pouvoir sauter une deuxième fois en l\'air', 'Notch');
+  seedRun('pluie-de-cochons', 'Fais pleuvoir des cochons quand quelqu\'un saute', 'Steve', t - 1900e3, { fail: false });
+  seedRun('pluie-de-cochons', 'Ajoute des particules de cœur quand un cochon touche le sol', 'dashboard', t - 1500e3, { fail: false });
+  seedRun('arc-explosif', 'Les flèches explosent quand elles touchent un bloc', 'Alex', t - 1200e3, { fail: true });
+  seedRun('meteo-folle', 'Change la météo toutes les 10 secondes', 'dashboard', t - 900e3, { fail: false, stopAfter: 6 });
+  seedRun('sapin-geant', 'Ajoute une commande /sapin qui fait pousser un sapin géant avec une texture de guirlande', 'console', t - 600e3, { fail: false });
+  createJob('double-saut', 'Corrige le double saut : il faut pouvoir sauter une deuxième fois en l\'air', 'Notch', { fail: false });
   createJob('boutique', 'Crée une boutique de villageois qui vend des diamants contre de la terre', 'Alex');
   createJob('feux-artifice', 'Lance un feu d\'artifice quand un joueur rejoint le serveur', 'dashboard');
 })();
+
 
 // ---------------------------------------------------------------------------- ideas
 let ideaSeq = 0;
@@ -468,14 +678,34 @@ function jobList() {
 }
 const ideaList = () => ideas.slice().reverse();
 
-function startAi(res, moduleId, prompt, requestedBy, status = 201) {
+const AI_REASON = 'Claude Code introuvable (ai.claude-path = auto)';
+function startAi(res, moduleId, prompt, requestedBy, status = 201, opts = {}, shape = job) {
   if (!ID_RE.test(moduleId)) return err(res, 400, `identifiant de module invalide : ${moduleId}`);
   if (!prompt || !prompt.trim()) return err(res, 400, 'la demande est vide');
-  if (!aiAvailable) return err(res, 503, 'Claude Code introuvable (ai.claude-path = auto)');
-  if (activeJob(moduleId)) return err(res, 409, `une tâche IA est déjà en cours pour ${moduleId}`);
-  const j = createJob(moduleId, prompt.trim(), requestedBy);
-  send(res, status, job(j));
+  if (!aiAvailable) return err(res, 503, AI_REASON);
+  if (activeJob(moduleId)) return err(res, 409, `l'IA travaille déjà sur ${moduleId} : attendez la fin ou arrêtez la tâche`);
+  if (opts.imageProvider && !['auto', 'openrouter', 'meshy'].includes(opts.imageProvider)) return err(res, 400, `fournisseur d'images inconnu : ${opts.imageProvider}`);
+  if (opts.imageProvider && opts.imageProvider !== 'auto' && !providers[opts.imageProvider].available) {
+    return err(res, 503, `${opts.imageProvider === 'meshy' ? 'Meshy AI' : 'OpenRouter'} n'est pas configuré (secrets.yml)`);
+  }
+  const j = createJob(moduleId, prompt.trim(), requestedBy, opts);
+  send(res, status, shape(j));
   return j;
+}
+
+function providersJson() {
+  return {
+    openrouter: { ...providers.openrouter },
+    meshy: { ...providers.meshy },
+    claude: { available: aiAvailable, reason: aiAvailable ? '' : AI_REASON }
+  };
+}
+
+function stopJob(id) {
+  const j = activeJob(id);
+  if (!j) return false;
+  finishJob(j, 'STOPPED');
+  return true;
 }
 
 async function handle(req, res) {
@@ -506,6 +736,10 @@ async function handle(req, res) {
       return startAi(res, id, q.get('prompt') || 'Fais quelque chose de fun', 'mock');
     }
     if (p === '/__mock/idea') { return send(res, 200, addIdea(q.get('author') || 'Public', q.get('text') || 'Une idée de test')); }
+    if (p === '/__mock/providers') {
+      for (const k of ['openrouter', 'meshy']) if (q.has(k)) providers[k].available = q.get(k) !== '0';
+      return send(res, 200, providersJson());
+    }
     return err(res, 404, 'unknown mock control');
   }
 
@@ -522,6 +756,43 @@ async function handle(req, res) {
 
   // GET /api/status
   if (p === '/api/status' && method === 'GET') return send(res, 200, statusJson());
+
+  // GET /api/providers
+  if (p === '/api/providers' && method === 'GET') return send(res, 200, providersJson());
+
+  // /api/conversations...
+  if (seg[1] === 'conversations') {
+    if (seg.length === 2 && method === 'GET') return send(res, 200, conversationList());
+    const id = seg[2];
+    const action = seg[3];
+    if (seg.length === 4 && action === 'messages' && method === 'POST') {
+      let data;
+      try { data = JSON.parse(body || '{}'); } catch (e) { return err(res, 400, 'JSON invalide'); }
+      const text = typeof data.text === 'string' ? data.text : '';
+      startAi(res, id, text, 'dashboard', 201, {
+        imageProvider: data.imageProvider || 'auto', model: typeof data.model === 'string' ? data.model : null
+      }, (j) => ({ jobId: j.id }));
+      return undefined;
+    }
+    const c = conversations.get(id);
+    if (!c) return err(res, 404, `conversation inconnue : ${id}`);
+    if (seg.length === 3 && method === 'GET') return send(res, 200, conversationFull(c));
+    if (seg.length === 3 && method === 'DELETE') {
+      stopJob(id);
+      conversations.delete(id);
+      return send(res, 200, { ok: true });
+    }
+    if (seg.length === 4 && action === 'events' && method === 'GET') {
+      // messages from index `since` on, plus any older message updated in the last 5 s (streaming)
+      const since = Math.max(0, Number(url.searchParams.get('since') || 0) | 0);
+      const recent = Date.now() - 5000;
+      const msgs = c.messages.filter((m, i) => i >= since || m._upd >= recent).map(msgOut);
+      const s = conversationSummary(c);
+      return send(res, 200, { messages: msgs, state: s.state, moduleState: s.moduleState, generation: s.generation });
+    }
+    if (seg.length === 4 && action === 'stop' && method === 'POST') return send(res, 200, { ok: stopJob(id) });
+    return err(res, 404, 'route inconnue');
+  }
 
   // /api/modules...
   if (seg[1] === 'modules') {
@@ -577,11 +848,7 @@ async function handle(req, res) {
     const id = seg[2];
     if (seg.length === 3 && method === 'POST') { startAi(res, id, body, 'dashboard'); return undefined; }
     if (seg.length === 4 && method === 'POST' && seg[3] === 'stop') {
-      const j = activeJob(id);
-      if (!j) return send(res, 200, { ok: false });
-      j.progress.push('⏹ arrêté');
-      finishJob(j, 'STOPPED', null);
-      return send(res, 200, { ok: true });
+      return send(res, 200, { ok: stopJob(id) });
     }
     if (seg.length === 4 && method === 'POST' && seg[3] === 'reset') return send(res, 200, { ok: true });
     return err(res, 404, 'route inconnue');

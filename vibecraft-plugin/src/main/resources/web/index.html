@@ -2,496 +2,544 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+<meta name="color-scheme" content="light dark">
 <title>VibeCraft</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%238b5a2b'/%3E%3Crect width='16' height='6' rx='2' fill='%2353c653'/%3E%3Crect y='4' width='16' height='2' fill='%233a9a3a'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 3v5M12 16v5M3 12h5M16 12h5M5.6 5.6l3.5 3.5M14.9 14.9l3.5 3.5M5.6 18.4l3.5-3.5M14.9 9.1l3.5-3.5' stroke='%23d97757' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
 :root {
-  --bg: #090d12;
-  --bg2: #0c1218;
-  --card: #141d27;
-  --card-hi: #1a2531;
-  --line: #273544;
-  --line-hi: #3b4e63;
-  --text: #f1f5f9;
-  --muted: #a9b8c8;
-  --dim: #7a8ca0;
-  --green: #3ddc84;
-  --blue: #4db2ff;
-  --red: #ff5c66;
-  --orange: #ff9f40;
-  --grey: #8a97a8;
-  --neutral: #cfd9e4;
-  --purple: #c4a0ff;
-  --yellow: #ffd166;
-  --r: 14px;
-  --banner-h: 0px;
-  --sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
-  --mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, "SFMono-Regular", Menlo, monospace;
-  font-size: clamp(15px, calc(10.5px + .5vw), 20px);
+  --bg: #faf9f5;
+  --side: #f5f4ed;
+  --surface: #ffffff;
+  --raised: #fdfcf9;
+  --hover: rgba(31, 30, 29, .055);
+  --active: rgba(31, 30, 29, .09);
+  --text: #2b2a26;
+  --muted: #6f6d66;
+  --faint: #9a978e;
+  --border: rgba(31, 30, 29, .11);
+  --border-strong: rgba(31, 30, 29, .2);
+  --bubble: #f0eee6;
+  --code-bg: #f5f4ef;
+  --code-ink: #b4522f;
+  --accent: #d97757;
+  --accent-ink: #c0613f;
+  --accent-soft: rgba(217, 119, 87, .14);
+  --ok: #3f7d3a;
+  --ok-soft: rgba(63, 125, 58, .1);
+  --bad: #b53e2a;
+  --bad-soft: rgba(181, 62, 42, .09);
+  --warn: #a8700b;
+  --shadow: 0 .25rem 1.4rem rgba(40, 30, 10, .06), 0 .05rem .2rem rgba(40, 30, 10, .05);
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, Cambria, "Times New Roman", serif;
+  --mono: ui-monospace, "Cascadia Mono", "Cascadia Code", "SFMono-Regular", Menlo, Consolas, monospace;
+  --side-w: 17.5rem;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #262624; --side: #1f1e1d; --surface: #30302e; --raised: #2b2b29;
+    --hover: rgba(255, 255, 255, .055); --active: rgba(255, 255, 255, .09);
+    --text: #f2f0e8; --muted: #a8a59b; --faint: #7d7a72;
+    --border: rgba(255, 255, 255, .1); --border-strong: rgba(255, 255, 255, .18);
+    --bubble: #161615; --code-bg: #1d1d1b; --code-ink: #e8957a;
+    --accent-ink: #e58b6c; --accent-soft: rgba(217, 119, 87, .18);
+    --ok: #7cc06f; --ok-soft: rgba(124, 192, 111, .12); --bad: #f08672; --bad-soft: rgba(240, 134, 114, .12); --warn: #e0b04a;
+    --shadow: 0 .25rem 1.4rem rgba(0, 0, 0, .25);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #262624; --side: #1f1e1d; --surface: #30302e; --raised: #2b2b29;
+  --hover: rgba(255, 255, 255, .055); --active: rgba(255, 255, 255, .09);
+  --text: #f2f0e8; --muted: #a8a59b; --faint: #7d7a72;
+  --border: rgba(255, 255, 255, .1); --border-strong: rgba(255, 255, 255, .18);
+  --bubble: #161615; --code-bg: #1d1d1b; --code-ink: #e8957a;
+  --accent-ink: #e58b6c; --accent-soft: rgba(217, 119, 87, .18);
+  --ok: #7cc06f; --ok-soft: rgba(124, 192, 111, .12); --bad: #f08672; --bad-soft: rgba(240, 134, 114, .12); --warn: #e0b04a;
+  --shadow: 0 .25rem 1.4rem rgba(0, 0, 0, .25);
   color-scheme: dark;
 }
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; font-size: 16px; }
 body {
-  margin: 0; min-height: 100vh; overflow-x: hidden;
+  margin: 0; height: 100vh; height: 100dvh; overflow: hidden;
   background: var(--bg); color: var(--text);
-  font-family: var(--sans); font-size: 1rem; line-height: 1.45;
-  padding-top: var(--banner-h);
+  font-family: var(--sans); font-size: 1rem; line-height: 1.5;
 }
-body.offline { --banner-h: 3rem; }
-h1, h2, h3, p { margin: 0; }
-code, kbd, pre, .mono { font-family: var(--mono); }
-button, input, textarea { font: inherit; color: inherit; }
-:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code, pre, kbd { font-family: var(--mono); }
+a { color: var(--accent-ink); }
+.ic { display: inline-flex; width: 1.1em; height: 1.1em; flex: none; align-items: center; justify-content: center; }
+.ic svg { width: 100%; height: 100%; display: block; }
 
-/* ---------- header ---------- */
-.top {
-  display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.5rem;
-  padding: .8rem 1.25rem; background: rgba(12, 18, 24, .96);
-  border-bottom: 1px solid var(--line);
-}
-@media (min-width: 900px) { .top { position: sticky; top: var(--banner-h); z-index: 20; } }
-.brand { display: flex; align-items: center; gap: .8rem; min-width: 0; flex: 1 1 18rem; }
-.logo {
-  flex: none; width: 2.4rem; height: 2.4rem; border-radius: 7px;
-  background: linear-gradient(#5fd35f 0 30%, #3a9a3a 30% 40%, #8b5a2b 40% 100%);
-  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .3), 0 0 1.2rem rgba(61, 220, 132, .25);
-}
-.brand h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: .01em; line-height: 1.1; }
-.brand h1 span { color: var(--green); }
-.sub { color: var(--muted); font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.metrics { display: flex; flex-wrap: wrap; align-items: stretch; gap: .6rem; }
-.metric {
-  display: flex; flex-direction: column; justify-content: center;
-  min-width: 6.2rem; padding: .3rem .85rem; border-radius: 10px;
-  background: var(--card); border: 1px solid var(--line);
-}
-.m-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
-.m-value { font-size: 1.45rem; font-weight: 800; line-height: 1.15; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.m-value small { font-size: .62em; font-weight: 700; }
-.good { color: var(--green); }
-.warn { color: var(--orange); }
-.bad { color: var(--red); }
-.conn { flex-direction: row; align-items: center; gap: .5rem; font-weight: 700; }
-.conn .dot { width: .8rem; height: .8rem; border-radius: 50%; background: var(--grey); flex: none; }
-.conn[data-mode="live"] .dot { background: var(--green); box-shadow: 0 0 .6rem var(--green); }
-.conn[data-mode="down"] .dot { background: var(--red); animation: blink 1s steps(2) infinite; }
-.conn[data-mode="token"] .dot { background: var(--yellow); }
+/* ---------------- layout ---------------- */
+.app { display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); height: 100%; }
+.app.side-collapsed { grid-template-columns: 0 minmax(0, 1fr); }
+.app.side-collapsed .side { visibility: hidden; }
 
+/* ---------------- sidebar ---------------- */
+.side {
+  display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+  background: var(--side); border-right: 1px solid var(--border);
+}
+.side-top { padding: .7rem .7rem .3rem; display: flex; flex-direction: column; gap: .45rem; }
+.brand { display: flex; align-items: center; gap: .5rem; padding: .25rem .4rem .35rem; }
+.brand .ic { color: var(--accent); width: 1.35rem; height: 1.35rem; }
+.brand b { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; letter-spacing: -.01em; flex: 1; }
+.new-btn {
+  display: flex; align-items: center; gap: .6rem; width: 100%;
+  padding: .45rem .5rem; border: 0; border-radius: .6rem; background: transparent; text-align: left;
+  font-size: .95rem; font-weight: 500;
+}
+.new-btn:hover { background: var(--hover); }
+.new-btn .plus {
+  width: 1.55rem; height: 1.55rem; border-radius: 50%; background: var(--accent); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.new-btn .plus .ic { width: .95rem; height: .95rem; }
+.new-btn.on { background: var(--active); }
+.side-label { padding: .8rem 1.15rem .3rem; font-size: .75rem; color: var(--faint); font-weight: 500; }
+.conv-list { flex: 1; min-height: 0; overflow-y: auto; padding: 0 .55rem .5rem; }
+.conv {
+  display: flex; align-items: center; gap: .55rem; padding: .42rem .6rem; border-radius: .55rem;
+  color: var(--text); text-decoration: none; font-size: .9rem; min-width: 0;
+}
+.conv:hover { background: var(--hover); }
+.conv[aria-current="page"] { background: var(--active); }
+.conv-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dot { width: .5rem; height: .5rem; border-radius: 50%; flex: none; background: var(--faint); opacity: .45; }
+[data-state="running"] > .dot { background: var(--accent); opacity: 1; animation: pulse 1.4s ease-in-out infinite; }
+[data-state="queued"] > .dot { background: transparent; border: 1.5px solid var(--accent); opacity: 1; }
+[data-state="failed"] > .dot { background: var(--bad); opacity: .9; }
+@keyframes pulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 var(--accent-soft); } 50% { transform: scale(1.15); box-shadow: 0 0 0 .3rem var(--accent-soft); } }
+.mb { flex: none; font-size: .7rem; color: var(--faint); padding: .05rem .4rem; border-radius: .35rem; border: 1px solid transparent; }
+.mb.bad { color: var(--bad); border-color: var(--bad-soft); background: var(--bad-soft); }
+.mb.warn { color: var(--warn); }
+.side-empty { padding: .5rem 1.15rem; color: var(--faint); font-size: .85rem; }
+.side-foot { border-top: 1px solid var(--border); padding: .55rem .6rem .7rem; display: flex; flex-direction: column; gap: .2rem; }
+.srv { display: flex; align-items: center; gap: .5rem; padding: .3rem .5rem; font-size: .8rem; color: var(--muted); min-width: 0; }
+.srv span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conn { width: .45rem; height: .45rem; border-radius: 50%; background: var(--faint); flex: none; }
+.conn[data-mode="live"] { background: var(--ok); }
+.conn[data-mode="down"] { background: var(--bad); }
+.conn[data-mode="token"] { background: var(--warn); }
+.foot-btn {
+  display: flex; align-items: center; gap: .55rem; padding: .42rem .5rem; border: 0; border-radius: .55rem;
+  background: transparent; font-size: .88rem; text-align: left; width: 100%;
+}
+.foot-btn:hover { background: var(--hover); }
+.foot-btn .ic { color: var(--muted); }
+.foot-btn .grow { flex: 1; }
+.count-bad { font-size: .72rem; color: var(--bad); background: var(--bad-soft); border-radius: 999px; padding: 0 .45rem; }
+
+/* ---------------- main ---------------- */
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
+.top { display: flex; align-items: center; gap: .5rem; height: 3.3rem; padding: 0 .75rem; flex: none; }
+.top-title { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: .6rem; }
+.top-title h1 { margin: 0; font-size: 1rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top-title .sub { font-size: .8rem; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); }
+.mstate { font-size: .75rem; color: var(--muted); white-space: nowrap; border: 1px solid var(--border); border-radius: 999px; padding: .05rem .55rem; }
+.mstate.ok { color: var(--ok); }
+.mstate.bad { color: var(--bad); border-color: var(--bad-soft); background: var(--bad-soft); }
+.icon-btn {
+  border: 0; background: transparent; color: var(--muted); border-radius: .5rem;
+  min-width: 2.1rem; height: 2.1rem; padding: 0 .45rem; display: inline-flex; align-items: center; justify-content: center; gap: .3rem;
+  font-size: .85rem;
+}
+.icon-btn:hover { background: var(--hover); color: var(--text); }
+.icon-btn.armed { color: var(--bad); background: var(--bad-soft); }
+.icon-btn .ic { width: 1.15rem; height: 1.15rem; }
+.font-btn { font-weight: 600; letter-spacing: -.02em; }
 .banner {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 40; height: 3rem;
-  display: flex; align-items: center; justify-content: center; gap: .6rem;
-  padding: 0 16px; background: var(--red); color: #1b0003; font-weight: 800;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  box-shadow: 0 4px 1.5rem rgba(255, 92, 102, .35);
+  margin: 0 auto .4rem; padding: .35rem .9rem; border-radius: 999px; font-size: .82rem;
+  color: var(--bad); background: var(--bad-soft); flex: none;
 }
-.banner span { overflow: hidden; text-overflow: ellipsis; }
-body.offline main { opacity: .72; transition: opacity .3s; }
 
-/* ---------- layout ---------- */
-main.layout {
-  display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.1rem;
-  padding: 1.1rem 1.25rem 2rem; align-items: start;
+.scroller { flex: 1; min-height: 0; overflow-y: auto; overflow-anchor: none; }
+.thread { max-width: 48rem; margin: 0 auto; padding: 1rem 1.5rem 2rem; display: flex; flex-direction: column; gap: 1.4rem; }
+.msg { display: flex; flex-direction: column; gap: .7rem; min-width: 0; }
+.msg.empty { display: none; }
+.msg-u { align-items: flex-end; }
+.bubble {
+  max-width: min(85%, 40rem); background: var(--bubble); border-radius: 1.15rem; padding: .6rem 1rem;
+  white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55;
 }
-@media (min-width: 1100px) { main.layout { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); } }
-.col-side { display: grid; gap: 1.1rem; min-width: 0; }
-/* single column: request form and live AI jobs first, then modules, then ideas */
-@media (max-width: 1099.98px) {
-  .col-side { display: contents; }
-  #p-form { order: 1; }
-  #p-jobs { order: 2; }
-  #p-mods { order: 3; }
-  #p-ideas { order: 4; }
-}
-.panel { min-width: 0; }
-.panel-head { display: flex; align-items: baseline; gap: .7rem; margin: 0 0 .7rem; flex-wrap: wrap; }
-.panel-head h2 { font-size: 1.3rem; font-weight: 800; }
-.count {
-  font-size: .85rem; font-weight: 700; color: var(--muted);
-  background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: .05rem .65rem;
-}
-.box { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 1rem 1.1rem; }
-.empty {
-  border: 2px dashed var(--line); border-radius: var(--r); padding: 1.2rem; color: var(--muted);
-  text-align: center; font-size: 1.05rem;
-}
-.empty code { color: var(--text); background: var(--bg2); padding: .05em .35em; border-radius: 5px; }
+.msg-u.local .bubble { opacity: .65; }
+.msg-a { line-height: 1.68; }
 
-/* ---------- badges / buttons ---------- */
-.badge {
-  display: inline-flex; align-items: center; gap: .4em; white-space: nowrap;
-  padding: .12em .65em; border-radius: 999px; font-weight: 800; font-size: .82rem; line-height: 1.5;
-  color: var(--st, var(--neutral)); border: 1px solid var(--st, var(--neutral));
-  background: rgba(255, 255, 255, .04);
-}
-.badge .dot { width: .6em; height: .6em; border-radius: 50%; background: currentColor; flex: none; }
-.badge.gen { --st: var(--text); font-family: var(--mono); }
-.badge.rb { --st: var(--purple); background: rgba(196, 160, 255, .12); }
-.badge.ai { --st: var(--blue); background: rgba(77, 178, 255, .12); }
-.badge.ai .dot { animation: blink 1s steps(2) infinite; }
-.btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: .4em;
-  min-height: 2.4rem; padding: .35em .95em; border-radius: 10px; cursor: pointer;
-  background: var(--card-hi); border: 1px solid var(--line-hi); font-weight: 700; white-space: nowrap;
-  transition: background .15s, border-color .15s, transform .05s;
-}
-.btn:hover:not(:disabled) { border-color: var(--muted); background: #223040; }
-.btn:active:not(:disabled) { transform: translateY(1px); }
-.btn:disabled { opacity: .55; cursor: not-allowed; }
-.btn.busy { cursor: progress; }
-.btn.busy::before {
-  content: ""; width: .95em; height: .95em; border-radius: 50%; flex: none;
-  border: 2px solid currentColor; border-right-color: transparent; animation: spin .8s linear infinite;
-}
-.btn.primary { background: var(--blue); border-color: var(--blue); color: #04121f; }
-.btn.primary:hover:not(:disabled) { background: #79c6ff; border-color: #79c6ff; }
-.btn.ok { color: var(--green); border-color: rgba(61, 220, 132, .55); }
-.btn.danger { color: var(--red); border-color: rgba(255, 92, 102, .55); }
-.btn.armed { background: var(--red); border-color: var(--red); color: #1b0003; }
-.btn.small { min-height: 2rem; font-size: .85rem; padding: .2em .7em; }
-.btn.link { background: none; border: none; color: var(--muted); text-decoration: underline; min-height: 0; padding: 0; font-weight: 600; }
-.actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+/* markdown */
+.md { overflow-wrap: anywhere; }
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md p { margin: .7em 0; }
+.md h3, .md h4, .md h5 { font-family: var(--serif); font-weight: 600; margin: 1.1em 0 .4em; line-height: 1.3; }
+.md h3 { font-size: 1.3rem; } .md h4 { font-size: 1.12rem; } .md h5 { font-size: 1rem; }
+.md ul, .md ol { margin: .6em 0; padding-left: 1.6em; }
+.md li { margin: .25em 0; }
+.md li > ul, .md li > ol { margin: .2em 0; }
+.md blockquote { margin: .7em 0; padding-left: 1em; border-left: 3px solid var(--border-strong); color: var(--muted); }
+.md hr { border: 0; border-top: 1px solid var(--border); margin: 1.2em 0; }
+.md code { font-size: .86em; background: var(--code-bg); border: 1px solid var(--border); border-radius: .35rem; padding: .08em .35em; color: var(--code-ink); }
+.code { margin: .8em 0; border: 1px solid var(--border); border-radius: .7rem; background: var(--code-bg); overflow: hidden; }
+.code-head { display: flex; align-items: center; justify-content: space-between; padding: .3rem .4rem .3rem .9rem; font-size: .75rem; color: var(--faint); border-bottom: 1px solid var(--border); }
+.copy { display: inline-flex; align-items: center; gap: .3rem; border: 0; background: transparent; color: var(--muted); font-size: .75rem; padding: .2rem .45rem; border-radius: .4rem; }
+.copy:hover { background: var(--hover); color: var(--text); }
+.code pre { margin: 0; padding: .8rem .95rem; overflow-x: auto; font-size: .85rem; line-height: 1.55; }
+.code pre code { background: none; border: 0; padding: 0; color: var(--text); font-size: inherit; }
 
-/* ---------- module cards ---------- */
-.mod-grid { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); }
-.mod {
-  --st: var(--neutral);
-  position: relative; overflow: hidden; min-width: 0;
-  display: flex; flex-direction: column; gap: .65rem;
-  background: var(--card); border: 1px solid var(--line); border-left: 7px solid var(--st);
-  border-radius: var(--r); padding: .9rem 1rem .95rem;
+/* thinking & tools */
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+.chev { transition: transform .15s ease; color: var(--faint); width: .9rem !important; height: .9rem !important; }
+details[open] > summary .chev { transform: rotate(90deg); }
+.think > summary {
+  display: inline-flex; align-items: center; gap: .45rem; cursor: pointer; user-select: none;
+  color: var(--muted); font-size: .92rem; padding: .15rem .45rem .15rem .1rem; border-radius: .45rem;
 }
-.mod[data-state="ENABLED"] { --st: var(--green); }
-.mod[data-state="COMPILING"] { --st: var(--blue); animation: pulse 1.3s ease-in-out infinite; }
-.mod[data-state="FAILED"] { --st: var(--red); background: linear-gradient(rgba(255, 92, 102, .07), rgba(255, 92, 102, 0) 60%), var(--card); }
-.mod[data-state="TRIPPED"] { --st: var(--orange); background: linear-gradient(rgba(255, 159, 64, .08), rgba(255, 159, 64, 0) 60%), var(--card); }
-.mod[data-state="DISABLED"] { --st: var(--grey); }
-.mod[data-state="DISABLED"] .mod-body { opacity: .6; }
-.mod[data-state="DISCOVERED"] { --st: var(--neutral); }
-.mod[data-state="COMPILING"]::before {
-  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4px;
-  background: linear-gradient(90deg, transparent, var(--blue), transparent); background-size: 50% 100%;
-  background-repeat: no-repeat; animation: sweep 1.1s linear infinite;
+.think > summary:hover { color: var(--text); }
+.think > summary .ic:first-child { color: var(--faint); }
+.think-body {
+  margin: .4rem 0 .2rem .45rem; padding: .1rem 0 .1rem .95rem; border-left: 2px solid var(--border);
+  color: var(--muted); font-style: italic; font-size: .93rem; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere;
 }
-.mod.flash-ok { animation: flashok 1.6s ease-out; }
-.mod.flash-err { animation: flasherr 1.6s ease-out; }
-.mod-body { display: flex; flex-direction: column; gap: .6rem; min-width: 0; }
-.mod-title { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem .6rem; }
-.mod-id { font-family: var(--mono); font-size: 1.3rem; font-weight: 800; word-break: break-all; margin-right: auto; }
-.badges { display: flex; flex-wrap: wrap; gap: .35rem; }
-.state { --st: inherit; }
-.mod .badge.state, .job .badge.state { color: var(--st); border-color: var(--st); }
-.mod[data-state="COMPILING"] .badge.state .dot { animation: blink .8s steps(2) infinite; }
-.mod-desc { color: var(--muted); font-size: .98rem; overflow-wrap: anywhere; }
-.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; }
-.stat { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: .3rem .55rem; min-width: 0; }
-.stat .k { display: block; font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--dim); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.stat .v { display: block; font-weight: 800; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
-.bar { height: .38rem; margin-top: .25rem; border-radius: 99px; background: #232f3c; overflow: hidden; }
-.bar > i { display: block; height: 100%; width: 0; border-radius: 99px; background: var(--green); transition: width .6s ease, background-color .3s; }
-.bar.warn > i { background: var(--orange); }
-.bar.bad > i { background: var(--red); }
-.chips { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .6rem; }
-.chips > .chips { gap: .35rem; }
-.reg { color: var(--dim); font-size: .88rem; font-weight: 600; }
+.think.live .think-label, .working-label {
+  background: linear-gradient(90deg, var(--muted) 0%, var(--muted) 35%, var(--text) 50%, var(--muted) 65%, var(--muted) 100%);
+  background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: shimmer 2.2s linear infinite;
+}
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+.tools-group { display: flex; flex-direction: column; gap: .35rem; }
+.tool { border: 1px solid var(--border); border-radius: .6rem; background: var(--raised); font-size: .87rem; max-width: 100%; }
+.tool > summary { display: flex; align-items: center; gap: .55rem; padding: .38rem .65rem; cursor: pointer; min-width: 0; user-select: none; }
+.tool > summary:hover { background: var(--hover); border-radius: .6rem; }
+.tool[open] > summary { border-bottom: 1px solid var(--border); border-radius: .6rem .6rem 0 0; }
+.tool > summary > .ic:first-child { color: var(--muted); }
+.tool-name { font-weight: 500; flex: none; }
+.tool-arg { flex: 1; min-width: 0; color: var(--muted); font-family: var(--mono); font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tool-st { flex: none; width: 1rem; height: 1rem; }
+.tool-st.ok { color: var(--ok); }
+.tool-st.err { color: var(--bad); }
+.tool[data-st="err"] { border-color: var(--bad-soft); }
+.tool-body { padding: .5rem .65rem .65rem; display: flex; flex-direction: column; gap: .5rem; }
+.tool-k { font-size: .72rem; color: var(--faint); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .2rem; }
+.tool-pre {
+  margin: 0; padding: .55rem .7rem; background: var(--code-bg); border-radius: .45rem; border: 1px solid var(--border);
+  font-size: .78rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 22rem; overflow: auto;
+}
+.tool-pre.err { color: var(--bad); }
+.spin { width: .9rem; height: .9rem; border: 2px solid var(--border-strong); border-top-color: var(--accent); border-radius: 50%; animation: rot .8s linear infinite; display: inline-block; }
+@keyframes rot { to { transform: rotate(360deg); } }
 .chip {
-  font-family: var(--mono); font-size: .9rem; font-weight: 700; color: var(--yellow);
-  background: rgba(255, 209, 102, .09); border: 1px solid rgba(255, 209, 102, .35); border-radius: 8px; padding: .02rem .5rem;
-  overflow-wrap: anywhere;
+  align-self: center; display: inline-flex; align-items: center; gap: .4rem; max-width: 100%;
+  font-size: .8rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: .2rem .8rem;
+  background: var(--bg);
 }
-.err-box {
-  border-radius: 10px; padding: .5rem .7rem; font-size: .95rem; overflow-wrap: anywhere;
-  background: rgba(255, 92, 102, .1); border: 1px solid rgba(255, 92, 102, .45);
-}
-.err-box.rb { background: rgba(196, 160, 255, .1); border-color: rgba(196, 160, 255, .45); }
-.err-box.trip { background: rgba(255, 159, 64, .1); border-color: rgba(255, 159, 64, .5); }
-.err-box b { margin-right: .35em; }
-details.x { border: 1px solid var(--line); border-radius: 10px; background: var(--bg2); }
-details.x > summary {
-  cursor: pointer; list-style: none; padding: .4rem .7rem; font-weight: 700; font-size: .92rem; color: var(--muted);
-  display: flex; align-items: center; gap: .5rem; user-select: none;
-}
-details.x > summary::-webkit-details-marker { display: none; }
-details.x > summary::before { content: "▸"; transition: transform .15s; display: inline-block; }
-details.x[open] > summary::before { transform: rotate(90deg); }
-details.x > summary:hover { color: var(--text); }
-details.x[open] > summary { border-bottom: 1px solid var(--line); }
-.x-body { padding: .5rem .7rem .6rem; max-height: 22rem; overflow: auto; }
-.diag-list, .rt-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .55rem; }
-.diag { border-left: 3px solid var(--red); padding-left: .6rem; }
-.diag.k-WARNING { border-left-color: var(--orange); }
-.diag.k-NOTE { border-left-color: var(--blue); }
-.diag-loc { font-family: var(--mono); font-size: .88rem; color: var(--yellow); font-weight: 700; overflow-wrap: anywhere; }
-.diag-kind { font-family: var(--sans); font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; padding: .05em .45em; border-radius: 5px; margin-right: .45em; background: var(--red); color: #1b0003; }
-.diag.k-WARNING .diag-kind { background: var(--orange); }
-.diag.k-NOTE .diag-kind { background: var(--blue); }
-.diag-msg { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .95rem; }
-.diag-src {
-  margin: .25rem 0 0; padding: .3rem .5rem; border-radius: 6px; background: #05080b; color: #e6edf3;
-  font-size: .85rem; white-space: pre-wrap; overflow-wrap: anywhere;
-}
-.rt-list li { font-family: var(--mono); font-size: .82rem; color: #ffc2c6; overflow-wrap: anywhere; }
-pre.logs { margin: 0; font-size: .8rem; white-space: pre-wrap; overflow-wrap: anywhere; color: #d6dee8; max-height: 18rem; overflow: auto; }
+.chip .ic { width: .9rem; height: .9rem; }
+.chip.ok .ic { color: var(--ok); }
+.chip.bad { color: var(--bad); border-color: var(--bad-soft); background: var(--bad-soft); }
+.chip span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.working { display: flex; align-items: center; gap: .55rem; color: var(--muted); font-size: .92rem; padding: .1rem 0; }
+.working .ic { color: var(--accent); width: 1.3rem; height: 1.3rem; animation: spark 2.4s ease-in-out infinite; }
+@keyframes spark { 0% { transform: rotate(0) scale(1); } 50% { transform: rotate(90deg) scale(.82); } 100% { transform: rotate(180deg) scale(1); } }
+.thread-empty { color: var(--faint); text-align: center; padding: 3rem 0; font-size: .95rem; }
 
-/* ---------- AI form ---------- */
-.form { display: grid; gap: .55rem; }
-.form label { font-weight: 700; font-size: .92rem; color: var(--muted); }
-.input {
-  width: 100%; padding: .55rem .75rem; border-radius: 10px; background: var(--bg2);
-  border: 2px solid var(--line-hi); color: var(--text); font-size: 1.05rem;
+.jump {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--composer-h, 9rem) + .6rem);
+  width: 2.2rem; height: 2.2rem; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--surface);
+  color: var(--muted); box-shadow: var(--shadow); display: inline-flex; align-items: center; justify-content: center; z-index: 3;
 }
-.input:focus { border-color: var(--blue); outline: none; }
-.input.invalid { border-color: var(--red); }
-input.input { font-family: var(--mono); }
-textarea.input { resize: vertical; min-height: 5.2rem; line-height: 1.4; }
-.hint { font-size: .88rem; color: var(--dim); min-height: 1.3em; overflow-wrap: anywhere; }
-.hint.bad { color: var(--red); }
-.hint.warn { color: var(--orange); }
-.hint.good { color: var(--green); }
-.form-foot { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
-.kbd-hint { color: var(--dim); font-size: .85rem; }
-kbd { background: var(--card-hi); border: 1px solid var(--line-hi); border-bottom-width: 3px; border-radius: 6px; padding: 0 .35em; font-size: .85em; color: var(--text); }
-.notice { border-radius: 10px; padding: .55rem .75rem; font-size: .95rem; margin-bottom: .7rem; overflow-wrap: anywhere; }
-.notice.warn { background: rgba(255, 159, 64, .12); border: 1px solid rgba(255, 159, 64, .5); color: #ffd3a6; }
+.jump .ic { width: 1rem; height: 1rem; }
 
-/* ---------- jobs ---------- */
-.job-list, .idea-list { display: grid; gap: .8rem; }
-.job {
-  --st: var(--grey);
-  background: var(--card); border: 1px solid var(--line); border-left: 7px solid var(--st);
-  border-radius: var(--r); padding: .8rem 1rem .9rem; display: grid; gap: .55rem; min-width: 0;
+/* welcome (new conversation) */
+.welcome { max-width: 48rem; margin: 0 auto; padding: 0 1.5rem 1.6rem; text-align: center; }
+.welcome h2 { font-family: var(--serif); font-weight: 400; font-size: 2.2rem; letter-spacing: -.015em; margin: 0; display: inline-flex; align-items: center; gap: .7rem; line-height: 1.2; }
+.welcome h2 .ic { color: var(--accent); width: 2.2rem; height: 2.2rem; }
+.welcome p { color: var(--muted); margin: .7rem 0 0; }
+.main.is-new .scroller { flex: 0 0 auto; margin-top: auto; overflow: visible; }
+.main.is-new .composer-wrap { margin-bottom: auto; }
+.suggest { display: flex; flex-wrap: wrap; justify-content: center; gap: .45rem; margin-top: .9rem; }
+.suggest button {
+  border: 1px solid var(--border); background: transparent; color: var(--muted); border-radius: .65rem;
+  padding: .35rem .75rem; font-size: .85rem;
 }
-.job[data-state="RUNNING"] { --st: var(--blue); box-shadow: 0 0 0 1px rgba(77, 178, 255, .25), 0 0 1.6rem rgba(77, 178, 255, .12); }
-.job[data-state="QUEUED"] { --st: var(--neutral); }
-.job[data-state="SUCCEEDED"] { --st: var(--green); }
-.job[data-state="FAILED"] { --st: var(--red); }
-.job[data-state="STOPPED"] { --st: var(--orange); }
-.job[data-state="RUNNING"] .badge.state .dot { animation: blink .8s steps(2) infinite; }
-.job-head { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem .7rem; }
-.job-mod { font-family: var(--mono); font-weight: 800; font-size: 1.15rem; overflow-wrap: anywhere; }
-.job-time { margin-left: auto; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
-.job[data-state="RUNNING"] .job-time { color: var(--blue); }
-.job-prompt { font-size: 1.08rem; font-weight: 600; overflow-wrap: anywhere; white-space: pre-wrap; }
-.job-meta { font-size: .85rem; color: var(--dim); overflow-wrap: anywhere; }
-.feed-toggle { justify-self: start; }
-.feed {
-  background: #070b0f; border: 1px solid var(--line); border-radius: 10px; padding: .45rem .7rem;
-  max-height: 16rem; overflow: auto; overscroll-behavior: contain; display: grid; gap: .15rem; align-content: start;
-}
-.ln { font-size: .95rem; overflow-wrap: anywhere; white-space: pre-wrap; color: #c9d5e2; padding: .05rem 0; }
-.ln.new { animation: lnIn .45s ease-out; }
-.job[data-state="RUNNING"] .ln:last-child { color: var(--text); font-weight: 700; }
-.ln.ph { color: var(--dim); font-style: italic; }
-.result { border-radius: 10px; padding: .55rem .75rem; font-size: 1.05rem; overflow-wrap: anywhere; white-space: pre-wrap; }
-.result.ok { background: rgba(61, 220, 132, .1); border: 1px solid rgba(61, 220, 132, .45); }
-.result.ko { background: rgba(255, 92, 102, .1); border: 1px solid rgba(255, 92, 102, .45); }
-.result.stop { background: rgba(255, 159, 64, .1); border: 1px solid rgba(255, 159, 64, .45); }
+.suggest button:hover { background: var(--hover); color: var(--text); }
 
-/* ---------- ideas ---------- */
-.idea { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: .75rem 1rem; display: grid; gap: .45rem; min-width: 0; }
-.idea-text { font-size: 1.12rem; font-weight: 700; overflow-wrap: anywhere; }
-.idea-meta { font-size: .85rem; color: var(--dim); overflow-wrap: anywhere; }
-.idea.done { padding: .5rem .8rem; }
-.idea.done .idea-text { font-size: .98rem; font-weight: 600; color: var(--muted); }
-.idea.st-DISMISSED .idea-text { text-decoration: line-through; color: var(--dim); }
-.accept-row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
-.accept-row .input { flex: 1 1 12rem; width: auto; padding: .35rem .6rem; font-size: 1rem; }
-#idea-done { margin-top: .8rem; }
-#idea-done .x-body { display: grid; gap: .5rem; max-height: 26rem; }
-
-/* ---------- toasts / modal / footer ---------- */
-.toasts {
-  position: fixed; right: 16px; bottom: 16px; z-index: 60; display: flex; flex-direction: column; gap: .5rem;
-  width: min(30rem, calc(100vw - 32px)); pointer-events: none;
+/* composer */
+.composer-wrap { flex: none; width: 100%; max-width: 48rem; margin: 0 auto; padding: 0 1.25rem .9rem; }
+.notice { font-size: .85rem; color: var(--warn); text-align: center; margin: 0 0 .5rem; }
+.composer {
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 1.3rem; box-shadow: var(--shadow);
+  padding: .8rem .7rem .55rem 1rem; display: flex; flex-direction: column; gap: .45rem;
 }
+.composer:focus-within { border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong)); }
+.composer textarea {
+  border: 0; outline: 0; background: transparent; resize: none; width: 100%; padding: .1rem 0;
+  min-height: 1.6em; max-height: 38vh; line-height: 1.55; font-size: 1rem; overflow-y: auto;
+}
+.composer textarea::placeholder { color: var(--faint); }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem .6rem; font-size: .8rem; color: var(--muted); }
+.bar .grow { flex: 1; }
+.field { display: inline-flex; align-items: center; gap: .35rem; }
+.field input, .field select {
+  border: 1px solid var(--border); background: transparent; border-radius: .45rem; padding: .18rem .45rem; font-size: .8rem; outline: 0;
+}
+.field input { font-family: var(--mono); width: 15ch; }
+.field input:focus, .field select:focus { border-color: var(--accent); }
+.field input.invalid { border-color: var(--bad); color: var(--bad); }
+.field select { color: var(--muted); max-width: 11rem; }
+.field select option { background: var(--surface); color: var(--text); }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; padding: .1rem; }
+.seg button { border: 0; background: transparent; color: var(--muted); border-radius: 999px; padding: .12rem .6rem; font-size: .78rem; }
+.seg button:hover { color: var(--text); }
+.seg button[aria-checked="true"] { background: var(--active); color: var(--text); font-weight: 500; }
+.seg button[aria-disabled="true"] { opacity: .4; cursor: not-allowed; }
+.send, .stop {
+  width: 2.1rem; height: 2.1rem; border: 0; border-radius: .65rem; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.send { background: var(--accent); color: #fff; }
+.send:hover { background: var(--accent-ink); }
+.send:disabled { opacity: .35; cursor: default; }
+.send .ic { width: 1.1rem; height: 1.1rem; }
+.stop { background: var(--text); color: var(--bg); }
+.stop .ic { width: .8rem; height: .8rem; }
+.hint { min-height: 1.2rem; text-align: center; font-size: .76rem; color: var(--faint); margin-top: .45rem; }
+.hint.bad { color: var(--bad); }
+.hint.ok { color: var(--muted); }
+
+/* drawer (modules) */
+.scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, .28); z-index: 30; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(31rem, 100vw); z-index: 40;
+  background: var(--bg); border-left: 1px solid var(--border); box-shadow: var(--shadow);
+  display: flex; flex-direction: column;
+}
+.drawer-head { display: flex; align-items: center; gap: .5rem; padding: .7rem .8rem .5rem 1.2rem; }
+.drawer-head h2 { flex: 1; margin: 0; font-family: var(--serif); font-weight: 500; font-size: 1.3rem; }
+.drawer-body { flex: 1; overflow-y: auto; padding: 0 1.2rem 1.5rem; }
+.dsec { margin-top: 1.2rem; }
+.dsec h3 { font-size: .78rem; color: var(--faint); font-weight: 500; margin: 0 0 .5rem; text-transform: uppercase; letter-spacing: .05em; }
+.srv-box { border: 1px solid var(--border); border-radius: .8rem; padding: .7rem .9rem; font-size: .88rem; color: var(--muted); display: grid; gap: .25rem; }
+.srv-box b { color: var(--text); font-weight: 500; }
+.mrow { border: 1px solid var(--border); border-radius: .8rem; padding: .6rem .8rem; margin-bottom: .5rem; font-size: .88rem; background: var(--raised); }
+.mrow-head { display: flex; align-items: center; gap: .5rem; min-width: 0; }
+.mrow-head b { font-family: var(--mono); font-weight: 500; font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mrow-head .grow { flex: 1; }
+.sdot { width: .5rem; height: .5rem; border-radius: 50%; flex: none; background: var(--faint); }
+.mrow[data-state="ENABLED"] .sdot { background: var(--ok); }
+.mrow[data-state="COMPILING"] .sdot { background: var(--accent); animation: pulse 1.2s infinite; }
+.mrow[data-state="FAILED"] .sdot, .mrow[data-state="TRIPPED"] .sdot { background: var(--bad); }
+.mrow-state { color: var(--muted); font-size: .8rem; white-space: nowrap; }
+.mrow-meta { color: var(--faint); font-size: .78rem; margin-top: .15rem; }
+.mrow-err { margin-top: .4rem; color: var(--bad); font-size: .82rem; overflow-wrap: anywhere; }
+.mrow-err.rb { color: var(--warn); }
+.mrow details { margin-top: .35rem; font-size: .8rem; }
+.mrow details > summary { cursor: pointer; color: var(--muted); display: inline-flex; align-items: center; gap: .3rem; }
+.mrow ol { margin: .35rem 0 0; padding-left: 1.2rem; font-family: var(--mono); font-size: .75rem; color: var(--muted); }
+.mrow ol li { margin: .2rem 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.mrow pre.logs { margin: .35rem 0 0; max-height: 14rem; overflow: auto; font-size: .72rem; background: var(--code-bg); border-radius: .4rem; padding: .5rem; white-space: pre-wrap; }
+.mrow-actions { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .5rem; }
+.btn {
+  border: 1px solid var(--border-strong); background: transparent; border-radius: .5rem; padding: .2rem .65rem;
+  font-size: .8rem; color: var(--text); display: inline-flex; align-items: center; gap: .3rem;
+}
+.btn:hover { background: var(--hover); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { background: var(--accent-ink); }
+.btn.link { border-color: transparent; color: var(--muted); }
+.btn .ic { width: .9rem; height: .9rem; }
+.idea { border-bottom: 1px solid var(--border); padding: .6rem 0; font-size: .9rem; }
+.idea:last-child { border-bottom: 0; }
+.idea-meta { color: var(--faint); font-size: .76rem; margin-top: .15rem; }
+.idea .row { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .45rem; align-items: center; }
+.idea input { border: 1px solid var(--border-strong); background: transparent; border-radius: .45rem; padding: .18rem .45rem; font-family: var(--mono); font-size: .8rem; width: 16ch; }
+.idea input.invalid { border-color: var(--bad); }
+.muted { color: var(--faint); font-size: .85rem; }
+
+/* toasts & modal */
+.toasts { position: fixed; top: .7rem; left: 50%; transform: translateX(-50%); z-index: 60; display: flex; flex-direction: column; gap: .4rem; align-items: center; pointer-events: none; }
 .toast {
-  pointer-events: auto; cursor: pointer; border-radius: 12px; padding: .7rem .9rem; background: #1d2a37;
-  border: 1px solid var(--line-hi); border-left: 6px solid var(--blue); box-shadow: 0 .6rem 2rem rgba(0, 0, 0, .5);
-  animation: toastIn .25s ease-out; overflow-wrap: anywhere;
+  pointer-events: auto; max-width: min(26rem, calc(100vw - 1.6rem)); background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: .75rem; padding: .55rem .85rem; font-size: .86rem; box-shadow: var(--shadow); cursor: pointer;
+  animation: tin .2s ease-out;
 }
-.toast.ok { border-left-color: var(--green); }
-.toast.warn { border-left-color: var(--orange); }
-.toast.error { border-left-color: var(--red); }
-.toast.out { opacity: 0; transform: translateX(1rem); transition: opacity .25s, transform .25s; }
-.toast-title { font-weight: 800; font-size: 1.02rem; }
-.toast-detail { font-size: .88rem; color: var(--muted); margin-top: .2rem; font-family: var(--mono); white-space: pre-wrap; }
-.modal { position: fixed; inset: 0; z-index: 80; background: rgba(0, 0, 0, .72); display: grid; place-items: center; padding: 16px; }
-.modal-box { width: min(28rem, 100%); background: var(--card); border: 1px solid var(--line-hi); border-radius: var(--r); padding: 1.3rem; display: grid; gap: .8rem; }
-.modal-box h2 { font-size: 1.3rem; }
-.modal-box p { color: var(--muted); }
-.modal-box .err { color: var(--red); font-weight: 700; }
-footer { padding: 0 1.25rem 1.5rem; color: var(--dim); font-size: .85rem; display: flex; gap: .4rem 1rem; flex-wrap: wrap; }
+.toast.error { border-color: var(--bad); color: var(--bad); }
+.toast.ok { border-color: color-mix(in srgb, var(--ok) 40%, var(--border)); }
+.toast small { display: block; color: var(--muted); margin-top: .15rem; overflow-wrap: anywhere; }
+.toast.out { opacity: 0; transition: opacity .25s; }
+@keyframes tin { from { opacity: 0; transform: translateY(-.3rem); } }
+.modal { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, .35); display: flex; align-items: center; justify-content: center; padding: 1rem; }
+.modal-box { background: var(--bg); border: 1px solid var(--border); border-radius: 1rem; padding: 1.3rem; width: min(24rem, 100%); box-shadow: var(--shadow); }
+.modal-box h2 { margin: 0 0 .5rem; font-family: var(--serif); font-weight: 500; font-size: 1.25rem; }
+.modal-box p { color: var(--muted); font-size: .88rem; margin: 0 0 .8rem; }
+.modal-box input { width: 100%; border: 1px solid var(--border-strong); background: var(--surface); border-radius: .55rem; padding: .45rem .65rem; }
+.modal-box .err { color: var(--bad); font-size: .82rem; margin: .4rem 0 0; }
+.modal-box .row { display: flex; justify-content: flex-end; gap: .4rem; margin-top: 1rem; }
+.modal-box .btn { font-size: .88rem; padding: .35rem .85rem; }
 
-/* ---------- animations ---------- */
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes blink { 50% { opacity: .25; } }
-@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(77, 178, 255, .5); } 50% { box-shadow: 0 0 0 .45rem rgba(77, 178, 255, 0); } }
-@keyframes sweep { from { background-position: -50% 0; } to { background-position: 150% 0; } }
-@keyframes flashok { 0% { box-shadow: 0 0 0 3px var(--green), 0 0 2.2rem rgba(61, 220, 132, .7); } 100% { box-shadow: 0 0 0 0 transparent; } }
-@keyframes flasherr { 0% { box-shadow: 0 0 0 3px var(--red), 0 0 2.2rem rgba(255, 92, 102, .7); } 100% { box-shadow: 0 0 0 0 transparent; } }
-@keyframes lnIn { from { opacity: 0; transform: translateY(.35rem); background: rgba(77, 178, 255, .18); } to { opacity: 1; transform: none; background: transparent; } }
-@keyframes toastIn { from { opacity: 0; transform: translateY(.6rem); } }
+/* ---------------- mobile ---------------- */
+.only-mobile { display: none; }
+@media (max-width: 820px) {
+  .app, .app.side-collapsed { grid-template-columns: minmax(0, 1fr); }
+  .app.side-collapsed .side { visibility: visible; }
+  .side {
+    position: fixed; top: 0; bottom: 0; left: 0; width: min(19rem, 86vw); z-index: 50;
+    transform: translateX(-100%); transition: transform .2s ease; box-shadow: var(--shadow);
+  }
+  .app.side-open .side { transform: none; }
+  .only-mobile { display: inline-flex; }
+  .thread { padding: .6rem 1rem 1.5rem; }
+  .composer-wrap { padding: 0 .6rem .6rem; }
+  .welcome h2 { font-size: 1.65rem; }
+  .welcome h2 .ic { width: 1.7rem; height: 1.7rem; }
+  .bubble { max-width: 92%; }
+  .top-title .sub { display: none; }
+  .hide-sm { display: none !important; }
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
-}
-
-/* ---------- small screens ---------- */
-@media (max-width: 700px) {
-  .top { padding: .7rem 16px; gap: .6rem; }
-  .brand h1 { font-size: 1.35rem; }
-  .sub { white-space: normal; font-size: .85rem; }
-  .metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
-  .metric { min-width: 0; }
-  .metric.conn { grid-column: 1 / -1; justify-content: center; padding: .35rem .85rem; }
-  .m-value { font-size: 1.2rem; overflow: hidden; text-overflow: ellipsis; }
-  main.layout { padding: .9rem 16px 1.5rem; }
-  footer { padding: 0 16px 1.2rem; }
-  .job-time { margin-left: 0; }
-  .banner { font-size: .9rem; justify-content: flex-start; }
 }
 </style>
 </head>
 <body>
-<div id="banner" class="banner" role="alert" hidden><span id="banner-text"></span></div>
-
-<header class="top">
-  <div class="brand">
-    <div class="logo" aria-hidden="true"></div>
-    <div style="min-width:0">
-      <h1>Vibe<span>Craft</span></h1>
-      <div class="sub" id="srv-sub">Connexion au serveur…</div>
-    </div>
-  </div>
-  <div class="metrics">
-    <div class="metric" id="m-tps" title="Ticks par seconde (20 = parfait)"><span class="m-label">TPS</span><span class="m-value" id="tps">—</span></div>
-    <div class="metric"><span class="m-label">Joueurs</span><span class="m-value" id="players">—</span></div>
-    <div class="metric" title="Modules actifs / total"><span class="m-label">Modules</span><span class="m-value" id="mods-sum">—</span></div>
-    <div class="metric" id="m-ai"><span class="m-label">IA</span><span class="m-value" id="ai-sum">—</span></div>
-    <div class="metric conn" id="conn" data-mode="init"><span class="dot"></span><span id="conn-text">connexion…</span></div>
-  </div>
-</header>
-
-<main class="layout">
-  <section class="panel" id="p-mods" aria-labelledby="h-mods">
-    <div class="panel-head"><h2 id="h-mods">Modules</h2><span class="count" id="mod-count">0</span></div>
-    <div id="mod-empty" class="empty" hidden>Aucun module pour l'instant. Lancez une demande à l'IA : elle créera le module automatiquement.</div>
-    <div id="mod-list" class="mod-grid"></div>
-  </section>
-
-  <div class="col-side">
-    <section class="panel" id="p-form" aria-labelledby="h-form">
-      <div class="panel-head"><h2 id="h-form">Nouvelle demande à l'IA</h2></div>
-      <div class="box">
-        <div id="ai-unavail" class="notice warn" hidden></div>
-        <form id="ai-form" class="form" novalidate autocomplete="off">
-          <label for="f-module">Module</label>
-          <input id="f-module" class="input" list="dl-modules" maxlength="40" spellcheck="false" autocapitalize="off" placeholder="ex : pluie-de-cochons" aria-describedby="f-hint">
-          <datalist id="dl-modules"></datalist>
-          <div id="f-hint" class="hint" aria-live="polite"></div>
-          <label for="f-prompt">Demande</label>
-          <textarea id="f-prompt" class="input" rows="3" placeholder="ex : fais pleuvoir des cochons quand un joueur saute"></textarea>
-          <div class="form-foot">
-            <button type="submit" class="btn primary" id="f-submit">Envoyer à l'IA</button>
-            <span class="kbd-hint"><kbd>Ctrl</kbd> + <kbd>Entrée</kbd></span>
-          </div>
-        </form>
+<div class="app" id="app">
+  <aside class="side" id="side" aria-label="Conversations">
+    <div class="side-top">
+      <div class="brand"><span class="ic" data-icon="spark"></span><b>VibeCraft</b>
+        <button type="button" class="icon-btn only-mobile" id="btn-side-close" aria-label="Fermer le menu"><span class="ic" data-icon="close"></span></button>
       </div>
-    </section>
+      <button type="button" class="new-btn" id="btn-new"><span class="plus"><span class="ic" data-icon="plus"></span></span>Nouvelle conversation</button>
+    </div>
+    <div class="side-label">Conversations</div>
+    <nav class="conv-list" id="conv-list"></nav>
+    <div class="side-empty" id="conv-empty" hidden>Aucune conversation pour l'instant.</div>
+    <div class="side-foot">
+      <div class="srv" id="srv" title="État du serveur Minecraft"><i class="conn" id="conn" data-mode="init"></i><span id="srv-text">Connexion…</span></div>
+      <button type="button" class="foot-btn" id="btn-modules"><span class="ic" data-icon="grid"></span><span class="grow">Modules et idées</span><span class="count-bad" id="mod-bad" hidden></span></button>
+    </div>
+  </aside>
 
-    <section class="panel" id="p-jobs" aria-labelledby="h-jobs">
-      <div class="panel-head"><h2 id="h-jobs">IA en direct</h2><span class="count" id="job-count">0</span></div>
-      <div id="job-empty" class="empty">Aucune tâche IA pour l'instant.</div>
-      <div id="job-list" class="job-list"></div>
-      <button type="button" class="btn small" id="job-more" style="margin-top:.7rem" hidden></button>
-    </section>
+  <main class="main is-new" id="main">
+    <header class="top">
+      <button type="button" class="icon-btn" id="btn-menu" aria-label="Afficher / masquer les conversations"><span class="ic" data-icon="menu"></span></button>
+      <div class="top-title"><h1 id="conv-title">Nouvelle conversation</h1><span class="sub" id="conv-sub"></span><span class="mstate" id="conv-mstate" hidden></span></div>
+      <button type="button" class="icon-btn" id="btn-delete" title="Supprimer la conversation" hidden><span class="ic" data-icon="trash"></span><span id="del-label" hidden>Supprimer ?</span></button>
+      <button type="button" class="icon-btn font-btn hide-sm" id="font-dec" title="Texte plus petit">A−</button>
+      <button type="button" class="icon-btn font-btn" id="font-inc" title="Texte plus grand (projecteur)">A+</button>
+      <button type="button" class="icon-btn" id="btn-theme" title="Thème"><span class="ic" id="theme-ic"></span></button>
+    </header>
+    <div class="banner" id="banner" role="status" hidden></div>
 
-    <section class="panel" id="p-ideas" aria-labelledby="h-ideas">
-      <div class="panel-head"><h2 id="h-ideas">Idées du public</h2><span class="count" id="idea-count">0</span></div>
-      <div id="idea-empty" class="empty">Les joueurs proposent leurs idées en jeu avec <code>/idea &lt;texte&gt;</code></div>
-      <div id="idea-list" class="idea-list"></div>
-      <details id="idea-done" class="x" hidden>
-        <summary>Déjà traitées (<span id="idea-done-count">0</span>)</summary>
-        <div class="x-body" id="idea-done-list"></div>
-      </details>
-    </section>
+    <div class="scroller" id="scroller">
+      <div class="welcome" id="welcome">
+        <h2><span class="ic" data-icon="spark"></span><span>Que construit-on&nbsp;?</span></h2>
+        <p>Décrivez une fonctionnalité : Claude l'écrit et elle apparaît en jeu, sans redémarrer.</p>
+      </div>
+      <div class="thread" id="thread" role="log" aria-live="off" hidden></div>
+    </div>
+    <button type="button" class="jump" id="jump" aria-label="Aller en bas" hidden><span class="ic" data-icon="down"></span></button>
+
+    <div class="composer-wrap" id="composer-wrap">
+      <div class="notice" id="notice" hidden></div>
+      <form class="composer" id="composer" autocomplete="off" novalidate>
+        <textarea id="input" rows="1" placeholder="Décrivez la fonctionnalité à ajouter…" aria-label="Message"></textarea>
+        <div class="bar">
+          <label class="field" id="mod-field">Module <input id="mod-input" maxlength="40" spellcheck="false" autocapitalize="off" placeholder="mon-module" aria-describedby="hint"></label>
+          <span class="field">Images :
+            <span class="seg" role="radiogroup" aria-label="Fournisseur d'images" id="img-seg">
+              <button type="button" role="radio" data-p="auto" aria-checked="true" title="Choix automatique">Auto</button>
+              <button type="button" role="radio" data-p="openrouter" aria-checked="false">OpenRouter</button>
+              <button type="button" role="radio" data-p="meshy" aria-checked="false">Meshy AI</button>
+            </span>
+          </span>
+          <label class="field hide-sm"><select id="model" aria-label="Modèle">
+            <option value="">Modèle par défaut</option>
+            <option value="opus">Opus</option>
+            <option value="sonnet">Sonnet</option>
+            <option value="haiku">Haiku</option>
+          </select></label>
+          <span class="grow"></span>
+          <button type="submit" class="send" id="send" aria-label="Envoyer" title="Envoyer (Entrée)" disabled><span class="ic" data-icon="up"></span></button>
+          <button type="button" class="stop" id="stop" aria-label="Arrêter" title="Arrêter la tâche" hidden><span class="ic" data-icon="square"></span></button>
+        </div>
+      </form>
+      <div class="hint" id="hint" aria-live="polite"></div>
+      <div class="suggest" id="suggest"></div>
+    </div>
+  </main>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+
+<aside class="drawer" id="drawer" aria-label="Modules" hidden>
+  <div class="drawer-head"><h2>Modules</h2><button type="button" class="icon-btn" id="drawer-close" aria-label="Fermer"><span class="ic" data-icon="close"></span></button></div>
+  <div class="drawer-body">
+    <div class="srv-box" id="srv-box"></div>
+    <div class="dsec"><h3 id="mod-h">Modules</h3><div id="mod-list"></div><div class="muted" id="mod-empty" hidden>Aucun module. Envoyez une demande : Claude le créera.</div></div>
+    <div class="dsec"><h3 id="idea-h">Idées du public</h3><div id="idea-list"></div><div class="muted" id="idea-empty">Les joueurs proposent leurs idées en jeu avec <code>/idea &lt;texte&gt;</code>.</div></div>
+    <div class="dsec"><button type="button" class="btn link" id="btn-token">Jeton d'accès…</button></div>
   </div>
-</main>
+</aside>
 
-<footer>
-  <span>VibeCraft — tableau de bord en direct (actualisé chaque seconde)</span>
-  <button type="button" class="btn link" id="btn-token">Jeton d'accès…</button>
-</footer>
+<div class="toasts" id="toasts" aria-live="polite"></div>
 
-<div id="toasts" class="toasts" aria-live="polite"></div>
-
-<div id="token-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="tk-title" hidden>
+<div class="modal" id="token-modal" role="dialog" aria-modal="true" aria-labelledby="tk-title" hidden>
   <form class="modal-box" id="token-form" autocomplete="off">
     <h2 id="tk-title">Jeton d'accès requis</h2>
     <p>Le serveur demande un jeton (<code>api.token</code> dans <code>plugins/VibeCraft/config.yml</code>).</p>
-    <input id="tk-input" class="input" type="password" spellcheck="false" placeholder="Jeton" aria-label="Jeton d'accès">
+    <input id="tk-input" type="password" spellcheck="false" placeholder="Jeton" aria-label="Jeton d'accès">
     <p id="tk-error" class="err" hidden>Jeton refusé, réessayez.</p>
-    <div class="actions">
-      <button type="submit" class="btn primary">Valider</button>
-      <button type="button" class="btn" id="tk-cancel">Fermer</button>
-    </div>
+    <div class="row"><button type="button" class="btn" id="tk-cancel">Fermer</button><button type="submit" class="btn primary">Valider</button></div>
   </form>
 </div>
 
-<noscript><p style="padding:16px">Ce tableau de bord nécessite JavaScript.</p></noscript>
+<noscript><p style="padding:16px">Cette page nécessite JavaScript.</p></noscript>
 
 <script>
 (() => {
   'use strict';
 
   // ======================================================================
-  // Constants & small helpers
+  // Constants & helpers
   // ======================================================================
   const $ = (id) => document.getElementById(id);
   const ID_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
-  const POLL_MS = 1000;
-  const HIDDEN_POLL_MS = 5000;
-  const TOKEN_KEY = 'vibecraft.token';
-  const DRAFT_KEY = 'vibecraft.draft';
-
-  const STATE_LABEL = {
-    DISCOVERED: 'Découvert', COMPILING: 'Compilation…', ENABLED: 'Actif',
-    DISABLED: 'Désactivé', FAILED: 'Échec', TRIPPED: 'Disjoncté'
-  };
-  const STATE_HELP = {
-    DISCOVERED: 'Trouvé sur le disque, jamais chargé',
-    COMPILING: 'Compilation et chargement en cours',
-    ENABLED: 'En fonctionnement',
-    DISABLED: 'Désactivé volontairement',
-    FAILED: "Le dernier essai a échoué et aucune version ne tourne",
-    TRIPPED: "Coupé par le disjoncteur (trop d'erreurs) : rechargez pour le réarmer"
-  };
-  const JOB_LABEL = { QUEUED: 'En file', RUNNING: 'En cours', SUCCEEDED: 'Terminé', FAILED: 'Échec', STOPPED: 'Arrêté' };
-  const ACTIVE_JOB = new Set(['QUEUED', 'RUNNING']);
-  const KIND_LABEL = { ERROR: 'erreur', WARNING: 'avertissement', NOTE: 'note' };
-
+  const K = { token: 'vibecraft.token', theme: 'vibecraft.theme', scale: 'vibecraft.scale', img: 'vibecraft.imageProvider', model: 'vibecraft.model', side: 'vibecraft.sideCollapsed', drafts: 'vibecraft.drafts' };
   const storage = {
     get(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
-    set(k, v) { try { window.localStorage.setItem(k, v); } catch (e) { /* storage unavailable */ } },
-    del(k) { try { window.localStorage.removeItem(k); } catch (e) { /* storage unavailable */ } }
+    set(k, v) { try { window.localStorage.setItem(k, v); } catch (e) { /* unavailable */ } },
+    del(k) { try { window.localStorage.removeItem(k); } catch (e) { /* unavailable */ } }
   };
+  const STATE_LABEL = { DISCOVERED: 'Découvert', COMPILING: 'Compilation…', ENABLED: 'Actif', DISABLED: 'Désactivé', FAILED: 'Échec', TRIPPED: 'Disjoncté' };
+  const STATE_HELP = {
+    DISCOVERED: 'Trouvé sur le disque, jamais chargé', COMPILING: 'Compilation et chargement en cours', ENABLED: 'En fonctionnement',
+    DISABLED: 'Désactivé volontairement', FAILED: 'Le dernier essai a échoué et aucune version ne tourne',
+    TRIPPED: "Coupé par le disjoncteur (trop d'erreurs) : rechargez pour le réarmer"
+  };
+  const CONV_LABEL = { running: 'Claude travaille', queued: "En file d'attente", failed: 'La dernière tâche a échoué', idle: '' };
+  const SUGGESTIONS = [
+    'Fais pleuvoir des cochons quand un joueur saute',
+    'Une commande /sapin qui fait pousser un sapin géant',
+    'Un bloc de slime arc-en-ciel qui propulse à 50 blocs',
+    'Les zombies dansent la macarena à minuit'
+  ];
 
   const nf1 = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const nf2 = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const nf0 = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
-
   const arr = (x) => (Array.isArray(x) ? x : []);
   const str = (x) => (x == null ? '' : String(x));
   const num = (x) => (typeof x === 'number' && isFinite(x) ? x : 0);
   const enc = encodeURIComponent;
-  const plural = (n, one, many) => `${nf0.format(n)} ${n === 1 || n === 0 ? one : many}`;
+  const plural = (n, one, many) => `${n} ${n === 1 || n === 0 ? one : many}`;
+  const shorten = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
-  let skew = 0; // server clock - local clock (only applied when clearly off)
-  const now = () => Date.now() + skew;
-
-  function relTime(ts, t) {
+  function relTime(ts, t = Date.now()) {
     if (!ts || ts <= 0) return 'jamais';
     const s = Math.max(0, Math.floor((t - ts) / 1000));
     if (s < 2) return "à l'instant";
@@ -506,28 +554,14 @@ footer { padding: 0 1.25rem 1.5rem; color: var(--dim); font-size: .85rem; displa
     const s = Math.max(0, Math.floor(ms / 1000));
     if (s < 60) return `${s} s`;
     const m = Math.floor(s / 60);
-    if (m < 60) return `${m} min ${String(s % 60).padStart(2, '0')} s`;
+    if (m < 60) return `${m} min`;
     const hh = Math.floor(m / 60);
-    if (hh < 24) return `${hh} h ${String(m % 60).padStart(2, '0')} min`;
+    if (hh < 24) return `${hh} h ${String(m % 60).padStart(2, '0')}`;
     return `${Math.floor(hh / 24)} j ${hh % 24} h`;
   }
-  function fmtMs(ms) {
-    ms = num(ms);
-    return ms < 1000 ? `${nf0.format(ms)} ms` : `${nf1.format(ms / 1000)} s`;
-  }
-  function fmtTickMs(ms) {
-    ms = num(ms);
-    if (ms <= 0) return '0';
-    if (ms < 0.01) return '< 0,01';
-    return ms < 10 ? nf2.format(ms) : nf1.format(ms);
-  }
-  function fmtCost(c) { return `${nf2.format(num(c))} $`; }
-  function clock(ts) {
-    const d = new Date(ts);
-    return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  }
+  const clock = (ts) => new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
-  // French-friendly slug for module ids (accept an idea -> module id).
+  // French-friendly slug for module ids.
   const STOP = new Set(('le la les l un une des du de d et ou a au aux en dans sur sous pour par avec sans ' +
     'qui que qu quoi dont ce c cet cette ces se s sa son ses leur leurs mon ma mes ton ta tes notre nos votre vos ' +
     'il elle ils elles on y je j tu nous vous me m te t lui est sont etre avoir ai as faire fait fais faites ' +
@@ -539,21 +573,59 @@ footer { padding: 0 1.25rem 1.5rem; color: var(--dim); font-size: .85rem; displa
     let picked = words.filter((w) => !STOP.has(w));
     if (!picked.length) picked = words;
     let out = '';
-    for (const w of picked.slice(0, 4)) {
+    for (const w of picked.slice(0, 3)) {
       const next = out ? `${out}-${w}` : w;
       if (next.length > 32) break;
       out = next;
     }
     if (!out && picked.length) out = picked[0].slice(0, 32);
-    out = out.replace(/^[^a-z0-9]+/, '');
-    return ID_RE.test(out) ? out : (fallback || 'module');
+    return ID_RE.test(out) ? out : (fallback || '');
   }
-  // Gentle live normalisation of the module id field (keeps the same length so the caret stays put).
-  function softNormalizeId(v) {
-    return v.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s/g, '-');
-  }
+  const softNormalizeId = (v) => v.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s/g, '-');
 
-  // ---------- DOM helpers (no innerHTML with data anywhere) ----------
+  // ---------- icons (static markup only, never data) ----------
+  const SV = (body, extra = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ${extra}>${body}</svg>`;
+  const ICONS = {
+    spark: SV('<path d="M12 3v5M12 16v5M3 12h5M16 12h5M5.6 5.6l3.5 3.5M14.9 14.9l3.5 3.5M5.6 18.4l3.5-3.5M14.9 9.1l3.5-3.5"/>', 'stroke-width="2.6"'),
+    plus: SV('<path d="M12 5v14M5 12h14"/>', 'stroke-width="2.4"'),
+    menu: SV('<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M9.5 4.5v15"/>'),
+    close: SV('<path d="M6 6l12 12M18 6L6 18"/>'),
+    grid: SV('<rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/>'),
+    trash: SV('<path d="M4.5 7h15M10 11v6M14 11v6M6.5 7l1 12.5h9l1-12.5M9.5 7V4.5h5V7"/>'),
+    sun: SV('<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>'),
+    moon: SV('<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>'),
+    auto: SV('<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor"/>'),
+    up: SV('<path d="M12 19V5M6 11l6-6 6 6"/>', 'stroke-width="2.2"'),
+    down: SV('<path d="M12 5v14M6 13l6 6 6-6"/>', 'stroke-width="2"'),
+    square: '<svg viewBox="0 0 10 10"><rect width="10" height="10" rx="2" fill="currentColor"/></svg>',
+    chev: SV('<path d="M9 6l6 6-6 6"/>', 'stroke-width="2.2"'),
+    bulb: SV('<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/>'),
+    file: SV('<path d="M14 3.5H7A1.5 1.5 0 0 0 5.5 5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3.5V8h4.5"/>'),
+    pencil: SV('<path d="M4 20l1-4.5L15.5 5a2.1 2.1 0 0 1 3 3L8 18.5z"/><path d="M13.5 7l3 3"/>'),
+    terminal: SV('<rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M7 9.5l3 2.5-3 2.5M12.5 15h4.5"/>'),
+    search: SV('<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/>'),
+    globe: SV('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 2.5 14.4 0 17M12 3.5c-2.5 2.6-2.5 14.4 0 17"/>'),
+    refresh: SV('<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4"/>'),
+    image: SV('<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 16l-5-5-9 8.5"/>'),
+    list: SV('<path d="M9 6.5h11M9 12h11M9 17.5h11M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01"/>', 'stroke-width="2"'),
+    tool: SV('<path d="M14.5 6.5a4 4 0 0 0 5 5L13 18a2.1 2.1 0 0 1-3-3l6.5-6.5a4 4 0 0 1-2-2z"/><path d="M5 19l3-3"/>'),
+    check: SV('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 'stroke-width="2.4"'),
+    x: SV('<path d="M7 7l10 10M17 7L7 17"/>', 'stroke-width="2.4"'),
+    copy: SV('<rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6A1.5 1.5 0 0 0 14 4.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/>'),
+    play: SV('<path d="M8 5.5v13l10-6.5z"/>'),
+    pause: SV('<path d="M8.5 5.5v13M15.5 5.5v13"/>', 'stroke-width="2.4"'),
+    chat: SV('<path d="M5 18.5l-1.5 2V6A1.5 1.5 0 0 1 5 4.5h14A1.5 1.5 0 0 1 20.5 6v11a1.5 1.5 0 0 1-1.5 1.5z"/>'),
+    info: SV('<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/>', 'stroke-width="2"')
+  };
+  function icon(name, cls) {
+    const s = document.createElement('span');
+    s.className = cls ? `ic ${cls}` : 'ic';
+    s.innerHTML = ICONS[name] || ICONS.tool; // constant markup
+    return s;
+  }
+  for (const n of document.querySelectorAll('[data-icon]')) n.innerHTML = ICONS[n.dataset.icon] || '';
+
+  // ---------- DOM helpers (all data goes through textContent / attributes) ----------
   function h(tag, props, ...kids) {
     const n = document.createElement(tag);
     if (props) {
@@ -562,12 +634,11 @@ footer { padding: 0 1.25rem 1.5rem; color: var(--dim); font-size: .85rem; displa
         if (v == null || v === false) continue;
         if (k === 'class') n.className = v;
         else if (k === 'text') n.textContent = v;
-        else if (k === 'hidden') n.hidden = true;
         else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
         else n.setAttribute(k, v === true ? '' : String(v));
       }
     }
-    for (const c of kids) if (c != null) n.append(c);
+    for (const c of kids) if (c != null && c !== false) n.append(c);
     return n;
   }
   function setText(n, t) { t = str(t); if (n.textContent !== t) n.textContent = t; }
@@ -578,36 +649,22 @@ footer { padding: 0 1.25rem 1.5rem; color: var(--dim); font-size: .85rem; displa
     if (n.getAttribute(k) !== v) n.setAttribute(k, v);
   }
   function setCls(n, c, on) { on = !!on; if (n.classList.contains(c) !== on) n.classList.toggle(c, on); }
-  function setData(n, k, v) { v = str(v); if (n.dataset[k] !== v) n.dataset[k] = v; }
-  function setDisabled(n, d) { d = !!d; if (n.disabled !== d) n.disabled = d; }
-  function nearBottom(el) { return el.scrollHeight - el.scrollTop - el.clientHeight < 40; }
-  function flash(n, cls) {
-    n.classList.remove('flash-ok', 'flash-err');
-    void n.offsetWidth; // restart the animation
-    n.classList.add(cls);
-  }
+  function nearBottom(el, px = 80) { return el.scrollHeight - el.scrollTop - el.clientHeight < px; }
 
-  /**
-   * Keyed list patching: reuses existing nodes (keeps <details> open state, scroll positions,
-   * inputs and focus), removes stale ones first, then only moves nodes that are out of place.
-   */
+  /** Keyed list patching: reuses nodes (keeps open <details>, inputs, focus) and only moves what is out of place. */
   function reconcile(container, items, keyOf, create, update) {
     const map = container._views || (container._views = new Map());
     const keys = items.map(keyOf);
     const live = new Set(keys);
     for (const [k, view] of map) {
-      if (!live.has(k)) {
-        map.delete(k);
-        view.node.remove();
-        if (view.destroy) view.destroy();
-      }
+      if (!live.has(k)) { map.delete(k); view.node.remove(); if (view.destroy) view.destroy(); }
     }
     let prev = null;
     items.forEach((item, i) => {
       const k = keys[i];
       let view = map.get(k);
       if (!view) { view = create(item); map.set(k, view); }
-      try { update(view, item); } catch (e) { console.error('render error', k, e); }
+      try { update(view, item, i); } catch (e) { console.error('render', k, e); }
       const expected = prev ? prev.nextSibling : container.firstChild;
       if (view.node !== expected) container.insertBefore(view.node, expected);
       prev = view.node;
@@ -616,103 +673,215 @@ footer { padding: 0 1.25rem 1.5rem; color: var(--dim); font-size: .85rem; displa
   }
 
   // ======================================================================
+  // Markdown (small, DOM-based: no HTML is ever parsed from content)
+  // ======================================================================
+  const INLINE_RE = /(`+)([^`]|[^`][\s\S]*?[^`])\1(?!`)|\*\*(?=\S)([\s\S]*?\S)\*\*|__(?=\S)([\s\S]*?\S)__|(^|[^\w*])\*(?=[^\s*])([^*\n]*?[^\s*])\*(?![\w*])|(^|[^\w])_(?=[^\s_])([^_\n]*?[^\s_])_(?!\w)|\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g;
+  function inline(text, parent) {
+    const re = new RegExp(INLINE_RE.source, 'g');
+    let last = 0;
+    let m;
+    while ((m = re.exec(text))) {
+      if (m.index > last) parent.append(text.slice(last, m.index));
+      if (m[1]) parent.append(h('code', { text: m[2] }));
+      else if (m[3] != null || m[4] != null) { const b = h('strong'); inline(m[3] != null ? m[3] : m[4], b); parent.append(b); }
+      else if (m[6] != null) { if (m[5]) parent.append(m[5]); const e = h('em'); inline(m[6], e); parent.append(e); }
+      else if (m[8] != null) { if (m[7]) parent.append(m[7]); const e = h('em'); inline(m[8], e); parent.append(e); }
+      else if (m[9] != null) parent.append(h('a', { href: m[10], target: '_blank', rel: 'noopener noreferrer', text: m[9] }));
+      last = re.lastIndex;
+    }
+    if (last < text.length) parent.append(text.slice(last));
+  }
+
+  function codeBlock(code, lang) {
+    const codeEl = h('code', { text: code });
+    const label = h('span', { text: 'Copier' });
+    const btn = h('button', { type: 'button', class: 'copy', title: 'Copier le code' }, icon('copy'), label);
+    btn.addEventListener('click', () => copyText(code).then((ok) => {
+      label.textContent = ok ? 'Copié' : 'Échec';
+      setTimeout(() => { label.textContent = 'Copier'; }, 1500);
+    }));
+    return h('div', { class: 'code' }, h('div', { class: 'code-head' }, h('span', { text: lang || 'code' }), btn), h('pre', null, codeEl));
+  }
+  async function copyText(t) {
+    try { await navigator.clipboard.writeText(t); return true; } catch (e) { /* fallback below */ }
+    try {
+      const ta = h('textarea', { style: 'position:fixed;opacity:0' });
+      ta.value = t;
+      document.body.append(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      return ok;
+    } catch (e) { return false; }
+  }
+
+  const ITEM_RE = /^(\s*)([-*+]|\d{1,9}[.)])\s+(.*)$/;
+  function md(src) {
+    const root = h('div', { class: 'md' });
+    const lines = str(src).replace(/\r\n?/g, '\n').split('\n');
+    let para = [];
+    let stack = []; // open lists: {el, ordered, indent, li}
+    const flushPara = () => {
+      if (!para.length) return;
+      const p = h('p');
+      para.forEach((l, k) => { if (k) p.append(h('br')); inline(l, p); });
+      root.append(p);
+      para = [];
+    };
+    const closeLists = () => { stack = []; };
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      let m;
+      if ((m = /^\s{0,3}(`{3,}|~{3,})\s*([\w+#.-]*)/.exec(line))) {
+        flushPara(); closeLists();
+        const fence = m[1];
+        const end = new RegExp(`^\\s{0,3}${fence[0] === '`' ? '`' : '~'}{${fence.length},}\\s*$`);
+        const buf = [];
+        i++;
+        while (i < lines.length && !end.test(lines[i])) buf.push(lines[i++]);
+        i++;
+        root.append(codeBlock(buf.join('\n'), m[2]));
+        continue;
+      }
+      if (/^\s*$/.test(line)) {
+        flushPara();
+        if (stack.length) {
+          let j = i + 1;
+          while (j < lines.length && /^\s*$/.test(lines[j])) j++;
+          if (!(j < lines.length && (ITEM_RE.test(lines[j]) || /^\s{2,}\S/.test(lines[j])))) closeLists();
+        }
+        i++;
+        continue;
+      }
+      if ((m = /^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line))) {
+        flushPara(); closeLists();
+        const el = h(m[1].length === 1 ? 'h3' : m[1].length === 2 ? 'h4' : 'h5');
+        inline(m[2], el);
+        root.append(el);
+        i++;
+        continue;
+      }
+      if (/^\s{0,3}([-*_])(\s*\1){2,}\s*$/.test(line)) { flushPara(); closeLists(); root.append(h('hr')); i++; continue; }
+      if (/^\s{0,3}>/.test(line)) {
+        flushPara(); closeLists();
+        const buf = [];
+        while (i < lines.length && /^\s{0,3}>/.test(lines[i])) buf.push(lines[i++].replace(/^\s{0,3}>\s?/, ''));
+        const q = h('blockquote');
+        q.append(...md(buf.join('\n')).childNodes);
+        root.append(q);
+        continue;
+      }
+      if ((m = ITEM_RE.exec(line))) {
+        flushPara();
+        const indent = m[1].replace(/\t/g, '    ').length;
+        const ordered = /\d/.test(m[2]);
+        while (stack.length && indent < stack[stack.length - 1].indent) stack.pop();
+        let top = stack[stack.length - 1];
+        const mk = () => {
+          const el = h(ordered ? 'ol' : 'ul');
+          const start = parseInt(m[2], 10);
+          if (ordered && start > 1) el.setAttribute('start', String(start));
+          return { el, ordered, indent, li: null };
+        };
+        if (top && indent > top.indent + 1 && top.li) {
+          const l = mk(); top.li.append(l.el); stack.push(l); top = l;
+        } else if (!top || top.ordered !== ordered) {
+          if (top) stack.pop();
+          const l = mk();
+          const parent = stack.length ? stack[stack.length - 1].li : null;
+          (parent || root).append(l.el);
+          stack.push(l);
+          top = l;
+        }
+        const li = h('li');
+        inline(m[3], li);
+        top.el.append(li);
+        top.li = li;
+        i++;
+        continue;
+      }
+      if (stack.length && /^\s{2,}\S/.test(line)) {
+        const li = stack[stack.length - 1].li;
+        if (li) { li.append(h('br')); inline(line.trim(), li); }
+        i++;
+        continue;
+      }
+      closeLists();
+      para.push(line);
+      i++;
+    }
+    flushPara();
+    return root;
+  }
+
+  // ======================================================================
   // HTTP
   // ======================================================================
-  let token = storage.get(TOKEN_KEY) || '';
-
+  let token = storage.get(K.token) || '';
   class HttpError extends Error {
     constructor(status, message, data) { super(message); this.status = status; this.data = data; }
   }
-
   async function api(method, path, body, timeoutMs) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs || 15000);
     const headers = {};
     if (token) headers['X-Vibe-Token'] = token;
-    if (body != null) headers['Content-Type'] = 'text/plain; charset=utf-8';
-    let res, text;
+    let payload;
+    if (body != null && typeof body === 'object') { headers['Content-Type'] = 'application/json; charset=utf-8'; payload = JSON.stringify(body); }
+    else if (body != null) { headers['Content-Type'] = 'text/plain; charset=utf-8'; payload = String(body); }
+    let res;
+    let text;
     try {
-      res = await fetch(path, { method, headers, body: body == null ? undefined : body, cache: 'no-store', signal: ctrl.signal });
+      res = await fetch(path, { method, headers, body: payload, cache: 'no-store', signal: ctrl.signal });
       text = await res.text();
     } catch (e) {
       throw new HttpError(0, e && e.name === 'AbortError' ? 'délai dépassé' : 'serveur injoignable');
     } finally {
       clearTimeout(timer);
     }
-    noteServerDate(res.headers.get('Date'));
     let data = null;
     if (text) { try { data = JSON.parse(text); } catch (e) { data = null; } }
-    if (res.status === 401) {
-      askToken(true);
-      throw new HttpError(401, 'jeton requis', data);
-    }
-    if (!res.ok) {
-      const msg = (data && typeof data.error === 'string' && data.error) || `erreur HTTP ${res.status}`;
-      throw new HttpError(res.status, msg, data);
-    }
+    if (res.status === 401) { askToken(true); throw new HttpError(401, 'jeton requis', data); }
+    if (!res.ok) throw new HttpError(res.status, (data && typeof data.error === 'string' && data.error) || `erreur HTTP ${res.status}`, data);
     return data;
   }
-
-  function noteServerDate(d) {
-    if (!d) return;
-    const t = Date.parse(d);
-    if (!isFinite(t)) return;
-    const diff = t - Date.now(); // Date header has 1 s precision: only correct obvious clock skew
-    if (Math.abs(diff) > 5000) { if (Math.abs(diff - skew) > 3000) skew = diff; } else if (skew !== 0) skew = 0;
-  }
+  const errorText = (e) => (!e ? 'erreur inconnue' : e.status === 0 ? 'serveur injoignable' : e.message || String(e));
 
   // ======================================================================
-  // Toasts
+  // Toasts & token prompt
   // ======================================================================
   function toast(title, kind, detail) {
     const box = $('toasts');
     const t = h('div', { class: `toast ${kind || 'info'}`, role: kind === 'error' ? 'alert' : 'status', title: 'Cliquer pour fermer' },
-      h('div', { class: 'toast-title', text: title }),
-      detail ? h('div', { class: 'toast-detail', text: detail }) : null);
+      h('div', { text: title }), detail ? h('small', { text: detail }) : null);
     let gone = false;
-    const close = () => {
-      if (gone) return;
-      gone = true;
-      t.classList.add('out');
-      setTimeout(() => t.remove(), 260);
-    };
+    const close = () => { if (gone) return; gone = true; t.classList.add('out'); setTimeout(() => t.remove(), 260); };
     t.addEventListener('click', close);
     box.append(t);
-    while (box.children.length > 5) box.firstElementChild.remove();
-    setTimeout(close, kind === 'error' ? 11000 : kind === 'warn' ? 8000 : 5500);
+    while (box.children.length > 4) box.firstElementChild.remove();
+    setTimeout(close, kind === 'error' ? 9000 : 5000);
   }
 
-  function errorText(e) {
-    if (!e) return 'erreur inconnue';
-    if (e.status === 0) return 'serveur injoignable';
-    return e.message || String(e);
-  }
-
-  // ======================================================================
-  // Token prompt
-  // ======================================================================
   let tokenModalOpen = false;
   let tokenClosedAt = 0;
   function askToken(auto) {
     setConn('token');
     if (tokenModalOpen) return;
-    if (auto && Date.now() - tokenClosedAt < 20000) return; // closed by hand: don't nag every second
+    if (auto && Date.now() - tokenClosedAt < 20000) return;
     tokenModalOpen = true;
     setHidden($('tk-error'), !(auto && token));
     $('tk-input').value = '';
     setHidden($('token-modal'), false);
     setTimeout(() => $('tk-input').focus(), 0);
   }
-  function closeToken() {
-    tokenModalOpen = false;
-    setHidden($('token-modal'), true);
-  }
+  function closeToken() { tokenModalOpen = false; setHidden($('token-modal'), true); }
   $('token-form').addEventListener('submit', (e) => {
     e.preventDefault();
     token = $('tk-input').value.trim();
-    if (token) storage.set(TOKEN_KEY, token); else storage.del(TOKEN_KEY);
+    if (token) storage.set(K.token, token); else storage.del(K.token);
     closeToken();
-    pollNow();
+    pollAll();
   });
   const dismissToken = () => { tokenClosedAt = Date.now(); closeToken(); };
   $('tk-cancel').addEventListener('click', dismissToken);
@@ -720,898 +889,1006 @@ footer { padding: 0 1.25rem 1.5rem; color: var(--dim); font-size: .85rem; displa
   $('btn-token').addEventListener('click', () => askToken(false));
 
   // ======================================================================
+  // Theme, font size, sidebar
+  // ======================================================================
+  const THEMES = ['auto', 'light', 'dark'];
+  let theme = THEMES.includes(storage.get(K.theme)) ? storage.get(K.theme) : 'auto';
+  function applyTheme() {
+    if (theme === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', theme);
+    $('theme-ic').innerHTML = ICONS[theme === 'auto' ? 'auto' : theme === 'light' ? 'sun' : 'moon'];
+    $('btn-theme').title = `Thème : ${theme === 'auto' ? 'automatique' : theme === 'light' ? 'clair' : 'sombre'} (cliquer pour changer)`;
+  }
+  $('btn-theme').addEventListener('click', () => {
+    theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+    storage.set(K.theme, theme);
+    applyTheme();
+  });
+  applyTheme();
+
+  let scale = Number(storage.get(K.scale)) || 1;
+  function applyScale() {
+    scale = Math.round(Math.min(1.8, Math.max(0.85, scale)) * 100) / 100;
+    document.documentElement.style.fontSize = `${16 * scale}px`;
+    storage.set(K.scale, String(scale));
+    updateComposerH();
+  }
+  $('font-inc').addEventListener('click', () => { scale += 0.1; applyScale(); });
+  $('font-dec').addEventListener('click', () => { scale -= 0.1; applyScale(); });
+
+  const app = $('app');
+  const mobile = () => window.matchMedia('(max-width: 820px)').matches;
+  if (storage.get(K.side) === '1') app.classList.add('side-collapsed');
+  function syncScrim() { setHidden($('scrim'), !(app.classList.contains('side-open') && mobile()) && $('drawer').hidden); }
+  function openSide(on) { setCls(app, 'side-open', on); syncScrim(); }
+  $('btn-menu').addEventListener('click', () => {
+    if (mobile()) openSide(!app.classList.contains('side-open'));
+    else {
+      app.classList.toggle('side-collapsed');
+      storage.set(K.side, app.classList.contains('side-collapsed') ? '1' : '0');
+    }
+  });
+  $('btn-side-close').addEventListener('click', () => openSide(false));
+  $('scrim').addEventListener('click', () => { openSide(false); openDrawer(false); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || tokenModalOpen) return;
+    if (!$('drawer').hidden) openDrawer(false);
+    else if (app.classList.contains('side-open')) openSide(false);
+  });
+
+  // ======================================================================
   // Connection state
   // ======================================================================
-  let lastOkAt = 0; // server-clock ms of the last successful poll
   let connMode = 'init';
+  let lastOkAt = 0;
+  let fails = 0;
   function setConn(mode) {
     connMode = mode;
-    const c = $('conn');
-    setData(c, 'mode', mode);
-    setText($('conn-text'), mode === 'live' ? 'en direct' : mode === 'down' ? 'hors ligne' : mode === 'token' ? 'jeton requis' : 'connexion…');
-    const offline = mode === 'down';
-    setCls(document.body, 'offline', offline);
-    setHidden($('banner'), !offline);
+    $('conn').dataset.mode = mode;
     updateBanner();
   }
   function updateBanner() {
-    if (connMode !== 'down') return;
-    const t = lastOkAt
-      ? `⚠ Connexion au serveur perdue — nouvelle tentative… (dernière réponse ${relTime(lastOkAt, now())})`
-      : '⚠ Serveur injoignable — nouvelle tentative…';
-    setText($('banner-text'), t);
+    const down = connMode === 'down';
+    setHidden($('banner'), !down);
+    if (down) setText($('banner'), lastOkAt ? `Connexion au serveur perdue (${relTime(lastOkAt)}), nouvelle tentative…` : 'Serveur injoignable, nouvelle tentative…');
+  }
+  function noteOk() { fails = 0; lastOkAt = Date.now(); if (tokenModalOpen && !$('tk-input').value) closeToken(); setConn('live'); }
+  function noteFail(e) { if (e && e.status === 401) return; if (e && e.status) return; fails++; if (fails >= 2) setConn('down'); }
+
+  // ======================================================================
+  // App state
+  // ======================================================================
+  let convs = [];             // summaries, newest first
+  let convById = new Map();
+  let selectedId = null;      // null = new conversation
+  let current = null;         // { id, title, state, moduleState, generation, messages: [] }
+  let status = null;          // last /api/status
+  let modulesById = new Map();
+  let providers = null;       // last /api/providers
+  let imageProvider = storage.get(K.img) || 'auto';
+  let sending = false;
+  let stick = true;
+  const openState = new Map(); // `${msgId}:${blockIndex}` -> bool (user toggled)
+
+  // ======================================================================
+  // Sidebar: conversation list
+  // ======================================================================
+  function moduleBadge(ms, gen) {
+    switch (ms) {
+      case 'ENABLED': return { t: gen > 0 ? `v${gen}` : 'actif', c: '' };
+      case 'FAILED': return { t: 'échec', c: 'bad' };
+      case 'TRIPPED': return { t: 'disjoncté', c: 'bad' };
+      case 'DISABLED': return { t: 'off', c: '' };
+      case 'COMPILING': return { t: 'compile…', c: 'warn' };
+      default: return { t: 'nouveau', c: '' };
+    }
+  }
+  function createConvView(c) {
+    const v = { id: c.id };
+    v.title = h('span', { class: 'conv-title' });
+    v.badge = h('span', { class: 'mb' });
+    v.node = h('a', { class: 'conv', href: `#/c/${enc(c.id)}` }, h('span', { class: 'dot' }), v.title, v.badge);
+    v.node.addEventListener('click', () => { if (mobile()) openSide(false); });
+    return v;
+  }
+  function updateConvView(v, c) {
+    const st = ['running', 'queued', 'failed'].includes(c.state) ? c.state : 'idle';
+    if (v.node.dataset.state !== st) v.node.dataset.state = st;
+    setText(v.title, str(c.title) || c.id);
+    const b = moduleBadge(c.moduleState, num(c.generation));
+    setText(v.badge, b.t);
+    v.badge.className = b.c ? `mb ${b.c}` : 'mb';
+    const tip = [c.id, CONV_LABEL[st], c.moduleState ? `module : ${STATE_LABEL[c.moduleState] || c.moduleState}` : 'module pas encore créé', str(c.lastLine)].filter(Boolean);
+    setAttr(v.node, 'title', tip.join('\n'));
+    setAttr(v.node, 'aria-current', c.id === selectedId ? 'page' : null);
+  }
+  function renderConvList() {
+    reconcile($('conv-list'), convs, (c) => c.id, createConvView, updateConvView);
+    setHidden($('conv-empty'), convs.length > 0);
+    setCls($('btn-new'), 'on', !selectedId);
   }
 
   // ======================================================================
-  // Rendering: header
+  // Thread rendering
   // ======================================================================
-  let lastStatus = null;
-  const moduleIndex = new Map(); // id -> ModuleInfo
-  const activeJobByModule = new Map(); // moduleId -> AiJob (QUEUED/RUNNING)
+  const thread = $('thread');
+  const scroller = $('scroller');
+  const working = h('div', { class: 'working' }, icon('spark'), h('span', { class: 'working-label' }));
 
-  function renderHeader(st) {
+  function parseInput(x) {
+    if (typeof x === 'string') {
+      const t = x.trim();
+      if (t.startsWith('{')) { try { return JSON.parse(t); } catch (e) { /* keep string */ } }
+      return x;
+    }
+    return x && typeof x === 'object' ? x : {};
+  }
+  function shortPath(p) {
+    const parts = str(p).replace(/\\/g, '/').split('/').filter(Boolean);
+    return parts.length > 2 ? `…/${parts.slice(-2).join('/')}` : parts.join('/');
+  }
+  function firstString(o) {
+    if (typeof o === 'string') return o;
+    for (const k of Object.keys(o || {})) if (typeof o[k] === 'string' && o[k]) return o[k];
+    return '';
+  }
+  function describeTool(name, input) {
+    const base = str(name).startsWith('mcp__') ? str(name).split('__').pop() : str(name) || 'outil';
+    const i = input;
+    const o = typeof i === 'object' ? i : {};
+    const json = typeof i === 'string' ? i : Object.keys(o).length ? JSON.stringify(o, null, 2) : '';
+    switch (base) {
+      case 'Read': return { ic: 'file', label: 'Lecture', arg: shortPath(o.file_path || o.path), full: str(o.file_path || o.path), detail: json };
+      case 'Write': return { ic: 'pencil', label: 'Écriture', arg: shortPath(o.file_path), full: str(o.file_path), detail: o.content != null ? `${o.file_path}\n\n${o.content}` : json };
+      case 'Edit': case 'MultiEdit': {
+        let d = json;
+        if (o.old_string != null || o.new_string != null) {
+          const minus = str(o.old_string).split('\n').map((l) => `- ${l}`).join('\n');
+          const plus = str(o.new_string).split('\n').map((l) => `+ ${l}`).join('\n');
+          d = `${o.file_path}\n\n${minus}\n${plus}`;
+        }
+        return { ic: 'pencil', label: 'Modification', arg: shortPath(o.file_path), full: str(o.file_path), detail: d };
+      }
+      case 'Bash': case 'PowerShell': {
+        const cmd = str(o.command || firstString(i));
+        const rm = /\/api\/modules\/([^/\s"']+)\/(reload|enable)/.exec(cmd);
+        const tm = /\/api\/(textures|models)\/([^/\s"']+)/.exec(cmd);
+        if (rm) return { ic: 'refresh', label: 'Rechargement', arg: decodeURIComponentSafe(rm[1]), full: cmd, detail: `$ ${cmd}` };
+        if (tm) return { ic: 'image', label: tm[1] === 'models' ? 'Modèle 3D' : 'Texture', arg: decodeURIComponentSafe(tm[2]), full: cmd, detail: `$ ${cmd}` };
+        return { ic: 'terminal', label: 'Commande', arg: cmd.split('\n')[0], full: str(o.description) || cmd, detail: `$ ${cmd}` };
+      }
+      case 'Glob': case 'Grep': case 'LS':
+        return { ic: 'search', label: 'Recherche', arg: str(o.pattern || o.path || firstString(i)), full: '', detail: json };
+      case 'WebFetch': case 'WebSearch':
+        return { ic: 'globe', label: 'Web', arg: str(o.url || o.query || firstString(i)), full: '', detail: json };
+      case 'TodoWrite':
+        return { ic: 'list', label: 'Liste de tâches', arg: Array.isArray(o.todos) ? plural(o.todos.length, 'élément', 'éléments') : '', full: '', detail: Array.isArray(o.todos) ? o.todos.map((t) => `${t.status === 'completed' ? '☑' : '☐'} ${str(t.content)}`).join('\n') : json };
+      default:
+        return { ic: /image|texture|model/i.test(base) ? 'image' : 'tool', label: base, arg: firstString(i), full: '', detail: json };
+    }
+  }
+  function decodeURIComponentSafe(s) { try { return decodeURIComponent(s); } catch (e) { return s; } }
+  const clip = (s, n = 8000) => (s.length > n ? `${s.slice(0, n)}\n… (${s.length - n} caractères de plus)` : s);
+  function prettyResult(t) {
+    const s = str(t).trim();
+    if (/^[{[]/.test(s) && s.length < 20000) { try { return JSON.stringify(JSON.parse(s), null, 2); } catch (e) { /* raw */ } }
+    return s;
+  }
+
+  function bindOpen(d, key, dflt) {
+    d.open = openState.has(key) ? openState.get(key) : dflt;
+    d.addEventListener('toggle', () => { openState.set(key, d.open); });
+  }
+
+  function thinkingEl(key, text, live) {
+    const d = h('details', { class: live ? 'think live' : 'think' });
+    d.append(h('summary', null, icon('bulb'), h('span', { class: 'think-label', text: live ? 'Réflexion…' : 'Réflexion' }), icon('chev', 'chev')),
+      h('div', { class: 'think-body', text: text || '…' }));
+    bindOpen(d, key, false);
+    return d;
+  }
+
+  function toolEl(key, block, res, running) {
+    const info = describeTool(block.name, parseInput(block.input));
+    const st = res ? (res.ok === false ? 'err' : 'ok') : running ? 'run' : 'none';
+    const d = h('details', { class: 'tool', 'data-st': st });
+    let stEl;
+    if (st === 'run') stEl = h('span', { class: 'tool-st' }, h('span', { class: 'spin' }));
+    else if (st === 'ok') stEl = icon('check', 'tool-st ok');
+    else if (st === 'err') stEl = icon('x', 'tool-st err');
+    else stEl = h('span', { class: 'tool-st' });
+    d.append(h('summary', { title: info.full || null }, icon(info.ic), h('span', { class: 'tool-name', text: info.label }),
+      h('span', { class: 'tool-arg', text: info.arg }), stEl));
+    // body built lazily on first open (big inputs, many rows)
+    let built = false;
+    const build = () => {
+      if (built || !d.open) return;
+      built = true;
+      const body = h('div', { class: 'tool-body' });
+      if (info.detail) body.append(h('div', null, h('div', { class: 'tool-k', text: 'Entrée' }), h('pre', { class: 'tool-pre', text: clip(info.detail) })));
+      if (res) body.append(h('div', null, h('div', { class: 'tool-k', text: res.ok === false ? 'Erreur' : 'Résultat' }), h('pre', { class: res.ok === false ? 'tool-pre err' : 'tool-pre', text: clip(prettyResult(res.text)) || '(vide)' })));
+      else if (running) body.append(h('div', { class: 'muted', text: 'En cours…' }));
+      d.append(body);
+    };
+    d.addEventListener('toggle', build);
+    bindOpen(d, key, false);
+    build();
+    return d;
+  }
+
+  function orphanResultEl(key, b) {
+    return toolEl(key, { name: 'Résultat', input: '' }, b, false);
+  }
+
+  function chipEl(text, ok) {
+    text = text.replace(/^\s*(?:[✅✔✓⚠✖❌⏹ℹ\u{1F504}]️?\s*)+/u, ''); // our icon already says it
+    const cls = ok === false ? 'chip bad' : ok === true ? 'chip ok' : 'chip';
+    return h('div', { class: cls, title: text }, icon(ok === false ? 'x' : ok === true ? 'check' : 'info'), h('span', { text }));
+  }
+
+  /** Pairs tool_result blocks with their tool_use (FIFO, or by id when the backend provides one). */
+  function planMessages(msgs) {
+    const pending = [];
+    const plan = msgs.map(() => ({ results: {}, consumed: {} }));
+    msgs.forEach((m, i) => {
+      arr(m.blocks).forEach((b, j) => {
+        if (!b) return;
+        if (b.type === 'tool_use') pending.push({ i, j, id: b.id });
+        else if (b.type === 'tool_result') {
+          let k = -1;
+          const rid = b.toolUseId || b.tool_use_id;
+          if (rid != null) k = pending.findIndex((p) => p.id === rid);
+          if (k < 0 && pending.length) k = 0;
+          if (k >= 0) {
+            const p = pending.splice(k, 1)[0];
+            plan[p.i].results[p.j] = b;
+            plan[i].consumed[j] = true;
+          }
+        }
+      });
+    });
+    return plan;
+  }
+
+  function createMsgView(m) { return { id: m.id, conv: current ? current.id : '', node: h('div', { class: 'msg' }), sig: null }; }
+
+  function buildMsg(v, m, p, live, running) {
+    const node = v.node;
+    node.textContent = '';
+    const blocks = arr(m.blocks);
+    const role = m.role === 'user' || m.role === 'system' ? m.role : 'assistant';
+    if (role === 'user') {
+      const text = blocks.filter((b) => b && b.type === 'text').map((b) => str(b.text)).join('\n\n');
+      if (text) {
+        node.className = m.local ? 'msg msg-u local' : 'msg msg-u';
+        node.append(h('div', { class: 'bubble', text, title: num(m.at) ? clock(num(m.at)) : null }));
+      } else node.className = 'msg msg-a';
+    } else node.className = 'msg msg-a';
+    let group = null; // consecutive tool rows
+    const lastIdx = blocks.length - 1;
+    blocks.forEach((b, j) => {
+      if (!b) return;
+      const key = `${v.conv}:${m.id}:${j}`;
+      const isLast = live && j === lastIdx;
+      if (b.type === 'tool_use' || (b.type === 'tool_result' && !p.consumed[j])) {
+        if (!group) { group = h('div', { class: 'tools-group' }); node.append(group); }
+        group.append(b.type === 'tool_use' ? toolEl(key, b, p.results[j], running) : orphanResultEl(key, b));
+        return;
+      }
+      if (b.type === 'tool_result') return; // shown inside its tool row
+      group = null;
+      if (b.type === 'thinking') node.append(thinkingEl(key, str(b.text), isLast && running));
+      else if (b.type === 'status') node.append(chipEl(str(b.text), b.ok));
+      else if (b.type === 'text' && role === 'system') node.append(chipEl(str(b.text), b.ok));
+      else if (b.type === 'text' && role !== 'user') { if (str(b.text).trim()) node.append(md(str(b.text))); }
+    });
+    if (!node.childNodes.length) node.className = 'msg empty';
+  }
+
+  function renderThread(forceBottom) {
+    const c = current;
+    const msgs = c ? arr(c.messages) : [];
+    const isNew = !selectedId && !msgs.length;
+    setCls($('main'), 'is-new', isNew);
+    setHidden($('welcome'), !isNew);
+    setHidden(thread, isNew);
+    setHidden($('suggest'), !isNew);
+    if (isNew) { thread.textContent = ''; thread._views = null; return; }
+    const wasStick = forceBottom || stick;
+    const running = !!c && c.state === 'running';
+    const busy = !!c && (c.state === 'running' || c.state === 'queued');
+    const plan = planMessages(msgs);
+    const lastI = msgs.length - 1;
+    working.remove();
+    reconcile(thread, msgs, (m) => str(m.id), createMsgView, (v, m, i) => {
+      const live = running && i === lastI && m.role !== 'user';
+      const p = plan[i];
+      const sig = JSON.stringify([m.role, m.local, m.blocks, p.results, live, running]);
+      if (v.sig === sig) return;
+      v.sig = sig;
+      buildMsg(v, m, p, live, running);
+    });
+    if (!msgs.length && !(c && c.loading)) {
+      if (!thread._empty) thread._empty = h('div', { class: 'thread-empty', text: 'Aucun message dans cette conversation.' });
+      thread.append(thread._empty);
+    } else if (thread._empty) thread._empty.remove();
+    if (busy) {
+      setText(working.lastChild, c.state === 'queued' ? "En file d'attente : une autre tâche se termine…" : 'Claude travaille…');
+      thread.append(working);
+    }
+    if (wasStick) { scroller.scrollTop = scroller.scrollHeight; stick = true; }
+    setHidden($('jump'), stick);
+  }
+
+  scroller.addEventListener('scroll', () => {
+    stick = nearBottom(scroller);
+    setHidden($('jump'), stick || !$('welcome').hidden);
+  }, { passive: true });
+  $('jump').addEventListener('click', () => { scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' }); });
+
+  // ======================================================================
+  // Header
+  // ======================================================================
+  let delArmed = false;
+  let delTimer = null;
+  function renderHeader() {
+    const c = current;
+    const isNew = !selectedId;
+    setText($('conv-title'), isNew ? 'Nouvelle conversation' : str(c && c.title) || selectedId);
+    document.title = isNew ? 'VibeCraft' : `${str(c && c.title) || selectedId} · VibeCraft`;
+    const sub = $('conv-sub');
+    setText(sub, isNew ? '' : selectedId);
+    setHidden(sub, isNew || !c || str(c.title) === selectedId);
+    const ms = $('conv-mstate');
+    const modState = c && c.moduleState;
+    if (isNew || !c) setHidden(ms, true);
+    else {
+      setHidden(ms, false);
+      const gen = num(c.generation);
+      const label = modState ? `${STATE_LABEL[modState] || modState}${gen > 0 ? ` · v${gen}` : ''}` : 'module à créer';
+      setText(ms, label);
+      ms.className = `mstate${modState === 'ENABLED' ? ' ok' : modState === 'FAILED' || modState === 'TRIPPED' ? ' bad' : ''}`;
+      setAttr(ms, 'title', modState ? STATE_HELP[modState] || '' : "Le module sera créé par Claude à la première demande");
+    }
+    setHidden($('btn-delete'), isNew);
+  }
+  function armDelete(on) {
+    delArmed = on;
+    clearTimeout(delTimer);
+    setCls($('btn-delete'), 'armed', on);
+    setHidden($('del-label'), !on);
+    if (on) delTimer = setTimeout(() => armDelete(false), 3500);
+  }
+  $('btn-delete').addEventListener('click', async () => {
+    if (!selectedId) return;
+    if (!delArmed) { armDelete(true); return; }
+    armDelete(false);
+    const id = selectedId;
+    try {
+      await api('DELETE', `/api/conversations/${enc(id)}`, null, 15000);
+      toast(`Conversation « ${id} » supprimée`, 'info', 'Le module reste en place.');
+      convs = convs.filter((c) => c.id !== id);
+      navigate(null);
+      listLoop.now();
+    } catch (e) {
+      toast(`Suppression impossible : ${errorText(e)}`, 'error');
+    }
+  });
+
+  // ======================================================================
+  // Selection & conversation loading
+  // ======================================================================
+  function parseHash() {
+    const m = /^#\/c\/(.+)$/.exec(location.hash);
+    if (!m) return null;
+    const id = decodeURIComponentSafe(m[1]);
+    return ID_RE.test(id) ? id : null;
+  }
+  function navigate(id) {
+    const target = id ? `#/c/${enc(id)}` : '#/new';
+    if (location.hash !== target) location.hash = target; else select(id);
+  }
+  window.addEventListener('hashchange', () => select(parseHash()));
+
+  function select(id) {
+    saveDraft();
+    if (id === selectedId && (id ? current && current.id === id : true)) { renderAll(); return; }
+    selectedId = id;
+    armDelete(false);
+    const keep = id && current && current.id === id ? current.messages : [];
+    thread.textContent = '';
+    thread._views = null;
+    if (id) {
+      const s = convById.get(id);
+      current = { id, title: s ? s.title : id, state: s ? s.state : 'idle', moduleState: s ? s.moduleState : null, generation: s ? s.generation : 0, messages: keep, loading: true };
+      loadConversation(id);
+    } else {
+      current = null;
+    }
+    stick = true;
+    restoreDraft();
+    renderAll(true);
+    if (!mobile()) $('input').focus({ preventScroll: true });
+    convLoop.reschedule();
+  }
+
+  async function loadConversation(id) {
+    try {
+      const d = await api('GET', `/api/conversations/${enc(id)}`, null, 15000);
+      if (selectedId !== id) return;
+      noteOk();
+      const keepBottom = stick;
+      current = { id, title: str(d.title) || id, state: str(d.state) || 'idle', moduleState: d.moduleState || null, generation: num(d.generation), messages: arr(d.messages) };
+      renderAll(keepBottom);
+    } catch (e) {
+      if (selectedId !== id) return;
+      if (e.status === 404) {
+        // not created yet (fresh module id) or deleted: keep an empty conversation view
+        current = { id, title: id, state: 'idle', moduleState: modulesById.has(id) ? modulesById.get(id).state : null, generation: 0, messages: [], missing: true };
+        renderAll(true);
+      } else {
+        noteFail(e);
+        if (current && current.id === id) current.loading = false;
+      }
+    } finally {
+      if (selectedId === id) convLoop.reschedule();
+    }
+  }
+
+  async function pollEvents() {
+    const c = current;
+    if (!selectedId || !c || c.loading || c.missing || c.id !== selectedId) return;
+    const id = c.id;
+    const serverMsgs = c.messages.filter((m) => !m.local);
+    const since = Math.max(0, serverMsgs.length - 1);
+    let d;
+    try {
+      d = await api('GET', `/api/conversations/${enc(id)}/events?since=${since}`, null, 10000);
+    } catch (e) {
+      if (e.status === 404 && selectedId === id) { toast(`La conversation « ${id} » n'existe plus`, 'info'); navigate(null); return; }
+      throw e;
+    }
+    if (selectedId !== id || current !== c) return;
+    noteOk();
+    const before = c.state;
+    let changed = false;
+    for (const m of arr(d && d.messages)) {
+      if (!m || m.id == null) continue;
+      const idx = c.messages.findIndex((x) => x.id === m.id);
+      if (idx >= 0) { if (JSON.stringify(c.messages[idx]) !== JSON.stringify(m)) { c.messages[idx] = m; changed = true; } }
+      else { c.messages.push(m); changed = true; }
+    }
+    if (d && d.state && d.state !== c.state) { c.state = str(d.state); changed = true; }
+    if (d && d.moduleState !== undefined && d.moduleState !== c.moduleState) { c.moduleState = d.moduleState; changed = true; }
+    if (d && d.generation != null && num(d.generation) !== c.generation) { c.generation = num(d.generation); changed = true; }
+    if (changed) {
+      if (changed && (c.messages.some((m) => m.local))) c.messages = c.messages.filter((m) => !m.local);
+      renderAll();
+    }
+    // job just finished: reload everything once to be exactly in sync
+    if ((before === 'running' || before === 'queued') && c.state !== 'running' && c.state !== 'queued') {
+      setTimeout(() => { if (selectedId === id) loadConversation(id); }, 400);
+      listLoop.now();
+    }
+  }
+
+  // ======================================================================
+  // Composer
+  // ======================================================================
+  const input = $('input');
+  const modInput = $('mod-input');
+  let modEdited = false;
+  const drafts = (() => { try { return JSON.parse(storage.get(K.drafts) || '{}') || {}; } catch (e) { return {}; } })();
+  const draftKey = () => selectedId || '__new';
+  function saveDraft() {
+    const v = input.value;
+    if (v.trim()) drafts[draftKey()] = v; else delete drafts[draftKey()];
+    storage.set(K.drafts, JSON.stringify(drafts));
+  }
+  function restoreDraft() {
+    input.value = drafts[draftKey()] || '';
+    if (!selectedId) { modEdited = false; suggestModule(); }
+    autoGrow();
+  }
+  function autoGrow() {
+    input.style.height = 'auto';
+    const max = Math.max(120, window.innerHeight * 0.38);
+    input.style.height = `${Math.min(input.scrollHeight, max)}px`;
+    input.style.overflowY = input.scrollHeight > max ? 'auto' : 'hidden';
+    updateComposerH();
+  }
+  function updateComposerH() {
+    const w = $('composer-wrap');
+    if (w) document.documentElement.style.setProperty('--composer-h', `${w.offsetHeight}px`);
+  }
+  function suggestModule() {
+    if (selectedId || modEdited) return;
+    modInput.value = slugify(input.value, '');
+  }
+
+  function claudeOk() { return !(providers && providers.claude && providers.claude.available === false); }
+
+  function renderComposer() {
+    const isNew = !selectedId;
+    const c = current;
+    const busy = !!c && (c.state === 'running' || c.state === 'queued');
+    setHidden($('mod-field'), !isNew);
+    setHidden($('send'), busy && !isNew);
+    setHidden($('stop'), !(busy && !isNew));
+    const text = input.value.trim();
+    let blocked = !text || sending || !claudeOk();
+    // hint line
+    const hint = $('hint');
+    let ht = '';
+    let hc = '';
+    if (isNew) {
+      const id = modInput.value.trim();
+      modInput.style.width = `${Math.min(32, Math.max(11, modInput.value.length + 2))}ch`;
+      setCls(modInput, 'invalid', !!id && !ID_RE.test(id));
+      if (!id) { ht = text ? 'Choisissez un identifiant de module.' : 'Entrée pour envoyer · Maj+Entrée pour aller à la ligne'; hc = text ? 'bad' : ''; if (text) blocked = true; }
+      else if (!ID_RE.test(id)) { ht = 'Identifiant invalide : minuscules, chiffres, - et _ (40 max), commence par une lettre ou un chiffre.'; hc = 'bad'; blocked = true; }
+      else if (convById.has(id)) {
+        const s = convById.get(id);
+        if (s.state === 'running' || s.state === 'queued') { ht = `Claude travaille déjà sur « ${id} » : attendez la fin ou arrêtez la tâche.`; hc = 'bad'; blocked = true; }
+        else { ht = `La conversation « ${id} » existe déjà : votre message y sera ajouté.`; hc = 'ok'; }
+      } else if (modulesById.has(id)) { ht = `Module existant « ${id} » : Claude reprend à partir de son code.`; hc = 'ok'; }
+      else { ht = `Nouveau module « ${id} » : il sera créé automatiquement.`; hc = 'ok'; }
+    } else if (busy) ht = c.state === 'queued' ? "En file d'attente…" : 'Claude travaille… vous pouvez préparer le message suivant.';
+    else ht = 'Entrée pour envoyer · Maj+Entrée pour aller à la ligne';
+    if (sendError) { ht = sendError; hc = 'bad'; }
+    setText(hint, ht);
+    hint.className = hc ? `hint ${hc}` : 'hint';
+    $('send').disabled = blocked;
+    // Claude availability
+    const n = $('notice');
+    if (!claudeOk()) { setText(n, `Claude Code indisponible${providers.claude.reason ? ` : ${providers.claude.reason}` : ''}.`); setHidden(n, false); }
+    else setHidden(n, true);
+    renderProviders();
+    updateComposerH();
+  }
+
+  function providerOk(p) {
+    if (p === 'auto') return true;
+    return !!(providers && providers[p] && providers[p].available);
+  }
+  function renderProviders() {
+    if (!providerOk(imageProvider) && providers) imageProvider = 'auto';
+    for (const b of $('img-seg').querySelectorAll('button')) {
+      const p = b.dataset.p;
+      const ok = providerOk(p);
+      const known = !!providers;
+      setAttr(b, 'aria-checked', p === imageProvider ? 'true' : 'false');
+      setAttr(b, 'aria-disabled', known && !ok ? 'true' : null);
+      let tip = 'Claude choisit selon la demande';
+      if (p === 'openrouter') tip = ok ? `Textures 2D via OpenRouter${providers && providers.openrouter && providers.openrouter.imageModel ? ` (${providers.openrouter.imageModel})` : ''}` : "OpenRouter n'est pas configuré (clé « openrouter » dans secrets.yml)";
+      if (p === 'meshy') tip = ok ? 'Modèles 3D via Meshy AI' : "Meshy AI n'est pas configuré (clé « meshy » dans secrets.yml)";
+      setAttr(b, 'title', tip);
+    }
+  }
+  $('img-seg').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const p = b.dataset.p;
+    if (providers && !providerOk(p)) { toast(b.title, 'info'); return; }
+    imageProvider = p;
+    storage.set(K.img, p);
+    renderProviders();
+    if (e.detail > 0) input.focus(); // mouse click: back to typing (keyboard users keep their place)
+  });
+  const modelSel = $('model');
+  modelSel.value = storage.get(K.model) || '';
+  if (modelSel.selectedIndex < 0) modelSel.value = '';
+  modelSel.addEventListener('change', () => storage.set(K.model, modelSel.value));
+
+  let sendError = '';
+  input.addEventListener('input', () => { sendError = ''; autoGrow(); suggestModule(); renderComposer(); saveDraftSoon(); });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !e.altKey) {
+      e.preventDefault();
+      if (!$('send').hidden && !$('send').disabled) sendMessage();
+    }
+  });
+  modInput.addEventListener('input', () => {
+    const pos = modInput.selectionStart;
+    const n = softNormalizeId(modInput.value);
+    if (n !== modInput.value) { modInput.value = n; try { modInput.setSelectionRange(pos, pos); } catch (e) { /* ignore */ } }
+    modEdited = modInput.value.trim() !== '';
+    sendError = '';
+    renderComposer();
+  });
+  modInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); input.focus(); } });
+  let draftTimer = null;
+  function saveDraftSoon() { clearTimeout(draftTimer); draftTimer = setTimeout(saveDraft, 400); }
+  $('composer').addEventListener('submit', (e) => { e.preventDefault(); sendMessage(); });
+  $('stop').addEventListener('click', stopJob);
+
+  for (const s of SUGGESTIONS) {
+    $('suggest').append(h('button', { type: 'button', text: s, onclick: () => {
+      input.value = s; modEdited = false; suggestModule(); autoGrow(); renderComposer(); input.focus();
+    } }));
+  }
+
+  let localSeq = 0;
+  async function sendMessage() {
+    if (sending) return;
+    const text = input.value.trim();
+    if (!text) return;
+    const isNew = !selectedId;
+    const id = isNew ? modInput.value.trim() : selectedId;
+    if (!ID_RE.test(id)) { renderComposer(); modInput.focus(); return; }
+    sending = true;
+    sendError = '';
+    const local = { id: `local-${++localSeq}`, role: 'user', at: Date.now(), local: true, blocks: [{ type: 'text', text }] };
+    const prevCurrent = current;
+    if (isNew) {
+      const s = convById.get(id);
+      current = { id, title: s ? s.title : shorten(text, 52), state: 'queued', moduleState: modulesById.has(id) ? modulesById.get(id).state : null, generation: 0, messages: [local], loading: true };
+    } else {
+      current.messages.push(local);
+      current.state = 'queued';
+    }
+    const savedText = input.value;
+    input.value = '';
+    autoGrow();
+    stick = true;
+    renderThreadFor(isNew ? id : null);
+    const body = { text, imageProvider };
+    if (modelSel.value) body.model = modelSel.value;
+    try {
+      await api('POST', `/api/conversations/${enc(id)}/messages`, body, 30000);
+      delete drafts[isNew ? '__new' : id];
+      storage.set(K.drafts, JSON.stringify(drafts));
+      sending = false;
+      if (isNew) {
+        modEdited = false;
+        modInput.value = '';
+        selectedId = null; // force select() to load
+        navigate(id);
+      } else {
+        loadConversation(id);
+      }
+      listLoop.now();
+    } catch (e) {
+      sending = false;
+      input.value = savedText;
+      autoGrow();
+      if (isNew) current = prevCurrent;
+      else if (current) { current.messages = current.messages.filter((m) => m !== local); current.state = 'idle'; loadConversation(id); }
+      sendError = e.status === 409 ? `Claude travaille déjà sur « ${id} » : ${errorText(e)}`
+        : e.status === 503 ? `Indisponible : ${errorText(e)}` : `Envoi impossible : ${errorText(e)}`;
+      toast(sendError, 'error');
+      renderAll();
+    }
+  }
+  // While a new conversation is being created, show it in the thread without changing the selection yet.
+  function renderThreadFor(newId) {
+    if (newId) {
+      setCls($('main'), 'is-new', false);
+      setHidden($('welcome'), true);
+      setHidden($('suggest'), true);
+      setHidden(thread, false);
+      const saved = selectedId;
+      selectedId = newId;
+      renderThread(true);
+      renderHeader();
+      selectedId = saved;
+    } else renderThread(true);
+    renderComposer();
+  }
+
+  async function stopJob() {
+    const id = selectedId;
+    if (!id) return;
+    $('stop').disabled = true;
+    try {
+      const r = await api('POST', `/api/conversations/${enc(id)}/stop`, null, 20000);
+      if (r && r.ok === false) toast('Aucune tâche en cours', 'info');
+    } catch (e) {
+      toast(`Arrêt impossible : ${errorText(e)}`, 'error');
+    } finally {
+      $('stop').disabled = false;
+      convLoop.now();
+      listLoop.now();
+    }
+  }
+
+  // ======================================================================
+  // Drawer: server, modules, ideas
+  // ======================================================================
+  function openDrawer(on) {
+    setHidden($('drawer'), !on);
+    syncScrim();
+    if (on) { statusLoop.now(); if (mobile()) openSide(false); }
+  }
+  $('btn-modules').addEventListener('click', () => openDrawer($('drawer').hidden));
+  $('drawer-close').addEventListener('click', () => openDrawer(false));
+
+  function renderServer() {
+    const st = status || {};
     const s = st.server || {};
-    const parts = [];
-    const nameVer = [str(s.name), str(s.version)].filter(Boolean).join(' ');
-    if (nameVer) parts.push(nameVer);
-    if (num(s.uptimeMs) > 0) parts.push(`en ligne depuis ${fmtDur(num(s.uptimeMs))}`);
-    setText($('srv-sub'), parts.join(' · ') || 'Serveur Minecraft');
-    setAttr($('srv-sub'), 'title', parts.join(' · '));
-
     const tps = arr(s.tps).map(num);
     const t1 = tps.length ? Math.min(20, tps[0]) : null;
-    const tpsEl = $('tps');
-    setText(tpsEl, t1 == null ? '—' : nf1.format(t1));
-    setCls(tpsEl, 'good', t1 != null && t1 >= 18);
-    setCls(tpsEl, 'warn', t1 != null && t1 >= 15 && t1 < 18);
-    setCls(tpsEl, 'bad', t1 != null && t1 < 15);
-    setAttr($('m-tps'), 'title', tps.length
-      ? `TPS sur 1 min / 5 min / 15 min : ${tps.map((x) => nf1.format(Math.min(20, x))).join(' / ')} (20 = parfait)`
-      : 'Ticks par seconde');
+    const players = s.online == null ? null : num(s.online);
+    const parts = [];
+    if (t1 != null) parts.push(`${nf1.format(t1)} TPS`);
+    if (players != null) parts.push(plural(players, 'joueur', 'joueurs'));
+    setText($('srv-text'), connMode === 'down' ? 'Serveur injoignable' : connMode === 'token' ? 'Jeton requis' : parts.join(' · ') || 'Connexion…');
+    setAttr($('srv'), 'title', tps.length ? `TPS 1 / 5 / 15 min : ${tps.map((x) => nf1.format(Math.min(20, x))).join(' / ')}` : 'État du serveur');
 
-    setText($('players'), s.online == null ? '—' : `${nf0.format(num(s.online))} / ${nf0.format(num(s.max))}`);
+    const mods = arr(st.modules).filter((m) => m && typeof m.id === 'string');
+    const broken = mods.filter((m) => m.state === 'FAILED' || m.state === 'TRIPPED').length;
+    setText($('mod-bad'), broken ? String(broken) : '');
+    setHidden($('mod-bad'), !broken);
+    setAttr($('mod-bad'), 'title', broken ? plural(broken, 'module en erreur', 'modules en erreur') : null);
 
-    const mods = arr(st.modules);
-    const enabled = mods.filter((m) => m && m.state === 'ENABLED').length;
-    const broken = mods.filter((m) => m && (m.state === 'FAILED' || m.state === 'TRIPPED')).length;
-    const ms = $('mods-sum');
-    ms.textContent = '';
-    ms.append(`${enabled} / ${mods.length}`);
-    if (broken) ms.append(' ', h('small', { class: 'bad', text: `· ${broken} ⚠` }));
-
-    const ai = st.ai || {};
-    const jobs = arr(st.jobs);
-    const running = jobs.filter((j) => j && j.state === 'RUNNING').length;
-    const queued = jobs.filter((j) => j && j.state === 'QUEUED').length;
-    const aiEl = $('ai-sum');
-    if (ai.available === false) {
-      setText(aiEl, 'indisponible');
-      setCls(aiEl, 'bad', true);
-      setCls(aiEl, 'good', false);
-      setAttr($('m-ai'), 'title', str(ai.reason) || 'IA indisponible');
-    } else {
-      setText(aiEl, queued ? `${running} en cours · ${queued} en file` : `${running} en cours`);
-      setCls(aiEl, 'bad', false);
-      setCls(aiEl, 'good', running > 0);
-      setAttr($('m-ai'), 'title', 'Tâches IA en cours');
-    }
-
-    const un = $('ai-unavail');
-    if (ai.available === false) {
-      setText(un, `🤖 IA indisponible${ai.reason ? ` : ${ai.reason}` : ''}. Les modules peuvent toujours être modifiés à la main (rechargement automatique).`);
-      setHidden(un, false);
-    } else {
-      setHidden(un, true);
-    }
+    if ($('drawer').hidden) return;
+    const box = $('srv-box');
+    box.textContent = '';
+    box.append(
+      h('div', null, h('b', { text: [str(s.name), str(s.version)].filter(Boolean).join(' ') || 'Serveur Minecraft' })),
+      h('div', { text: `${t1 == null ? '—' : nf1.format(t1)} TPS${tps.length > 1 ? ` (5 min : ${nf1.format(Math.min(20, tps[1]))}, 15 min : ${nf1.format(Math.min(20, tps[2] || tps[1]))})` : ''}` }),
+      h('div', { text: `${players == null ? '—' : players} / ${num(s.max) || '—'} joueurs${num(s.uptimeMs) > 0 ? ` · en ligne depuis ${fmtDur(num(s.uptimeMs))}` : ''}` }),
+      h('div', { text: st.ai && st.ai.available === false ? `Claude Code indisponible${st.ai.reason ? ` : ${st.ai.reason}` : ''}` : 'Claude Code prêt' }));
+    const enabled = mods.filter((m) => m.state === 'ENABLED').length;
+    setText($('mod-h'), `Modules · ${enabled} actif${enabled > 1 ? 's' : ''} / ${mods.length}`);
+    reconcile($('mod-list'), mods.slice().sort((a, b) => a.id.localeCompare(b.id, 'fr')), (m) => m.id, createModView, updateModView);
+    setHidden($('mod-empty'), mods.length > 0);
+    const ideas = arr(st.ideas).filter((i) => i && i.id != null && (str(i.status) || 'NEW') === 'NEW').sort((a, b) => num(b.at) - num(a.at));
+    setText($('idea-h'), `Idées du public${ideas.length ? ` · ${ideas.length}` : ''}`);
+    reconcile($('idea-list'), ideas, (i) => String(i.id), createIdeaView, updateIdeaView);
+    setHidden($('idea-empty'), ideas.length > 0);
   }
 
-  // ======================================================================
-  // Rendering: modules
-  // ======================================================================
-  const pending = new Map(); // moduleId -> 'reload' | 'enable' | 'disable'
-
-  function createModuleView(m) {
-    const v = { id: m.id, prevGen: null, prevAttempt: null, prevState: null, sig: {} };
-    v.stateText = h('span');
-    v.stateBadge = h('span', { class: 'badge state' }, h('i', { class: 'dot' }), v.stateText);
-    v.gen = h('span', { class: 'badge gen', title: 'Génération (nombre de chargements réussis)' });
-    v.rb = h('span', { class: 'badge rb', title: 'La nouvelle version a échoué : la version précédente tourne toujours' }, '↩ version précédente');
-    v.aiBadge = h('span', { class: 'badge ai', title: "L'IA travaille sur ce module" }, h('i', { class: 'dot' }), '🤖 IA');
-    v.idEl = h('h3', { class: 'mod-id' });
-    v.desc = h('p', { class: 'mod-desc' });
-
-    v.relEl = h('span', { class: 'v' });
-    v.tickV = h('span', { class: 'v' });
-    v.barI = h('i');
-    v.bar = h('div', { class: 'bar' }, v.barI);
-    v.errV = h('span', { class: 'v' });
-    const stats = h('div', { class: 'stats' },
-      h('div', { class: 'stat', title: 'Dernier chargement réussi' }, h('span', { class: 'k', text: 'Rechargé' }), v.relEl),
-      h('div', { class: 'stat', title: 'Temps moyen passé dans ce module par tick (un tick = 50 ms)' }, h('span', { class: 'k', text: 'ms / tick' }), v.tickV, v.bar),
-      h('div', { class: 'stat', title: "Erreurs d'exécution depuis le dernier chargement" }, h('span', { class: 'k', text: 'Erreurs' }), v.errV));
-
-    v.cmdChips = h('span', { class: 'chips', title: 'Commandes ajoutées par ce module' });
-    v.regV = h('span', { class: 'reg', title: "Écouteurs d'événements et tâches planifiées de la version en cours" });
-    v.chips = h('div', { class: 'chips' }, v.cmdChips, v.regV);
-
-    v.errLabel = h('b');
-    v.errMsg = h('span');
-    v.errBox = h('div', { class: 'err-box' }, v.errLabel, v.errMsg);
-
+  const pendingMod = new Map();
+  function createModView(m) {
+    const v = { id: m.id, sig: {} };
+    v.name = h('b');
+    v.state = h('span', { class: 'mrow-state' });
+    v.meta = h('div', { class: 'mrow-meta' });
+    v.err = h('div', { class: 'mrow-err' });
     v.diagSum = h('span');
-    v.diagList = h('ol', { class: 'diag-list' });
-    v.diag = h('details', { class: 'x' }, h('summary', null, v.diagSum), h('div', { class: 'x-body' }, v.diagList));
-
+    v.diagList = h('ol');
+    v.diag = h('details', null, h('summary', null, icon('chev', 'chev'), v.diagSum), v.diagList);
     v.rtSum = h('span');
-    v.rtList = h('ol', { class: 'rt-list' });
-    v.rt = h('details', { class: 'x' }, h('summary', null, v.rtSum), h('div', { class: 'x-body' }, v.rtList));
-
+    v.rtList = h('ol');
+    v.rt = h('details', null, h('summary', null, icon('chev', 'chev'), v.rtSum), v.rtList);
     v.logPre = h('pre', { class: 'logs', text: 'Chargement…' });
-    v.logs = h('details', { class: 'x' }, h('summary', null, h('span', { text: 'Journal du module' })), h('div', { class: 'x-body' }, v.logPre));
+    v.logs = h('details', null, h('summary', null, icon('chev', 'chev'), h('span', { text: 'Journal' })), v.logPre);
     v.logs.addEventListener('toggle', () => {
       clearInterval(v.logTimer);
-      if (v.logs.open) {
-        loadLogs(v);
-        v.logTimer = setInterval(() => loadLogs(v), 3000);
-      }
+      if (v.logs.open) { loadLogs(v); v.logTimer = setInterval(() => loadLogs(v), 3000); }
     });
-
-    v.btnReload = h('button', { type: 'button', class: 'btn', onclick: () => moduleAction(v.id, 'reload') });
-    v.btnDisable = h('button', { type: 'button', class: 'btn danger', onclick: () => moduleAction(v.id, 'disable') });
-    v.btnEnable = h('button', { type: 'button', class: 'btn ok', onclick: () => moduleAction(v.id, 'enable') });
-    v.btnAi = h('button', { type: 'button', class: 'btn', title: 'Préremplir le formulaire IA pour ce module', onclick: () => prefillForm(v.id) }, '🤖 Demander à l\'IA');
-
-    const body = h('div', { class: 'mod-body' },
-      h('div', { class: 'mod-title' }, v.idEl, h('div', { class: 'badges' }, v.stateBadge, v.gen, v.rb, v.aiBadge)),
-      v.desc, stats, v.chips, v.errBox, v.diag, v.rt, v.logs);
-    v.node = h('article', { class: 'mod' }, body, h('div', { class: 'actions' }, v.btnReload, v.btnDisable, v.btnEnable, v.btnAi));
-    v.node.addEventListener('animationend', (e) => {
-      if (e.target === v.node && (e.animationName === 'flashok' || e.animationName === 'flasherr')) {
-        v.node.classList.remove('flash-ok', 'flash-err');
-      }
-    });
+    v.bReload = h('button', { type: 'button', class: 'btn', onclick: () => moduleAction(v.id, 'reload') }, icon('refresh'), h('span'));
+    v.bDisable = h('button', { type: 'button', class: 'btn', onclick: () => moduleAction(v.id, 'disable') }, icon('pause'), h('span'));
+    v.bEnable = h('button', { type: 'button', class: 'btn', onclick: () => moduleAction(v.id, 'enable') }, icon('play'), h('span'));
+    v.bChat = h('button', { type: 'button', class: 'btn link', onclick: () => { openDrawer(false); navigate(v.id); } }, icon('chat'), h('span', { text: 'Conversation' }));
+    v.node = h('div', { class: 'mrow' },
+      h('div', { class: 'mrow-head' }, h('span', { class: 'sdot' }), v.name, h('span', { class: 'grow' }), v.state),
+      v.meta, v.err, v.diag, v.rt, v.logs,
+      h('div', { class: 'mrow-actions' }, v.bReload, v.bDisable, v.bEnable, v.bChat));
     v.destroy = () => clearInterval(v.logTimer);
     return v;
   }
-
+  function updateModView(v, m) {
+    v.data = m;
+    if (v.node.dataset.state !== m.state) v.node.dataset.state = m.state;
+    setText(v.name, m.id);
+    const gen = num(m.generation);
+    setText(v.state, `${STATE_LABEL[m.state] || m.state}${gen > 0 ? ` · v${gen}` : ''}`);
+    setAttr(v.state, 'title', STATE_HELP[m.state] || null);
+    const meta = [];
+    if (str(m.description)) meta.push(str(m.description));
+    if (num(m.lastReloadAt) > 0) meta.push(`rechargé ${relTime(num(m.lastReloadAt))}`);
+    if (arr(m.commands).length) meta.push(arr(m.commands).map((c) => `/${str(c).replace(/^\//, '')}`).join(' '));
+    if (num(m.runtimeErrorCount) > 0) meta.push(plural(num(m.runtimeErrorCount), 'erreur', 'erreurs'));
+    setText(v.meta, meta.join(' · '));
+    const le = str(m.lastError);
+    setHidden(v.err, !le);
+    setText(v.err, m.rolledBack ? `Nouvelle version refusée : ${le} (v${gen} toujours en service)` : le);
+    setCls(v.err, 'rb', !!m.rolledBack);
+    const diags = arr(m.diagnostics).filter(Boolean);
+    const dsig = JSON.stringify(diags);
+    if (v.sig.d !== dsig) {
+      v.sig.d = dsig;
+      setText(v.diagSum, `Diagnostics du compilateur (${diags.length})`);
+      v.diagList.textContent = '';
+      for (const d of diags) {
+        const loc = str(d.file) ? `${d.file}${num(d.line) > 0 ? `:${d.line}` : ''} ` : '';
+        v.diagList.append(h('li', { text: `${loc}[${str(d.kind).toLowerCase()}] ${str(d.message)}${str(d.sourceLine) ? `\n    ${d.sourceLine}` : ''}` }));
+      }
+    }
+    setHidden(v.diag, !diags.length);
+    const rec = arr(m.recentErrors).map(str);
+    const rsig = rec.join('\n');
+    if (v.sig.r !== rsig) {
+      v.sig.r = rsig;
+      setText(v.rtSum, `Erreurs d'exécution récentes (${rec.length})`);
+      v.rtList.textContent = '';
+      for (const l of rec.slice().reverse()) v.rtList.append(h('li', { text: l }));
+    }
+    setHidden(v.rt, !rec.length);
+    updateModButtons(v);
+  }
+  function updateModButtons(v) {
+    const m = v.data || {};
+    const p = pendingMod.get(v.id);
+    const off = m.state === 'DISABLED';
+    setHidden(v.bReload, off);
+    setHidden(v.bDisable, off);
+    setHidden(v.bEnable, !off);
+    setText(v.bReload.lastChild, p === 'reload' ? 'Rechargement…' : 'Recharger');
+    setText(v.bDisable.lastChild, p === 'disable' ? 'Désactivation…' : 'Désactiver');
+    setText(v.bEnable.lastChild, p === 'enable' ? 'Activation…' : 'Activer');
+    for (const b of [v.bReload, v.bDisable, v.bEnable]) b.disabled = !!p;
+    setHidden(v.bChat, !convById.has(v.id));
+  }
   async function loadLogs(v) {
     if (v.logBusy) return;
     v.logBusy = true;
     try {
       const d = await api('GET', `/api/modules/${enc(v.id)}/logs?limit=200`, null, 8000);
       const lines = arr(d && d.lines).map(str);
-      const stick = nearBottom(v.logPre) || !v.logLoaded;
-      setText(v.logPre, lines.length ? lines.join('\n') : '(aucune ligne pour l\'instant)');
+      const st = nearBottom(v.logPre, 30) || !v.logLoaded;
+      setText(v.logPre, lines.length ? lines.join('\n') : '(vide)');
       v.logLoaded = true;
-      if (stick) v.logPre.scrollTop = v.logPre.scrollHeight;
+      if (st) v.logPre.scrollTop = v.logPre.scrollHeight;
     } catch (e) {
-      setText(v.logPre, `Impossible de charger le journal : ${errorText(e)}`);
-    } finally {
-      v.logBusy = false;
-    }
+      setText(v.logPre, `Journal indisponible : ${errorText(e)}`);
+    } finally { v.logBusy = false; }
   }
-
-  function updateModuleView(v, m) {
-    v.data = m;
-    const state = STATE_LABEL[m.state] ? m.state : 'DISCOVERED';
-    setData(v.node, 'state', state);
-    setText(v.idEl, m.id);
-    setText(v.stateText, STATE_LABEL[state]);
-    setAttr(v.stateBadge, 'title', STATE_HELP[state]);
-    const gen = num(m.generation);
-    setText(v.gen, `v${gen}`);
-    setHidden(v.gen, gen <= 0);
-    setHidden(v.rb, !m.rolledBack);
-    setHidden(v.aiBadge, !activeJobByModule.has(m.id));
-    setText(v.desc, str(m.description));
-    setHidden(v.desc, !str(m.description));
-
-    // live relative time (updated by the ticker)
-    setData(v.relEl, 'rel', num(m.lastReloadAt));
-    setText(v.relEl, relTime(num(m.lastReloadAt), now()));
-    setAttr(v.relEl, 'title', num(m.lastReloadAt) > 0 ? `Chargé à ${clock(num(m.lastReloadAt))}` : null);
-
-    const ms = num(m.msPerTick);
-    setText(v.tickV, fmtTickMs(ms));
-    const pct = ms > 0 ? Math.max(3, Math.min(100, Math.sqrt(ms / 50) * 100)) : 0;
-    const w = `${pct.toFixed(1)}%`;
-    if (v.barI.style.width !== w) v.barI.style.width = w;
-    setCls(v.bar, 'warn', ms >= 2 && ms < 10);
-    setCls(v.bar, 'bad', ms >= 10);
-
-    const errs = num(m.runtimeErrorCount);
-    setText(v.errV, nf0.format(errs));
-    setCls(v.errV, 'bad', errs > 0);
-    const nl = num(m.listeners);
-    const nt = num(m.tasks);
-    setText(v.regV, `${plural(nl, 'écouteur', 'écouteurs')} · ${plural(nt, 'tâche', 'tâches')}`);
-
-    const cmds = arr(m.commands).map(str);
-    const cmdSig = cmds.join('\n');
-    if (v.sig.cmds !== cmdSig) {
-      v.sig.cmds = cmdSig;
-      v.cmdChips.textContent = '';
-      for (const c of cmds) v.cmdChips.append(h('span', { class: 'chip', text: `/${c.replace(/^\//, '')}` }));
-    }
-    setHidden(v.cmdChips, !cmds.length);
-    setHidden(v.regV, !nl && !nt);
-    setHidden(v.chips, !cmds.length && !nl && !nt);
-
-    // last error
-    const lastError = str(m.lastError);
-    setHidden(v.errBox, !lastError);
-    if (lastError) {
-      let label = 'Dernière erreur :';
-      let msg = lastError;
-      if (m.rolledBack) { label = 'Nouvelle version refusée :'; if (gen > 0) msg += ` — v${gen} toujours en service`; }
-      else if (state === 'FAILED') label = 'Échec :';
-      else if (state === 'TRIPPED') label = 'Disjoncteur :';
-      setText(v.errLabel, label);
-      setText(v.errMsg, msg);
-      setCls(v.errBox, 'rb', !!m.rolledBack);
-      setCls(v.errBox, 'trip', !m.rolledBack && state === 'TRIPPED');
-    }
-
-    // compiler diagnostics
-    const diags = arr(m.diagnostics).filter(Boolean);
-    const dSig = JSON.stringify(diags);
-    if (v.sig.diag !== dSig) {
-      v.sig.diag = dSig;
-      const counts = {};
-      for (const d of diags) counts[d.kind] = (counts[d.kind] || 0) + 1;
-      const bits = [];
-      if (counts.ERROR) bits.push(plural(counts.ERROR, 'erreur', 'erreurs'));
-      if (counts.WARNING) bits.push(plural(counts.WARNING, 'avertissement', 'avertissements'));
-      if (counts.NOTE) bits.push(plural(counts.NOTE, 'note', 'notes'));
-      setText(v.diagSum, `Diagnostics du compilateur${bits.length ? ` · ${bits.join(', ')}` : ''}`);
-      v.diagList.textContent = '';
-      for (const d of diags) v.diagList.append(renderDiag(d));
-    }
-    setHidden(v.diag, !diags.length);
-
-    // runtime errors (newest first)
-    const rec = arr(m.recentErrors).map(str);
-    const rSig = rec.join('\n');
-    if (v.sig.rt !== rSig) {
-      v.sig.rt = rSig;
-      setText(v.rtSum, `Erreurs d'exécution récentes (${rec.length})`);
-      v.rtList.textContent = '';
-      for (const line of rec.slice().reverse()) v.rtList.append(h('li', { text: line }));
-    }
-    setHidden(v.rt, !rec.length);
-
-    updateModuleButtons(v);
-
-    // flash on new version / new failure (not on first render)
-    const attempt = num(m.lastAttemptAt);
-    if (v.prevGen != null) {
-      if (gen > v.prevGen) flash(v.node, 'flash-ok');
-      else if (attempt > v.prevAttempt && lastError && state !== 'COMPILING') flash(v.node, 'flash-err');
-    }
-    v.prevGen = gen;
-    v.prevAttempt = attempt;
-  }
-
-  function renderDiag(d) {
-    const kind = ['ERROR', 'WARNING', 'NOTE'].includes(d.kind) ? d.kind : 'ERROR';
-    const file = str(d.file);
-    const line = num(d.line);
-    const col = num(d.column);
-    let loc = file;
-    if (file && line > 0) loc += `:${line}${col > 0 ? `:${col}` : ''}`;
-    else if (!file && line > 0) loc = `ligne ${line}`;
-    const li = h('li', { class: `diag k-${kind}` },
-      h('div', { class: 'diag-loc' }, h('span', { class: 'diag-kind', text: KIND_LABEL[kind] }), loc || null),
-      h('div', { class: 'diag-msg', text: str(d.message) }));
-    if (str(d.sourceLine)) li.append(h('pre', { class: 'diag-src', text: str(d.sourceLine) }));
-    return li;
-  }
-
-  function updateModuleButtons(v) {
-    const m = v.data || {};
-    const p = pending.get(v.id);
-    const disabled = m.state === 'DISABLED';
-    setHidden(v.btnReload, disabled);
-    setHidden(v.btnDisable, disabled);
-    setHidden(v.btnEnable, !disabled);
-    setText(v.btnReload, p === 'reload' ? 'Rechargement…' : '⟳ Recharger');
-    setText(v.btnDisable, p === 'disable' ? 'Désactivation…' : '⏸ Désactiver');
-    setText(v.btnEnable, p === 'enable' ? 'Activation…' : '▶ Activer');
-    for (const [b, a] of [[v.btnReload, 'reload'], [v.btnDisable, 'disable'], [v.btnEnable, 'enable']]) {
-      setDisabled(b, !!p);
-      setCls(b, 'busy', p === a);
-    }
-  }
-
-  function renderModules(mods) {
-    const list = mods.filter((m) => m && typeof m.id === 'string')
-      .slice().sort((a, b) => a.id.localeCompare(b.id, 'fr'));
-    moduleIndex.clear();
-    for (const m of list) moduleIndex.set(m.id, m);
-    reconcile($('mod-list'), list, (m) => m.id, createModuleView, updateModuleView);
-    setHidden($('mod-empty'), list.length > 0);
-    const enabled = list.filter((m) => m.state === 'ENABLED').length;
-    setText($('mod-count'), list.length ? `${enabled} actif${enabled > 1 ? 's' : ''} / ${list.length}` : '0');
-
-    // datalist for the AI form
-    const sig = list.map((m) => m.id).join('\n');
-    const dl = $('dl-modules');
-    if (dl._sig !== sig) {
-      dl._sig = sig;
-      dl.textContent = '';
-      for (const m of list) dl.append(h('option', { value: m.id }));
-    }
-  }
-
-  function moduleView(id) {
-    const map = $('mod-list')._views;
-    return map ? map.get(id) : null;
-  }
-
   async function moduleAction(id, action) {
-    if (pending.has(id)) return;
-    pending.set(id, action);
-    const v = moduleView(id);
-    if (v) updateModuleButtons(v);
+    if (pendingMod.has(id)) return;
+    pendingMod.set(id, action);
+    const view = () => ($('mod-list')._views || new Map()).get(id);
+    if (view()) updateModButtons(view());
     try {
       const r = await api('POST', `/api/modules/${enc(id)}/${action}`, null, action === 'disable' ? 30000 : 130000);
-      if (action === 'disable') {
-        if (r && r.ok === false) toast(`${id} : impossible de désactiver`, 'warn', r.error ? str(r.error) : '');
-        else toast(`⏸ ${id} désactivé`, 'info');
-      } else {
-        reloadToast(r, id, action);
+      if (action === 'disable') toast(r && r.ok === false ? `${id} : impossible de désactiver` : `${id} désactivé`, r && r.ok === false ? 'error' : 'info');
+      else if (r && r.ok) toast(`${id} v${num(r.generation)} ${action === 'enable' ? 'activé' : 'rechargé à chaud'}`, 'ok', num(r.durationMs) ? `${num(r.durationMs)} ms` : '');
+      else {
+        const d = arr(r && r.diagnostics).find((x) => x && x.kind === 'ERROR');
+        toast(`${id} : ${str(r && r.error) || 'échec'}${r && r.rolledBack ? ` (v${num(r.generation)} conservée)` : ''}`, 'error', d ? `${str(d.file)}${num(d.line) > 0 ? `:${d.line}` : ''} ${str(d.message).split('\n')[0]}` : '');
       }
     } catch (e) {
-      toast(`✖ ${id} : ${errorText(e)}`, 'error');
+      toast(`${id} : ${errorText(e)}`, 'error');
     } finally {
-      pending.delete(id);
-      const v2 = moduleView(id);
-      if (v2) updateModuleButtons(v2);
-      pollNow();
+      pendingMod.delete(id);
+      if (view()) updateModButtons(view());
+      statusLoop.now();
+      listLoop.now();
     }
   }
 
-  function firstDiagText(r) {
-    const d = arr(r && r.diagnostics).find((x) => x && x.kind === 'ERROR') || arr(r && r.diagnostics)[0];
-    if (!d) return '';
-    const loc = str(d.file) ? `${d.file}${num(d.line) > 0 ? `:${d.line}` : ''} — ` : '';
-    return `${loc}${str(d.message).split('\n')[0]}`;
-  }
-
-  function reloadToast(r, id, action) {
-    if (!r || typeof r !== 'object') { toast(`${id} : réponse inattendue`, 'warn'); return; }
-    const mid = str(r.id) || id;
-    if (r.ok) {
-      const verb = action === 'enable' ? 'activé' : 'rechargé à chaud';
-      toast(`✔ ${mid} v${num(r.generation)} ${verb} (${fmtMs(r.durationMs)})`, 'ok');
-    } else if (r.rolledBack) {
-      toast(`↩ ${mid} : ${str(r.error) || 'échec'} — v${num(r.generation)} conservée`, 'warn', firstDiagText(r));
-    } else {
-      toast(`✖ ${mid} : ${str(r.error) || 'échec du chargement'}`, 'error', firstDiagText(r));
-    }
-  }
-
-  // ======================================================================
-  // Rendering: AI jobs
-  // ======================================================================
-  function sortJobs(jobs) {
-    const nums = jobs.map((j) => { const mm = /(\d+)\s*$/.exec(str(j.id)); return mm ? Number(mm[1]) : NaN; });
-    if (jobs.length && nums.every((n) => !isNaN(n))) {
-      return jobs.map((j, i) => [j, nums[i]]).sort((a, b) => b[1] - a[1]).map((x) => x[0]);
-    }
-    return jobs.slice(); // API order: active jobs first, then finished ones (newest first)
-  }
-
-  function createJobView(j) {
-    const v = { id: j.id, lines: [], userOpen: null, stick: true, armed: null };
-    v.stateText = h('span');
-    v.stateBadge = h('span', { class: 'badge state' }, h('i', { class: 'dot' }), v.stateText);
-    v.mod = h('span', { class: 'job-mod' });
-    v.time = h('span', { class: 'job-time', title: 'Durée' });
-    v.prompt = h('p', { class: 'job-prompt' });
-    v.meta = h('div', { class: 'job-meta' });
-    v.feedToggle = h('button', { type: 'button', class: 'btn small feed-toggle', onclick: () => {
-      v.userOpen = !v.feedOpen;
-      applyFeedOpen(v);
-    } });
-    v.feed = h('div', { class: 'feed', role: 'log', 'aria-live': 'off' });
-    v.feed.addEventListener('scroll', () => { v.stick = nearBottom(v.feed); }, { passive: true });
-    v.result = h('div', { class: 'result' });
-    v.btnStop = h('button', { type: 'button', class: 'btn danger', onclick: () => armOr(v, 'stop', () => jobAction(v, 'stop')) });
-    v.btnFollow = h('button', { type: 'button', class: 'btn small', title: 'Préremplir le formulaire pour une nouvelle demande sur ce module', onclick: () => prefillForm(v.moduleId) }, '💬 Demande suivante');
-    v.btnReset = h('button', { type: 'button', class: 'btn small', title: "La prochaine demande sur ce module repartira d'une conversation vierge", onclick: () => armOr(v, 'reset', () => jobAction(v, 'reset')) });
-    v.node = h('article', { class: 'job' },
-      h('div', { class: 'job-head' }, v.stateBadge, v.mod, v.time),
-      v.prompt, v.meta, v.feedToggle, v.feed, v.result,
-      h('div', { class: 'actions' }, v.btnStop, v.btnFollow, v.btnReset));
-    v.destroy = () => clearTimeout(v.armTimer);
-    return v;
-  }
-
-  // Two-click confirmation for destructive job actions (no blocking confirm() dialogs on stage).
-  function armOr(v, what, fn) {
-    if (v.armed === what) {
-      v.armed = null;
-      clearTimeout(v.armTimer);
-      updateJobButtons(v);
-      fn();
-      return;
-    }
-    v.armed = what;
-    clearTimeout(v.armTimer);
-    v.armTimer = setTimeout(() => { v.armed = null; updateJobButtons(v); }, 3500);
-    updateJobButtons(v);
-  }
-
-  function applyFeedOpen(v) {
-    const active = ACTIVE_JOB.has(v.state);
-    const open = v.userOpen == null ? active : v.userOpen;
-    v.feedOpen = open;
-    setHidden(v.feed, !open);
-    setAttr(v.feedToggle, 'aria-expanded', open ? 'true' : 'false');
-    const n = v.lines.length;
-    setText(v.feedToggle, `${open ? '▾' : '▸'} Journal · ${plural(n, 'ligne', 'lignes')}`);
-    if (open && v.stick) v.feed.scrollTop = v.feed.scrollHeight;
-  }
-
-  function patchFeed(v, lines, animate) {
-    const cur = v.lines;
-    let drop = -1;
-    if (!cur.length) drop = 0;
-    else {
-      for (let s = 0; s < cur.length; s++) {
-        const n = cur.length - s;
-        if (n > lines.length || cur[s] !== lines[0]) continue;
-        let same = true;
-        for (let i = 1; i < n; i++) if (cur[s + i] !== lines[i]) { same = false; break; }
-        if (same) { drop = s; break; }
-      }
-    }
-    const feed = v.feed;
-    const ph = feed.querySelector('.ln.ph');
-    if (ph) ph.remove();
-    if (drop < 0) {
-      feed.textContent = '';
-      for (const l of lines) feed.append(h('div', { class: 'ln', text: l }));
-    } else {
-      for (let i = 0; i < drop && feed.firstChild; i++) feed.firstChild.remove();
-      for (const l of lines.slice(cur.length - drop)) feed.append(h('div', { class: animate ? 'ln new' : 'ln', text: l }));
-    }
-    v.lines = lines.slice();
-    if (!lines.length) {
-      feed.append(h('div', { class: 'ln ph', text: v.state === 'QUEUED' ? 'En attente d\'une place libre…' : 'En attente du premier message de l\'IA…' }));
-    }
-  }
-
-  function updateJobView(v, j) {
-    v.moduleId = str(j.moduleId);
-    const state = JOB_LABEL[j.state] ? j.state : 'QUEUED';
-    const firstRender = v.state == null;
-    v.state = state;
-    setData(v.node, 'state', state);
-    setText(v.stateText, JOB_LABEL[state]);
-    setText(v.mod, v.moduleId);
-    setText(v.prompt, `« ${str(j.prompt)} »`);
-
-    const by = str(j.requestedBy);
-    const byTxt = by === 'dashboard' ? 'tableau de bord' : by === 'console' ? 'console' : by;
-    const meta = [];
-    if (byTxt) meta.push(`par ${byTxt}`);
-    meta.push(str(j.id));
-    if (num(j.startedAt) > 0) meta.push(`démarré à ${clock(num(j.startedAt))}`);
-    if (num(j.costUsd) > 0) meta.push(`coût ${fmtCost(j.costUsd)}`);
-    setText(v.meta, meta.join(' · '));
-    setAttr(v.meta, 'title', j.sessionId ? `Conversation Claude : ${j.sessionId}` : null);
-
-    // elapsed time: live while running (ticker), fixed once finished
-    const start = num(j.startedAt);
-    const end = num(j.endedAt);
-    if (state === 'QUEUED' || start <= 0) {
-      delete v.time.dataset.run;
-      setText(v.time, state === 'QUEUED' ? '⏳ en file' : '');
-    } else if (end > 0) {
-      delete v.time.dataset.run;
-      setText(v.time, `⏱ ${fmtDur(end - start)}`);
-    } else {
-      setData(v.time, 'run', start);
-      setText(v.time, `⏱ ${fmtDur(now() - start)}`);
-    }
-
-    // progress feed (append-only patching, auto-scroll when already at the bottom)
-    const lines = arr(j.progress).map(str);
-    const stickBefore = v.stick;
-    patchFeed(v, lines, !firstRender);
-    applyFeedOpen(v);
-    if (v.feedOpen && (stickBefore || firstRender)) { v.feed.scrollTop = v.feed.scrollHeight; v.stick = true; }
-
-    // final result
-    const res = str(j.result);
-    let resTxt = '';
-    let resCls = 'ok';
-    if (state === 'SUCCEEDED') resTxt = res ? `🤖 ${res}` : '🤖 Terminé.';
-    else if (state === 'FAILED') { resTxt = res ? `✖ ${res}` : "✖ La tâche a échoué (voir le journal)."; resCls = 'ko'; }
-    else if (state === 'STOPPED') { resTxt = res ? `⏹ ${res}` : '⏹ Tâche arrêtée.'; resCls = 'stop'; }
-    setText(v.result, resTxt);
-    setHidden(v.result, !resTxt);
-    setCls(v.result, 'ok', resCls === 'ok');
-    setCls(v.result, 'ko', resCls === 'ko');
-    setCls(v.result, 'stop', resCls === 'stop');
-
-    updateJobButtons(v);
-  }
-
-  function updateJobButtons(v) {
-    const active = ACTIVE_JOB.has(v.state);
-    setHidden(v.btnStop, !active);
-    setHidden(v.btnFollow, active);
-    setHidden(v.btnReset, active);
-    setText(v.btnStop, v.busy === 'stop' ? 'Arrêt…' : v.armed === 'stop' ? 'Confirmer l\'arrêt ?' : '⏹ Arrêter');
-    setText(v.btnReset, v.busy === 'reset' ? '…' : v.armed === 'reset' ? 'Confirmer ?' : 'Oublier la conversation');
-    setCls(v.btnStop, 'armed', v.armed === 'stop');
-    setCls(v.btnReset, 'armed', v.armed === 'reset');
-    setCls(v.btnStop, 'busy', v.busy === 'stop');
-    setDisabled(v.btnStop, !!v.busy);
-    setDisabled(v.btnReset, !!v.busy);
-  }
-
-  async function jobAction(v, what) {
-    if (v.busy) return;
-    v.busy = what;
-    updateJobButtons(v);
-    const id = v.moduleId;
-    try {
-      const r = await api('POST', `/api/ai/${enc(id)}/${what}`, null, 20000);
-      if (r && r.ok === false) toast(what === 'stop' ? `Aucune tâche en cours pour ${id}` : `${id} : rien à oublier`, 'warn');
-      else toast(what === 'stop' ? `⏹ Tâche IA arrêtée (${id})` : `🧹 Conversation oubliée pour ${id}`, 'info');
-    } catch (e) {
-      toast(`✖ ${id} : ${errorText(e)}`, 'error');
-    } finally {
-      v.busy = null;
-      updateJobButtons(v);
-      pollNow();
-    }
-  }
-
-  const FINISHED_SHOWN = 5;
-  let showAllJobs = false;
-  function renderJobs(jobs) {
-    const list = sortJobs(jobs.filter((j) => j && j.id != null));
-    activeJobByModule.clear();
-    for (const j of list) if (ACTIVE_JOB.has(j.state)) activeJobByModule.set(str(j.moduleId), j);
-    let finishedSeen = 0;
-    const visible = list.filter((j) => ACTIVE_JOB.has(j.state) || showAllJobs || ++finishedSeen <= FINISHED_SHOWN);
-    const hiddenCount = list.length - visible.length;
-    const views = reconcile($('job-list'), visible, (j) => str(j.id), createJobView, updateJobView);
-    // stick-to-bottom pass once the cards are attached (new cards are measured as 0 px while detached,
-    // and a moved card may lose its scroll position)
-    for (const v of views.values()) if (v.feedOpen && v.stick) v.feed.scrollTop = v.feed.scrollHeight;
-    setHidden($('job-empty'), list.length > 0);
-    const running = list.filter((j) => j.state === 'RUNNING').length;
-    setText($('job-count'), running ? `${running} en cours` : plural(list.length, 'tâche', 'tâches'));
-    const more = $('job-more');
-    const finishedTotal = list.filter((j) => !ACTIVE_JOB.has(j.state)).length;
-    setHidden(more, !(hiddenCount > 0 || (showAllJobs && finishedTotal > FINISHED_SHOWN)));
-    setText(more, showAllJobs ? '▴ Masquer les anciennes tâches' : `▾ Afficher ${plural(hiddenCount, 'tâche terminée', 'tâches terminées')} de plus`);
-  }
-
-  // ======================================================================
-  // Rendering: ideas
-  // ======================================================================
   function createIdeaView(idea) {
-    const v = { id: idea.id, open: false, busy: null };
-    v.text = h('div', { class: 'idea-text' });
+    const v = { id: idea.id, open: false, busy: false };
+    v.text = h('div');
     v.meta = h('div', { class: 'idea-meta' });
-    v.meta._view = v;
-    v.btnAccept = h('button', { type: 'button', class: 'btn ok', onclick: () => openAccept(v) }, '✔ Accepter');
-    v.btnDismiss = h('button', { type: 'button', class: 'btn', onclick: () => ideaDismiss(v) }, '✖ Écarter');
-    v.actions = h('div', { class: 'actions' }, v.btnAccept, v.btnDismiss);
-    v.input = h('input', { class: 'input', maxlength: '40', spellcheck: 'false', autocapitalize: 'off', 'aria-label': 'Module pour cette idée' });
-    v.inErr = h('div', { class: 'hint bad' });
-    v.btnGo = h('button', { type: 'submit', class: 'btn primary' }, '🤖 Lancer l\'IA');
-    v.btnCancel = h('button', { type: 'button', class: 'btn', onclick: () => { v.open = false; updateIdeaUi(v); } }, 'Annuler');
-    v.form = h('form', { class: 'form', novalidate: true },
-      h('label', { text: 'Module à créer / modifier' }),
-      h('div', { class: 'accept-row' }, v.input, v.btnGo, v.btnCancel), v.inErr);
-    v.form.addEventListener('submit', (e) => { e.preventDefault(); ideaAccept(v); });
+    v.input = h('input', { maxlength: '40', spellcheck: 'false', autocapitalize: 'off', 'aria-label': 'Module pour cette idée' });
+    v.bGo = h('button', { type: 'button', class: 'btn primary', onclick: () => acceptIdea(v) }, 'Lancer');
+    v.bCancel = h('button', { type: 'button', class: 'btn link', onclick: () => { v.open = false; updIdea(v); } }, 'Annuler');
+    v.bAccept = h('button', { type: 'button', class: 'btn', onclick: () => { v.open = true; v.input.value = slugify(v.data.text, `idee-${v.id}`); updIdea(v); v.input.focus(); v.input.select(); } }, 'Accepter…');
+    v.bDismiss = h('button', { type: 'button', class: 'btn link', onclick: () => dismissIdea(v) }, 'Écarter');
+    v.rowA = h('div', { class: 'row' }, v.bAccept, v.bDismiss);
+    v.rowB = h('div', { class: 'row' }, v.input, v.bGo, v.bCancel);
     v.input.addEventListener('input', () => {
-      const pos = v.input.selectionStart;
       const n = softNormalizeId(v.input.value);
-      if (n !== v.input.value) { v.input.value = n; try { v.input.setSelectionRange(pos, pos); } catch (e) { /* ignore */ } }
-      validateIdeaInput(v);
+      if (n !== v.input.value) v.input.value = n;
+      setCls(v.input, 'invalid', !ID_RE.test(v.input.value.trim()));
     });
-    v.input.addEventListener('keydown', (e) => { if (e.key === 'Escape') { v.open = false; updateIdeaUi(v); } });
-    v.node = h('div', { class: 'idea' }, v.text, v.meta, v.actions, v.form);
+    v.input.addEventListener('keydown', (e) => { if (e.key === 'Enter') acceptIdea(v); if (e.key === 'Escape') { e.stopPropagation(); v.open = false; updIdea(v); } });
+    v.node = h('div', { class: 'idea' }, v.text, v.meta, v.rowA, v.rowB);
     return v;
   }
-
-  function validateIdeaInput(v) {
-    const val = v.input.value.trim();
-    const ok = ID_RE.test(val);
-    setCls(v.input, 'invalid', !ok && val !== '');
-    setText(v.inErr, ok || !val ? '' : 'Identifiant invalide : minuscules, chiffres, - et _ (40 max).');
-    return ok;
+  function updIdea(v) {
+    setHidden(v.rowA, v.open);
+    setHidden(v.rowB, !v.open);
+    for (const b of [v.bGo, v.bAccept, v.bDismiss]) b.disabled = v.busy;
   }
-
-  function openAccept(v) {
-    v.open = true;
-    v.input.value = slugify(v.data && v.data.text, `idee-${v.id}`);
-    validateIdeaInput(v);
-    updateIdeaUi(v);
-    v.input.focus();
-    v.input.select();
-  }
-
-  function updateIdeaUi(v) {
-    const isNew = v.data && v.data.status === 'NEW';
-    setHidden(v.actions, !isNew || v.open);
-    setHidden(v.form, !isNew || !v.open);
-    setDisabled(v.btnAccept, !!v.busy);
-    setDisabled(v.btnDismiss, !!v.busy);
-    setDisabled(v.btnGo, !!v.busy);
-    setDisabled(v.input, !!v.busy);
-    setCls(v.btnGo, 'busy', v.busy === 'accept');
-    setCls(v.btnDismiss, 'busy', v.busy === 'dismiss');
-  }
-
   function updateIdeaView(v, idea) {
     v.data = idea;
-    const status = str(idea.status) || 'NEW';
-    setCls(v.node, 'done', status !== 'NEW');
-    setCls(v.node, 'st-DISMISSED', status === 'DISMISSED');
-    setCls(v.node, 'st-ACCEPTED', status === 'ACCEPTED');
     setText(v.text, `« ${str(idea.text)} »`);
-    setData(v.meta, 'ideaAt', num(idea.at));
-    setText(v.meta, ideaMeta(idea, now()));
-    if (status !== 'NEW') v.open = false;
-    updateIdeaUi(v);
+    setText(v.meta, [`#${idea.id}`, str(idea.author), num(idea.at) ? relTime(num(idea.at)) : ''].filter(Boolean).join(' · '));
+    updIdea(v);
   }
-
-  function ideaMeta(idea, t) {
-    const status = str(idea.status) || 'NEW';
-    const bits = [`#${idea.id}`];
-    if (str(idea.author)) bits.push(str(idea.author));
-    if (num(idea.at) > 0) bits.push(relTime(num(idea.at), t));
-    if (status === 'ACCEPTED') bits.push(`→ module ${str(idea.moduleId) || '?'}`);
-    if (status === 'DISMISSED') bits.push('écartée');
-    return bits.join(' · ');
-  }
-
-  async function ideaAccept(v) {
-    if (v.busy) return;
-    if (!validateIdeaInput(v)) { v.input.focus(); return; }
+  async function acceptIdea(v) {
     const mod = v.input.value.trim();
-    v.busy = 'accept';
-    updateIdeaUi(v);
+    if (!ID_RE.test(mod) || v.busy) { setCls(v.input, 'invalid', true); return; }
+    v.busy = true; updIdea(v);
     try {
-      const job = await api('POST', `/api/ideas/${enc(v.id)}/accept?module=${enc(mod)}`, null, 20000);
-      const jm = str(job && job.moduleId) || mod;
-      toast(`🤖 Idée #${v.id} envoyée à l'IA → ${jm}${job && job.state === 'QUEUED' ? ' (en file)' : ''}`, 'ok');
-      v.open = false;
+      await api('POST', `/api/ideas/${enc(v.id)}/accept?module=${enc(mod)}`, null, 20000);
+      toast(`Idée #${v.id} envoyée à Claude → ${mod}`, 'ok');
+      openDrawer(false);
+      navigate(mod);
+      listLoop.now();
     } catch (e) {
-      toast(`✖ Idée #${v.id} : ${aiErrorText(e, mod)}`, 'error');
-    } finally {
-      v.busy = null;
-      updateIdeaUi(v);
-      pollNow();
-    }
+      toast(`Idée #${v.id} : ${errorText(e)}`, 'error');
+    } finally { v.busy = false; v.open = false; updIdea(v); statusLoop.now(); }
   }
-
-  async function ideaDismiss(v) {
+  async function dismissIdea(v) {
     if (v.busy) return;
-    v.busy = 'dismiss';
-    updateIdeaUi(v);
-    try {
-      await api('POST', `/api/ideas/${enc(v.id)}/dismiss`, null, 15000);
-      toast(`Idée #${v.id} écartée`, 'info');
-    } catch (e) {
-      toast(`✖ Idée #${v.id} : ${errorText(e)}`, 'error');
-    } finally {
-      v.busy = null;
-      updateIdeaUi(v);
-      pollNow();
-    }
-  }
-
-  function renderIdeas(ideas) {
-    const all = ideas.filter((i) => i && i.id != null).slice().sort((a, b) => num(b.at) - num(a.at) || num(b.id) - num(a.id));
-    const fresh = all.filter((i) => (str(i.status) || 'NEW') === 'NEW');
-    const done = all.filter((i) => (str(i.status) || 'NEW') !== 'NEW');
-    reconcile($('idea-list'), fresh, (i) => String(i.id), createIdeaView, updateIdeaView);
-    reconcile($('idea-done-list'), done, (i) => String(i.id), createIdeaView, updateIdeaView);
-    setHidden($('idea-empty'), fresh.length > 0);
-    setHidden($('idea-done'), done.length === 0);
-    setText($('idea-done-count'), String(done.length));
-    setText($('idea-count'), fresh.length ? `${fresh.length} nouvelle${fresh.length > 1 ? 's' : ''}` : '0');
+    v.busy = true; updIdea(v);
+    try { await api('POST', `/api/ideas/${enc(v.id)}/dismiss`, null, 15000); }
+    catch (e) { toast(`Idée #${v.id} : ${errorText(e)}`, 'error'); }
+    finally { v.busy = false; updIdea(v); statusLoop.now(); }
   }
 
   // ======================================================================
-  // AI request form
+  // Polling loops
   // ======================================================================
-  const fModule = $('f-module');
-  const fPrompt = $('f-prompt');
-  const fSubmit = $('f-submit');
-  let formBusy = false;
-
-  function updateFormHint() {
-    const hint = $('f-hint');
-    const id = fModule.value.trim();
-    let txt = 'Minuscules, chiffres, - et _ (40 caractères max). Un nouveau module est créé automatiquement.';
-    let cls = '';
-    if (id) {
-      if (!ID_RE.test(id)) {
-        txt = '✖ Identifiant invalide : commence par une lettre ou un chiffre, puis minuscules, chiffres, - ou _ (40 max).';
-        cls = 'bad';
-      } else if (activeJobByModule.has(id)) {
-        txt = `⏳ L'IA travaille déjà sur « ${id} » : attendez la fin ou arrêtez la tâche.`;
-        cls = 'warn';
-      } else if (moduleIndex.has(id)) {
-        const m = moduleIndex.get(id);
-        const g = num(m.generation);
-        txt = `↻ Module existant (${STATE_LABEL[m.state] || m.state}${g > 0 ? ` v${g}` : ''}) : l'IA reprend sa conversation sur ce module.`;
-        cls = 'good';
-      } else {
-        txt = `✚ Nouveau module « ${id} » : il sera créé automatiquement.`;
-        cls = 'good';
+  function loop(fn, period) {
+    let timer = null;
+    let busy = false;
+    let again = false;
+    async function run() {
+      clearTimeout(timer);
+      if (busy) { again = true; return; }
+      busy = true;
+      try { await fn(); } catch (e) { noteFail(e); if (e && e.status && e.status !== 401 && e.status !== 404) console.warn(e.message); }
+      finally {
+        busy = false;
+        const next = again ? 0 : period();
+        again = false;
+        timer = setTimeout(run, next);
       }
     }
-    setText(hint, txt);
-    setCls(hint, 'bad', cls === 'bad');
-    setCls(hint, 'warn', cls === 'warn');
-    setCls(hint, 'good', cls === 'good');
-    setCls(fModule, 'invalid', cls === 'bad');
+    return { now: run, reschedule() { if (!busy) { clearTimeout(timer); timer = setTimeout(run, Math.min(period(), 300)); } } };
   }
-
-  function saveDraft() {
-    storage.set(DRAFT_KEY, JSON.stringify({ module: fModule.value, prompt: fPrompt.value }));
-  }
-  function restoreDraft() {
-    try {
-      const d = JSON.parse(storage.get(DRAFT_KEY) || 'null');
-      if (d && typeof d === 'object') {
-        if (typeof d.module === 'string') fModule.value = d.module;
-        if (typeof d.prompt === 'string') fPrompt.value = d.prompt;
-      }
-    } catch (e) { /* ignore broken draft */ }
-  }
-
-  function prefillForm(id) {
-    fModule.value = id || '';
-    updateFormHint();
-    saveDraft();
-    fPrompt.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    fPrompt.focus({ preventScroll: true });
-  }
-
-  function aiErrorText(e, id) {
-    if (e && e.status === 409) return `l'IA travaille déjà sur « ${id} »${e.message && e.message !== 'erreur HTTP 409' ? ` (${e.message})` : ''}`;
-    if (e && e.status === 503) return `IA indisponible${e.message && e.message !== 'erreur HTTP 503' ? ` : ${e.message}` : ''}`;
-    return errorText(e);
-  }
-
-  async function submitForm() {
-    if (formBusy) return;
-    const id = fModule.value.trim();
-    const prompt = fPrompt.value.trim();
-    if (!ID_RE.test(id)) {
-      updateFormHint();
-      if (!id) toast('Indiquez un identifiant de module', 'warn', 'ex : pluie-de-cochons');
-      fModule.focus();
+  const hidden = () => document.hidden;
+  const listLoop = loop(async () => {
+    const d = await api('GET', '/api/conversations', null, 10000);
+    noteOk();
+    convs = arr(d).filter((c) => c && typeof c.id === 'string');
+    convById = new Map(convs.map((c) => [c.id, c]));
+    // keep the open conversation's header in sync with the list (state, module)
+    if (current && convById.has(current.id) && !current.loading) {
+      const s = convById.get(current.id);
+      if (s.title && s.title !== current.title) current.title = s.title;
+      if (s.state !== current.state && (s.state === 'running' || s.state === 'queued') && current.state !== 'running') convLoop.now();
+    }
+    renderConvList();
+    renderHeader();
+    renderComposer();
+  }, () => (hidden() ? 6000 : 2000));
+  const statusLoop = loop(async () => {
+    status = await api('GET', '/api/status', null, 8000);
+    noteOk();
+    modulesById = new Map(arr(status.modules).filter((m) => m && m.id).map((m) => [m.id, m]));
+    renderServer();
+  }, () => (hidden() ? 8000 : $('drawer').hidden ? 2500 : 1000));
+  const provLoop = loop(async () => {
+    providers = await api('GET', '/api/providers', null, 8000);
+    renderComposer();
+  }, () => 15000);
+  const convLoop = loop(async () => {
+    if (current && current.loading) {
+      // initial load in flight: loadConversation clears the flag
       return;
     }
-    if (!prompt) {
-      toast('Écrivez la demande pour l\'IA', 'warn');
-      fPrompt.focus();
-      return;
-    }
-    formBusy = true;
-    setDisabled(fSubmit, true);
-    setCls(fSubmit, 'busy', true);
-    setText(fSubmit, 'Envoi…');
-    try {
-      const job = await api('POST', `/api/ai/${enc(id)}`, prompt, 30000);
-      const queued = job && job.state === 'QUEUED';
-      toast(`🤖 Demande envoyée à l'IA → ${id}${queued ? ' (en file d\'attente)' : ''}`, 'ok', job && job.id ? str(job.id) : '');
-      fPrompt.value = '';
-      saveDraft();
-      fPrompt.focus();
-    } catch (e) {
-      toast(`✖ ${aiErrorText(e, id)}`, 'error');
-    } finally {
-      formBusy = false;
-      setDisabled(fSubmit, false);
-      setCls(fSubmit, 'busy', false);
-      setText(fSubmit, 'Envoyer à l\'IA');
-      pollNow();
-    }
-  }
-
-  $('ai-form').addEventListener('submit', (e) => { e.preventDefault(); submitForm(); });
-  $('ai-form').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submitForm(); return; }
-    if (e.key === 'Enter' && e.target === fModule) { e.preventDefault(); fPrompt.focus(); }
+    await pollEvents();
+  }, () => {
+    const busy = current && (current.state === 'running' || current.state === 'queued');
+    return hidden() ? 5000 : busy ? 1000 : 5000;
   });
-  fModule.addEventListener('input', () => {
-    const pos = fModule.selectionStart;
-    const n = softNormalizeId(fModule.value);
-    if (n !== fModule.value) { fModule.value = n; try { fModule.setSelectionRange(pos, pos); } catch (e) { /* ignore */ } }
-    updateFormHint();
-    saveDraft();
-  });
-  fPrompt.addEventListener('input', saveDraft);
+  function pollAll() { listLoop.now(); statusLoop.now(); provLoop.now(); convLoop.now(); }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) pollAll(); });
 
-  // ======================================================================
-  // Polling & ticker
-  // ======================================================================
-  let pollTimer = null;
-  let inFlight = false;
-  let again = false;
-  let fails = 0;
-
-  function render(st) {
-    if (!st || typeof st !== 'object') throw new Error('réponse invalide');
-    lastStatus = st;
-    const steps = [
-      () => renderJobs(arr(st.jobs)), // first: modules use the active-job index
-      () => renderHeader(st),
-      () => renderModules(arr(st.modules)),
-      () => renderIdeas(arr(st.ideas)),
-      () => updateFormHint()
-    ];
-    for (const s of steps) { try { s(); } catch (e) { console.error('render', e); } }
+  function renderAll(forceBottom) {
+    renderConvList();
+    renderHeader();
+    renderThread(forceBottom);
+    renderComposer();
   }
 
-  async function poll() {
-    clearTimeout(pollTimer);
-    if (inFlight) { again = true; return; }
-    inFlight = true;
-    const t0 = performance.now();
-    try {
-      const st = await api('GET', '/api/status', null, 8000);
-      fails = 0;
-      lastOkAt = now();
-      if (tokenModalOpen && !$('tk-input').value) closeToken();
-      setConn('live');
-      render(st);
-    } catch (e) {
-      if (e.status !== 401) {
-        fails++;
-        if (fails >= 2 || !lastStatus) setConn('down');
-        if (e.status && e.status !== 401) console.warn('status', e.message);
-      }
-    } finally {
-      inFlight = false;
-      if (again) { again = false; pollTimer = setTimeout(poll, 0); }
-      else {
-        const period = document.hidden ? HIDDEN_POLL_MS : POLL_MS;
-        pollTimer = setTimeout(poll, Math.max(150, period - (performance.now() - t0)));
-      }
-    }
-  }
-  function pollNow() { if (inFlight) again = true; else { clearTimeout(pollTimer); pollTimer = setTimeout(poll, 0); } }
+  setInterval(() => { updateBanner(); if (!$('drawer').hidden) renderServer(); }, 5000);
+  window.addEventListener('resize', autoGrow);
 
-  function tick() {
-    const t = now();
-    for (const n of document.querySelectorAll('[data-rel]')) setText(n, relTime(Number(n.dataset.rel), t));
-    for (const n of document.querySelectorAll('[data-run]')) setText(n, `⏱ ${fmtDur(t - Number(n.dataset.run))}`);
-    for (const n of document.querySelectorAll('[data-idea-at]')) {
-      if (n._view && n._view.data) setText(n, ideaMeta(n._view.data, t));
-    }
-    updateBanner();
-  }
+  // debugging / tests
+  window.VibeDash = { md, slugify, describeTool, planMessages, state: () => ({ selectedId, current, convs, providers, imageProvider }) };
 
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) pollNow(); });
-  $('job-more').addEventListener('click', () => {
-    showAllJobs = !showAllJobs;
-    if (lastStatus) { try { renderJobs(arr(lastStatus.jobs)); } catch (e) { console.error(e); } }
-  });
-
-  // expose a tiny surface for debugging / tests
-  window.VibeDash = { render, slugify, relTime, fmtDur, poll: pollNow };
-
-  restoreDraft();
-  updateFormHint();
-  poll();
-  setInterval(tick, 1000);
+  applyScale();
+  selectedId = undefined; // force first select
+  select(parseHash());
+  pollAll();
 })();
 </script>
 </body>

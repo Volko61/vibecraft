@@ -176,7 +176,20 @@ public final class ClaudeDialogs implements Listener {
         String c = get(r, "c");
         String text = get(r, "text");
         Boolean advanced = bool(r, "advanced");
-        Runnable task = () -> handle(p, a, c, text, advanced);
+        // Buttons use WAIT_FOR_RESPONSE: the client shows "En attente du serveur" until we send a dialog back,
+        // so every path must answer quickly, even on errors.
+        Runnable task = () -> {
+            try {
+                handle(p, a, c, text, advanced);
+            } catch (RuntimeException ex) {
+                plugin.getLogger().warning("dialog action " + a + " failed: " + ex);
+                try {
+                    openList(p);
+                } catch (RuntimeException ignored) {
+                    p.closeDialog();
+                }
+            }
+        };
         if (plugin.getServer().isPrimaryThread()) {
             task.run();
         } else {
@@ -223,6 +236,9 @@ public final class ClaudeDialogs implements Listener {
                 v.conv = null;
             }
             if (a != null) {
+                // The "Fermer" button left the client on its "En attente du serveur" screen, which a plain
+                // clear-dialog packet does not dismiss: replace it with a dialog first, then clear that one.
+                p.showDialog(waitDialog("Fermeture…"));
                 p.closeDialog();
             }
             return;
@@ -285,6 +301,7 @@ public final class ClaudeDialogs implements Listener {
                 if (validConv) {
                     v.conv = null;
                     v.live = false;
+                    p.showDialog(waitDialog("Suppression du module " + c + "…"));
                     plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
                         String error = null;
                         try {
@@ -327,6 +344,7 @@ public final class ClaudeDialogs implements Listener {
             return;
         }
         String by = p.getName();
+        p.showDialog(waitDialog("Envoi de votre demande à l'IA…"));
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             String id = target;
             AiJob job = null;
@@ -411,6 +429,14 @@ public final class ClaudeDialogs implements Listener {
                 .append(Component.text("● ", ORANGE)).append(Component.text("orange = en cours   ", NamedTextColor.GRAY))
                 .append(Component.text("● ", RED)).append(Component.text("rouge = erreur", NamedTextColor.GRAY))
                 .build();
+    }
+
+    /** Shown instantly while a slow action runs (avoids the client's "En attente du serveur" screen). */
+    private Dialog waitDialog(String message) {
+        DialogBase base = base(List.of(DialogBody.plainMessage(Component.text("⏳ " + message, NamedTextColor.GRAY), 320)), List.of());
+        List<ActionButton> buttons = List.of(button(Component.text("Retour"), Component.text("Liste des demandes"), 150, "list", null));
+        return Dialog.create(b -> b.empty().base(base).type(DialogType.multiAction(buttons)
+                .exitAction(button(Component.text("Fermer"), null, 100, "close", null)).columns(1).build()));
     }
 
     private Dialog deleteDialog(String id) {

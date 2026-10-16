@@ -173,6 +173,30 @@ public final class Conversations {
         return store().delete(id);
     }
 
+    /**
+     * Deletes a module entirely: stops its AI job, forgets the conversation and the Claude session, and deletes
+     * {@code modules/<id>/} and {@code data/<id>/} (the watcher then unloads the running code). Blocking file IO:
+     * call off the main thread.
+     */
+    public void deleteModule(String id) throws java.io.IOException {
+        ai.stop(id);
+        ai.resetConversation(id);
+        store().delete(id);
+        deleteTree(new java.io.File(modules.modulesDir(), id).toPath());
+        deleteTree(new java.io.File(modules.dataDir(), id).toPath());
+    }
+
+    private static void deleteTree(java.nio.file.Path root) throws java.io.IOException {
+        if (!java.nio.file.Files.exists(root)) {
+            return;
+        }
+        try (java.util.stream.Stream<java.nio.file.Path> s = java.nio.file.Files.walk(root)) {
+            for (java.nio.file.Path p : s.sorted(Comparator.reverseOrder()).toList()) {
+                java.nio.file.Files.deleteIfExists(p);
+            }
+        }
+    }
+
     /** Image provider of the conversation's last request ("auto" if none). */
     public String imageProvider(String id) {
         return store().summary(id).map(ConversationStore.Summary::imageProvider).orElse("auto");

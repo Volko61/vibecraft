@@ -275,6 +275,39 @@ public final class ClaudeDialogs implements Listener {
                     send(p, v, c, text, false);
                 }
             }
+            case "delete" -> {
+                if (validConv) {
+                    v.live = false;
+                    p.showDialog(deleteDialog(c));
+                }
+            }
+            case "delete-confirm" -> {
+                if (validConv) {
+                    v.conv = null;
+                    v.live = false;
+                    plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+                        String error = null;
+                        try {
+                            conv.deleteModule(c);
+                        } catch (Exception ex) {
+                            error = "Suppression incomplète : " + ex.getMessage();
+                            plugin.getLogger().warning("delete module " + c + ": " + ex);
+                        }
+                        String msg = error;
+                        plugin.getServer().getScheduler().runTask(plugin, () -> {
+                            if (!p.isOnline()) {
+                                return;
+                            }
+                            if (msg == null) {
+                                p.sendRichMessage("<gray>🗑 Module <white>" + c + "</white> supprimé.");
+                            } else {
+                                p.sendRichMessage("<red>" + Msg.MM.escapeTags(msg));
+                            }
+                            openList(p);
+                        });
+                    });
+                }
+            }
             case "create" -> send(p, v, null, text, true);
             default -> openList(p);
         }
@@ -380,6 +413,22 @@ public final class ClaudeDialogs implements Listener {
                 .build();
     }
 
+    private Dialog deleteDialog(String id) {
+        List<DialogBody> body = List.of(
+                DialogBody.plainMessage(Component.text("Supprimer le module ", NamedTextColor.WHITE)
+                        .append(Component.text(id, RED).decorate(TextDecoration.BOLD))
+                        .append(Component.text(" ?", NamedTextColor.WHITE)), 320),
+                DialogBody.plainMessage(Component.text("Sa fonctionnalité disparaît du jeu, et son code, ses données et cette "
+                        + "conversation sont effacés définitivement.", NamedTextColor.GRAY), 320));
+        DialogBase base = base(body, List.of());
+        List<ActionButton> buttons = List.of(
+                button(Component.text("Annuler"), Component.text("Revenir à la conversation"), 150, "open", id),
+                button(Component.text("Supprimer", RED).decorate(TextDecoration.BOLD), Component.text("Supprimer définitivement"),
+                        150, "delete-confirm", id));
+        return Dialog.create(b -> b.empty().base(base).type(DialogType.multiAction(buttons)
+                .exitAction(button(Component.text("Fermer"), null, 100, "close", null)).columns(2).build()));
+    }
+
     private Dialog newDialog(View v, String error, String text) {
         List<DialogBody> body = new ArrayList<>();
         body.add(DialogBody.plainMessage(Component.text("Décrivez votre demande d'ajout à l'IA", NamedTextColor.GRAY), 320));
@@ -449,6 +498,8 @@ public final class ClaudeDialogs implements Listener {
         buttons.add(button(Component.text(v.thinking ? "Masquer les réflexions" : "Voir les réflexions", NamedTextColor.WHITE),
                 null, 150, "think", id));
         buttons.add(button(Component.text("Rafraîchir", NamedTextColor.GRAY), null, 150, "open", id));
+        buttons.add(button(Component.text("Supprimer le module", RED), Component.text("Effacer ce module, son code et cette conversation"),
+                150, "delete", id));
         return Dialog.create(b -> b.empty().base(base).type(DialogType.multiAction(buttons)
                 .exitAction(button(Component.text("Fermer"), null, 100, "close", null)).columns(2).build()));
     }

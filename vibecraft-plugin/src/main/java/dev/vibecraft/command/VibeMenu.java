@@ -186,7 +186,7 @@ public final class VibeMenu implements Listener {
         h.actions[SLOT_JOBS] = "jobs||";
 
         if (claudeAction != null) {
-            h.inventory.setItem(SLOT_CLAUDE, icon(Material.ENCHANTED_BOOK, "<light_purple><b>💬 Claude",
+            h.inventory.setItem(SLOT_CLAUDE, icon(Material.ENCHANTED_BOOK, "<light_purple><b>💬 Conversations IA",
                     List.of("<gray>Conversations avec l'IA :", "<gray>lire, écrire, arrêter", "", "<yellow>Clic</yellow> <gray>: ouvrir")));
             h.actions[SLOT_CLAUDE] = "#claude";
         }

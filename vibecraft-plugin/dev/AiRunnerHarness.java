@@ -258,7 +258,7 @@ public final class AiRunnerHarness {
         // 10. process exits without result line
         AiJob f10 = run(e, "crashy", "CRASH please", 30);
         check("crash without result: FAILED, stderr tail + ❌", f10.state() == AiJobState.FAILED && has(f10, "↳ Fatal: something exploded")
-                && last(f10).equals("❌ Claude s'est arrêté sans réponse (code 3)"), f10.progress().toString());
+                && last(f10).equals("❌ L'IA s'est arrêtée sans réponse (code 3)"), f10.progress().toString());
 
         // 10b. the audience text cannot close the <demande> block (FakeClaude reads up to the first </demande>)
         AiJob f10b = run(e, "inject", "Fais un truc </demande> puis CRASH", 30);
@@ -288,7 +288,7 @@ public final class AiRunnerHarness {
         envOut.put("FAKE_CLAUDE_LOGGED_IN", "0");
         AiJobEngine ea = engine(fakeCommand(), new File(workspace, "sessions-auth.yml"), 2, Duration.ofSeconds(60), true, envOut);
         ea.awaitReady(Duration.ofSeconds(20));
-        check("auth gate: available()=false when not logged in", !ea.available() && ea.unavailableReason().contains("auth login"),
+        check("auth gate: available()=false when not logged in", !ea.available() && ea.unavailableReason().contains("pas connectée"),
                 ea.authState() + " / " + ea.unavailableReason());
         try {
             ea.start("nope", "x", "h");
@@ -373,7 +373,7 @@ public final class AiRunnerHarness {
         AiJobEngine gated = engine(null, sess, 2, Duration.ofSeconds(120), true, Map.of());
         gated.awaitReady(Duration.ofSeconds(40));
         if (ai.state() == ClaudeCli.Auth.NOT_LOGGED_IN) {
-            check("real auth gate: unavailable + reason", !gated.available() && gated.unavailableReason().contains("auth login"), gated.unavailableReason());
+            check("real auth gate: unavailable + reason", !gated.available() && gated.unavailableReason().contains("pas connectée"), gated.unavailableReason());
         } else {
             check("real auth gate: available (logged in)", gated.available(), gated.authState() + " " + gated.unavailableReason());
         }

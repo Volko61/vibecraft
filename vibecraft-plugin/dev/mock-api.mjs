@@ -668,7 +668,7 @@ function statusJson() {
     modules: [...modules.values()].map(info),
     jobs: jobList(),
     ideas: ideaList(),
-    ai: { available: aiAvailable, reason: aiAvailable ? '' : 'Claude Code introuvable (ai.claude-path = auto)' }
+    ai: { available: aiAvailable, reason: aiAvailable ? '' : 'outil IA introuvable sur la machine du serveur (réglage ai.claude-path, détails dans la console)' }
   };
 }
 function jobList() {
@@ -678,7 +678,7 @@ function jobList() {
 }
 const ideaList = () => ideas.slice().reverse();
 
-const AI_REASON = 'Claude Code introuvable (ai.claude-path = auto)';
+const AI_REASON = 'outil IA introuvable sur la machine du serveur (réglage ai.claude-path, détails dans la console)';
 function startAi(res, moduleId, prompt, requestedBy, status = 201, opts = {}, shape = job) {
   if (!ID_RE.test(moduleId)) return err(res, 400, `identifiant de module invalide : ${moduleId}`);
   if (!prompt || !prompt.trim()) return err(res, 400, 'la demande est vide');

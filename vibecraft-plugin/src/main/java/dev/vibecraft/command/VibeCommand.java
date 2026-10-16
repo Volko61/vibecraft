@@ -46,14 +46,15 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class VibeCommand implements TabExecutor {
 
     private static final List<String> SUBCOMMANDS = List.of(
-            "help", "menu", "claude", "list", "info", "reload", "enable", "disable", "errors", "logs", "new",
+            "help", "menu", "conversations", "list", "info", "reload", "enable", "disable", "errors", "logs", "new",
             "ai", "stop", "jobs", "reset", "ideas", "accept", "dismiss", "dashboard");
 
     private static final Map<String, String> ALIASES = Map.ofEntries(
             Map.entry("aide", "help"), Map.entry("?", "help"), Map.entry("ls", "list"), Map.entry("liste", "list"),
             Map.entry("i", "info"), Map.entry("r", "reload"), Map.entry("rl", "reload"), Map.entry("on", "enable"),
             Map.entry("off", "disable"), Map.entry("err", "errors"), Map.entry("log", "logs"), Map.entry("create", "new"),
-            Map.entry("ia", "ai"), Map.entry("idees", "ideas"), Map.entry("idées", "ideas"), Map.entry("web", "dashboard"));
+            Map.entry("ia", "ai"), Map.entry("idees", "ideas"), Map.entry("idées", "ideas"), Map.entry("web", "dashboard"),
+            Map.entry("conversations", "claude"), Map.entry("conv", "claude"));
 
     private static final long RELOAD_REPLY_TIMEOUT_S = 180;
 
@@ -81,11 +82,11 @@ public final class VibeCommand implements TabExecutor {
         ClaudeDialogs d = null;
         if (conversations != null) {
             try {
-                d = new ClaudeDialogs(plugin, conversations, menu::open);
+                d = new ClaudeDialogs(plugin, conversations);
                 ClaudeDialogs dd = d;
                 menu.setClaudeAction(dd::openList);
             } catch (LinkageError | RuntimeException e) {
-                plugin.getLogger().warning("Claude dialogs unavailable (Paper dialog API missing?): " + e);
+                plugin.getLogger().warning("AI dialogs unavailable (Paper dialog API missing?): " + e);
                 d = null;
             }
         }
@@ -122,7 +123,7 @@ public final class VibeCommand implements TabExecutor {
                 }
                 case "claude" -> {
                     if (!(sender instanceof Player p)) {
-                        error(sender, "L'interface Claude est réservée aux joueurs : utilise <white>/vibe ai</white> ou le dashboard.");
+                        error(sender, "Les conversations avec l'IA sont réservées aux joueurs : utilise <white>/vibe ai</white> ou le dashboard.");
                     } else if (dialogs == null) {
                         menu.open(p);
                     } else if (args.length >= 2 && modules.isValidId(args[1].toLowerCase(Locale.ROOT))) {
@@ -186,7 +187,7 @@ public final class VibeCommand implements TabExecutor {
 
     private void help(CommandSender sender, String label) {
         send(sender, Msg.pmm("<white>Coder le serveur en direct</white> <dark_gray>(clique pour remplir)</dark_gray>"));
-        helpLine(sender, "claude", "[id]", "conversations avec Claude (fenêtre de dialogue)");
+        helpLine(sender, "conversations", " [id]", "conversations avec l'IA (fenêtre de dialogue)");
         helpLine(sender, "menu", "", "menu graphique (inventaire)");
         helpLine(sender, "list", "", "modules et leur état");
         helpLine(sender, "info", " <id>", "détails d'un module");

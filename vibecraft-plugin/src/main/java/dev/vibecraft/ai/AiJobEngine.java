@@ -164,13 +164,11 @@ public final class AiJobEngine implements AiJobService {
         }
         ClaudeCli c = cli;
         if (c == null) {
-            return "Claude Code introuvable : installe Claude Desktop ou Claude Code, ou règle ai.claude-path (cherché : "
-                    + locateInfo + ")";
+            // no product name here: shown to the audience (dialogs, dashboard); details in the server console
+            return "outil IA introuvable sur la machine du serveur (réglage ai.claude-path, détails dans la console)";
         }
         if (auth == ClaudeCli.Auth.NOT_LOGGED_IN) {
-            String bin = c.binary() == null ? "claude" : c.binary().getPath();
-            return "Claude Code n'est pas connecté : lance une fois dans un terminal  \"" + bin + "\" auth login  "
-                    + "(ou définis ANTHROPIC_API_KEY / CLAUDE_CODE_OAUTH_TOKEN avant de démarrer le serveur)";
+            return "l'IA n'est pas connectée : connexion à faire une fois dans un terminal sur la machine du serveur (détails dans la console)";
         }
         return "";
     }
@@ -434,7 +432,7 @@ public final class AiJobEngine implements AiJobService {
         try {
             ClaudeCli c = currentCli();
             if (c == null) {
-                finish(job, null, "❌ Claude Code introuvable");
+                finish(job, null, "❌ Outil IA introuvable");
                 return;
             }
             ClaudeCli.Info info = null;
@@ -448,7 +446,7 @@ public final class AiJobEngine implements AiJobService {
                 epoch = resetEpoch.getOrDefault(job.moduleId, 0);
             }
             String resume = settings.resumeSessions() ? sessions.get(job.moduleId).orElse(null) : null;
-            progress(job, "🚀 Claude se met au travail" + (resume != null ? " (suite de la conversation)" : "") + "…");
+            progress(job, "🚀 L'IA se met au travail" + (resume != null ? " (suite de la conversation)" : "") + "…");
             o = runOnce(job, c, info, resume);
             if (resume != null && o.sessionNotFound() && !job.stopRequested) {
                 sessions.remove(job.moduleId);
@@ -633,7 +631,7 @@ public final class AiJobEngine implements AiJobService {
                 }
                 case LAUNCH_FAILED -> {
                     state = AiJobState.FAILED;
-                    finalLine = "❌ Impossible de lancer Claude Code : " + o.launchError();
+                    finalLine = "❌ Impossible de lancer l'IA : " + o.launchError();
                 }
                 default -> {
                     if (fin != null && !fin.isError()) {
@@ -645,15 +643,15 @@ public final class AiJobEngine implements AiJobService {
                     } else {
                         state = AiJobState.FAILED;
                         if (o.authFailed()) {
-                            finalLine = "🔑 Claude Code n'est pas connecté : lance une fois « claude auth login » dans un terminal, puis réessaie";
+                            finalLine = "🔑 L'IA n'est pas connectée : connexion à refaire sur la machine du serveur (voir la console), puis réessaie";
                         } else if (o.apiError() != null && o.apiError().contains("rate_limit")) {
-                            finalLine = "⏳ Limite d'utilisation de Claude atteinte : réessaie plus tard";
+                            finalLine = "⏳ Limite d'utilisation de l'IA atteinte : réessaie plus tard";
                         } else if (fin != null) {
                             String why = fin.text() != null && !fin.text().isBlank() ? fin.text()
                                     : !fin.errors().isEmpty() ? fin.errors().get(0) : String.valueOf(fin.subtype());
                             finalLine = "❌ " + StreamTranslator.oneLine(why, 200);
                         } else {
-                            finalLine = "❌ Claude s'est arrêté sans réponse (code " + o.exitCode() + ")";
+                            finalLine = "❌ L'IA s'est arrêtée sans réponse (code " + o.exitCode() + ")";
                         }
                         result = fin == null ? null : fin.text();
                         if (fin == null || !o.authFailed()) {
@@ -833,7 +831,10 @@ public final class AiJobEngine implements AiJobService {
         auth = state;
         if (prev != state) {
             if (state == ClaudeCli.Auth.NOT_LOGGED_IN) {
-                log.warning("[AI] Claude Code is not logged in (" + source + "). " + unavailableReason());
+                ClaudeCli c = cli;
+                String bin = c == null || c.binary() == null ? "claude" : c.binary().getPath();
+                log.warning("[AI] Claude Code is not logged in (" + source + "). Run once in a terminal: \"" + bin
+                        + "\" auth login  (or set ANTHROPIC_API_KEY / CLAUDE_CODE_OAUTH_TOKEN before starting the server)");
             } else {
                 log.info("[AI] Claude Code auth: " + state + " (" + source + ")");
             }

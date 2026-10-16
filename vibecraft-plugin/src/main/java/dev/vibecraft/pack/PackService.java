@@ -583,7 +583,7 @@ public final class PackService implements Listener {
         MiniMessage mm = MiniMessage.miniMessage();
         meta.displayName(mm.deserialize("<!italic><gold>Boussole VibeCraft"));
         meta.lore(List.of(mm.deserialize("<!italic><gray>Clic droit : charger les nouvelles textures"),
-                mm.deserialize("<!italic><dark_gray>Accroupi + clic droit : Claude (organisateurs)")));
+                mm.deserialize("<!italic><dark_gray>Accroupi + clic droit : conversations IA (organisateurs)")));
         it.setItemMeta(meta);
         return it;
     }

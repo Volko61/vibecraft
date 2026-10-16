@@ -56,6 +56,22 @@ public final class Conversations {
         return id != null && modules.isValidId(id);
     }
 
+    /**
+     * {@code base} (a valid id, e.g. a slug of the request), or {@code base-2}, {@code base-3}... so that no
+     * conversation, module or module folder already uses it. Always a valid id.
+     */
+    public String freeId(String base) {
+        String b = validId(base) ? base : "demande";
+        for (int i = 1; i < 1000; i++) {
+            String suffix = i == 1 ? "" : "-" + i;
+            String id = (b.length() + suffix.length() > 40 ? b.substring(0, 40 - suffix.length()) : b) + suffix;
+            if (validId(id) && entry(id).isEmpty()) {
+                return id;
+            }
+        }
+        return b + "-" + Long.toString(System.currentTimeMillis() % 1_000_000L, 36);
+    }
+
     /** Every conversation and every module (a module without conversation yet is an empty one), newest first. */
     public List<Entry> list() {
         Map<String, Entry> out = new LinkedHashMap<>();

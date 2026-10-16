@@ -1,6 +1,6 @@
 // End-to-end check of: resource pack ON DEMAND (no push on join / on change, compass right click pushes),
 // AI conversations (stream-json transcript with thinking / tool steps, /api/conversations contract, persistence
-// across a restart, secrets redacted), the in-game Claude dialogs (show_dialog packets, custom click actions) and
+// across a restart, secrets redacted), the in-game AI dialogs (show_dialog packets, custom click actions, auto ids, follow-ups) and
 // the Meshy provider (textures + text-to-3D) against local fake servers. PRIVATE sandbox only (never the live server).
 //
 // Usage: node tests/e2e/assets/run-conv.mjs [--sandbox <dir>] [--jar <VibeCraft.jar>] [--keep-running]
@@ -111,11 +111,17 @@ async function stopServer() {
 // ------------------------------------------------------------------ bot helpers
 const varint = (n) => { const out = []; do { let b = n & 0x7f; n >>>= 7; if (n) b |= 0x80; out.push(b); } while (n); return Buffer.from(out); };
 const mcString = (s) => { const b = Buffer.from(s, 'utf8'); return Buffer.concat([varint(b.length), b]); };
-/** Network NBT (nameless root) compound of string tags. */
+/** Network NBT (nameless root) compound of string tags (booleans as byte tags, like the client's boolean inputs). */
 function nbtStrings(obj) {
   const parts = [Buffer.from([0x0a])];
   for (const [k, v] of Object.entries(obj)) {
-    const kb = Buffer.from(k, 'utf8'); const vb = Buffer.from(String(v), 'utf8');
+    const kb = Buffer.from(k, 'utf8');
+    if (typeof v === 'boolean') {
+      const h = Buffer.alloc(3); h[0] = 0x01; h.writeUInt16BE(kb.length, 1);
+      parts.push(h, kb, Buffer.from([v ? 1 : 0]));
+      continue;
+    }
+    const vb = Buffer.from(String(v), 'utf8');
     const h = Buffer.alloc(3); h[0] = 0x08; h.writeUInt16BE(kb.length, 1);
     const l = Buffer.alloc(2); l.writeUInt16BE(vb.length);
     parts.push(h, kb, l, vb);
@@ -215,26 +221,43 @@ async function main() {
     && sameKeys(prov.meshy, ['available']) && sameKeys(prov.claude, ['available', 'reason'])
     && prov.openrouter.available && prov.meshy.available && prov.claude.available, JSON.stringify(prov));
 
-  // ================================================================== 3. Claude dialog (in game)
+  // ================================================================== 3. AI dialogs (in game)
+  const NO_BRAND = /Claude|Meshy|OpenRouter/;
   let d0 = dialogs.length;
   bot.bot.chat('/vibe');
   const listDlg = await waitFor('show_dialog on /vibe', () => dialogs.slice(d0).find((d) => !d.cleared), 6000).catch(() => null);
-  check('/vibe -> show_dialog (conversations list)', listDlg && /conversations/.test(listDlg.json) && /Nouvelle conversation/.test(listDlg.json)
-    && /laser-gun/.test(listDlg.json), listDlg?.json.slice(0, 300));
+  check('/vibe -> show_dialog (list: title, description, legend, Nouvelle conversation, no Modules button)', listDlg
+    && /Aywen recrée vos idées dans Minecraft/.test(listDlg.json) && /Liste des demandes faites à l'IA :/.test(listDlg.json)
+    && /vert = terminé/.test(listDlg.json) && /orange = en cours/.test(listDlg.json) && /rouge = erreur/.test(listDlg.json)
+    && /Nouvelle conversation/.test(listDlg.json) && /laser-gun/.test(listDlg.json) && !/Modules/.test(listDlg.json), listDlg?.json.slice(0, 400));
+  check('list dialog: no product / provider name', listDlg && !NO_BRAND.test(listDlg.json), listDlg?.json.match(NO_BRAND)?.[0]);
   check('dialog uses the vibecraft:claude custom click action', listDlg && /vibecraft:claude/.test(listDlg.json), '');
   d0 = dialogs.length;
   click(bot, { a: 'new' });
   const newDlg = await waitFor('new conversation dialog', () => dialogs.slice(d0).find((d) => !d.cleared), 5000).catch(() => null);
-  check('dialog button "Nouvelle conversation" -> form (id, text, provider)', newDlg && /Ta demande/.test(newDlg.json) && /Meshy/.test(newDlg.json),
-    newDlg?.json.slice(0, 200));
+  check('"Nouvelle conversation" -> form (Votre demande + mode avancé toggle, no id field, Retour before Envoyer)', newDlg
+    && /Votre demande/.test(newDlg.json) && /Images\/3D : mode avancé/.test(newDlg.json) && /Décrivez votre demande d'ajout à l'IA/.test(newDlg.json)
+    && !/Identifiant/.test(newDlg.json) && newDlg.json.indexOf('Retour') >= 0 && newDlg.json.indexOf('Retour') < newDlg.json.indexOf('Envoyer'),
+    newDlg?.json.slice(0, 300));
+  check('new dialog: no product / provider name, no emoji on Envoyer', newDlg && !NO_BRAND.test(newDlg.json) && !/🚀/.test(newDlg.json),
+    newDlg?.json.match(NO_BRAND)?.[0]);
   const dumpFile = path.join(SANDBOX, 'claude-dump.json');
   fs.rmSync(dumpFile, { force: true });
   d0 = dialogs.length;
   const sendAt = Date.now();
-  click(bot, { a: 'create', id: 'conv-test', text: 'fais une fusée [lent] [secret]', provider: 'meshy' });
-  const convDlg = await waitFor('conversation dialog', () => dialogs.slice(d0).find((d) => /conv-test/.test(d.json)), 8000).catch(() => null);
-  check('dialog "Envoyer" -> job started, conversation dialog shown', !!convDlg, convDlg?.json.slice(0, 200));
-  const st1 = await waitFor('running', async () => { const r = (await api('GET', '/api/conversations/conv-test')).json; return r?.state === 'running' ? r : null; }, 10000).catch(() => null);
+  const FIRST = 'fais une fusée [lent] [secret]';
+  click(bot, { a: 'create', text: FIRST, advanced: true });
+  const created = await waitFor('conversation created', async () => {
+    const l = (await api('GET', '/api/conversations')).json || [];
+    return l.find((e) => e.title === FIRST);
+  }, 8000).catch(() => null);
+  const convId = created?.id || 'fusee-lent-secret';
+  check('module id derived from the request (slug, valid)', convId === 'fusee-lent-secret' && /^[a-z0-9][a-z0-9_-]{0,39}$/.test(convId), convId);
+  const convDlg = await waitFor('conversation dialog', () => dialogs.slice(d0).find((d) => d.json.includes(convId)), 8000).catch(() => null);
+  check('dialog "Envoyer" -> job started, conversation dialog shown (red Arrêter, Retour first, Voir les réflexions)', !!convDlg
+    && /Arrêter/.test(convDlg.json) && convDlg.json.indexOf('Retour') < convDlg.json.indexOf('Arrêter') && /Voir les réflexions/.test(convDlg.json)
+    && !NO_BRAND.test(convDlg.json), convDlg?.json.slice(0, 300));
+  const st1 = await waitFor('running', async () => { const r = (await api('GET', `/api/conversations/${convId}`)).json; return r?.state === 'running' ? r : null; }, 10000).catch(() => null);
   check('conversation state "running" while the job runs', !!st1, JSON.stringify(st1)?.slice(0, 200));
   // streaming: the open assistant message grows (same id) through events?since
   const seen = [];
@@ -242,7 +265,7 @@ async function main() {
   const t0 = Date.now();
   let lastState = 'running';
   while (Date.now() - t0 < 40000) {
-    const ev = (await api('GET', `/api/conversations/conv-test/events?since=${count}`)).json;
+    const ev = (await api('GET', `/api/conversations/${convId}/events?since=${count}`)).json;
     if (ev) {
       if (!sameKeys(ev, ['messages', 'state', 'count'])) { check('events shape', false, JSON.stringify(ev).slice(0, 200)); break; }
       for (const m of ev.messages) if (m.role === 'assistant') seen.push({ id: m.id, blocks: m.blocks.length });
@@ -257,20 +280,21 @@ async function main() {
     && Math.max(...seen.map((s) => s.blocks)) > Math.min(...seen.map((s) => s.blocks)), JSON.stringify(seen.slice(0, 12)));
   check('job ended -> state idle', lastState === 'idle', lastState);
   // the dialog task re-sends the finished conversation within ~2 s
-  await waitFor('final dialog', () => dialogs.some((d) => d.at > sendAt && /conv-test/.test(d.json) && /Nouveau message/.test(d.json)), 6000).catch(() => null);
-  const during = dialogs.filter((d) => d.at > sendAt && /conv-test/.test(d.json));
+  await waitFor('final dialog', () => dialogs.some((d) => d.at > sendAt && d.json.includes(convId) && /Votre message/.test(d.json)), 6000).catch(() => null);
+  const during = dialogs.filter((d) => d.at > sendAt && d.json.includes(convId));
   const gaps = during.slice(1).map((d, i) => d.at - during[i].at);
   check('dialog refreshed while the job runs (>= 3 updates, >= 1.5 s apart)', during.length >= 3 && gaps.every((g) => g >= 1500),
     `${during.length} dialogs, gaps ${gaps.join(',')}`);
   const finalDlg = during[during.length - 1];
-  check('last refresh shows the finished conversation (text input back)', finalDlg && /Nouveau message/.test(finalDlg.json) && /Fini/.test(finalDlg.json),
+  check('last refresh shows the finished conversation ("Votre message" input + Envoyer, no Arrêter)', finalDlg && /Votre message/.test(finalDlg.json)
+    && /Fini/.test(finalDlg.json) && /Envoyer/.test(finalDlg.json) && !/Arrêter/.test(finalDlg.json) && !NO_BRAND.test(finalDlg.json),
     finalDlg?.json.slice(-300));
   const nAfter = dialogs.length;
   await sleep(5000);
   check('no dialog spam once idle', dialogs.length === nAfter, `${dialogs.length - nAfter} extra`);
 
   // ================================================================== 4. transcript content + exact shapes
-  const det = (await api('GET', '/api/conversations/conv-test')).json;
+  const det = (await api('GET', `/api/conversations/${convId}`)).json;
   check('GET /api/conversations/{id} shape', sameKeys(det, ['id', 'title', 'state', 'moduleState', 'generation', 'messages']), Object.keys(det || {}).join(','));
   const msgs = det?.messages || [];
   check('messages shape {id, role, at, blocks}', msgs.length > 0 && msgs.every((m) => sameKeys(m, ['id', 'role', 'at', 'blocks'])
@@ -279,8 +303,8 @@ async function main() {
   const allowed = ['type', 'text', 'name', 'input', 'ok'];
   check('blocks: types and fields', blocks.every((b) => ['text', 'thinking', 'tool_use', 'tool_result', 'status'].includes(b.type)
     && Object.keys(b).every((k) => k === 'role' || allowed.includes(k))), JSON.stringify(blocks.find((b) => !allowed.includes(b.type))));
-  check('title = first user prompt', det.title === 'fais une fusée [lent] [secret]', det.title);
-  check('user message captured', msgs[0]?.role === 'user' && msgs[0].blocks[0]?.text === 'fais une fusée [lent] [secret]', JSON.stringify(msgs[0]));
+  check('title = first user prompt', det.title === FIRST, det.title);
+  check('user message captured', msgs[0]?.role === 'user' && msgs[0].blocks[0]?.text === FIRST, JSON.stringify(msgs[0]));
   const thinking = blocks.find((b) => b.type === 'thinking');
   check('THINKING captured', thinking && /écrire la classe/.test(thinking.text), JSON.stringify(thinking));
   const tu = blocks.filter((b) => b.type === 'tool_use');
@@ -298,18 +322,41 @@ async function main() {
   const dump = fs.existsSync(dumpFile) ? JSON.parse(fs.readFileSync(dumpFile, 'utf8')) : null;
   check('job: --settings file enables thinking (+summaries)', dump?.settings?.alwaysThinkingEnabled === true && dump.settings.showThinkingSummaries === true,
     JSON.stringify(dump?.settings));
-  check('job: imageProvider passed (env + prompt)', dump?.env?.VIBECRAFT_IMAGE_PROVIDER === 'meshy' && /Meshy/.test(dump.promptProviderNote),
+  check('job: "mode avancé" toggle -> imageProvider meshy passed (env + prompt)', dump?.env?.VIBECRAFT_IMAGE_PROVIDER === 'meshy' && /Meshy/.test(dump.promptProviderNote),
     `${dump?.env?.VIBECRAFT_IMAGE_PROVIDER} / ${dump?.promptProviderNote}`);
   check('job prompt: compass + models3d documented', dump?.promptMentionsCompass && dump?.promptMentionsModels3d, '');
 
   const list = (await api('GET', '/api/conversations')).json;
   const keys = ['id', 'title', 'state', 'updatedAt', 'lastLine', 'moduleState', 'generation'];
   check('GET /api/conversations shape + newest first', Array.isArray(list) && list.every((e) => sameKeys(e, keys))
-    && list[0].id === 'conv-test' && list.some((e) => e.id === 'laser-gun' && e.title === 'laser-gun' && e.moduleState === 'ENABLED'),
+    && list[0].id === convId && list.some((e) => e.id === 'laser-gun' && e.title === 'laser-gun' && e.moduleState === 'ENABLED'),
     JSON.stringify(list).slice(0, 400));
-  const ev2 = (await api('GET', `/api/conversations/conv-test/events?since=${msgs.length}`)).json;
+  const ev2 = (await api('GET', `/api/conversations/${convId}/events?since=${msgs.length}`)).json;
   check('events?since=count -> only the last message again', ev2.messages.length === 1 && ev2.messages[0].id === msgs[msgs.length - 1].id && ev2.state === 'idle',
     JSON.stringify(ev2).slice(0, 200));
+
+  // follow-up message from the conversation dialog: same conversation, session resumed
+  fs.rmSync(dumpFile, { force: true });
+  const nMsgs = msgs.length;
+  d0 = dialogs.length;
+  click(bot, { a: 'send', c: convId, text: 'ajoute une traînée de fumée', advanced: false });
+  const follow = await waitFor('follow-up done', async () => {
+    const x = (await api('GET', `/api/conversations/${convId}`)).json;
+    return x && x.state === 'idle' && x.messages.length > nMsgs + 1 && x.messages.some((m) => m.role === 'user' && m.blocks[0]?.text === 'ajoute une traînée de fumée') ? x : null;
+  }, 20000).catch(() => null);
+  const dumpF = fs.existsSync(dumpFile) ? JSON.parse(fs.readFileSync(dumpFile, 'utf8')) : null;
+  check('conversation dialog "Envoyer" (Votre message) -> follow-up in the same conversation, session resumed', !!follow
+    && dumpF?.argv?.includes('--resume') && dumpF.argv.includes(`fake-session-${convId}`) && dumpF.env?.VIBECRAFT_IMAGE_PROVIDER === 'auto',
+    `${follow?.messages?.length} msgs; ${(dumpF?.argv || []).join(' ').slice(0, 200)} / ${dumpF?.env?.VIBECRAFT_IMAGE_PROVIDER}`);
+  check('dialog re-shown for the follow-up', dialogs.slice(d0).some((d) => d.json.includes(convId)), '');
+  // same request again -> another, unique id
+  click(bot, { a: 'create', text: 'Fusée lent secret !' });
+  const dup = await waitFor('second conversation', async () => {
+    const l = (await api('GET', '/api/conversations')).json || [];
+    return l.find((e) => e.title === 'Fusée lent secret !');
+  }, 8000).catch(() => null);
+  check('same request again -> unique id (suffix -2)', dup?.id === `${convId}-2`, dup?.id);
+  await waitFor('second conversation idle', async () => (await api('GET', `/api/conversations/${convId}-2`)).json?.state === 'idle', 20000).catch(() => null);
 
   // ================================================================== 5. POST messages / stop / errors / delete
   let r = await api('POST', '/api/conversations/conv-two/messages', { text: 'deuxième [lent]', imageProvider: 'openrouter', model: '' });
@@ -421,24 +468,24 @@ async function main() {
   check('bot never disconnected (before restart)', bot.disconnects.length === 0, JSON.stringify(bot.disconnects));
   const tps = (await api('GET', '/api/status')).json?.server?.tps;
   check('TPS healthy', tps && tps[0] > 15, JSON.stringify(tps));
-  const beforeRestart = (await api('GET', '/api/conversations/conv-test')).json;
-  const fileText = fs.readFileSync(path.join(DATA, 'conversations', 'conv-test.json'), 'utf8');
+  const beforeRestart = (await api('GET', `/api/conversations/${convId}`)).json;
+  const fileText = fs.readFileSync(path.join(DATA, 'conversations', `${convId}.json`), 'utf8');
   check('conversation file persisted, secret-free', fileText.includes('"thinking"') && !fileText.includes(OR_KEY), `${fileText.length} B`);
   try { await bot.quit(); } catch { /* */ }
   bot = null;
   await stopServer();
   await startServer();
-  const afterRestart = (await api('GET', '/api/conversations/conv-test')).json;
+  const afterRestart = (await api('GET', `/api/conversations/${convId}`)).json;
   check('restart: conversation identical (messages, blocks)', afterRestart && JSON.stringify(afterRestart.messages) === JSON.stringify(beforeRestart.messages)
     && afterRestart.state === 'idle', `${afterRestart?.messages?.length} vs ${beforeRestart.messages.length}`);
   const list2 = (await api('GET', '/api/conversations')).json || [];
-  check('restart: conversations listed again', ['conv-test', 'conv-two', 'conv-legacy'].every((id) => list2.some((e) => e.id === id)),
+  check('restart: conversations listed again', [convId, 'conv-two', 'conv-legacy'].every((id) => list2.some((e) => e.id === id)),
     list2.map((e) => `${e.id}:${e.state}`).join(','));
-  r = await api('POST', '/api/conversations/conv-test/messages', { text: 'suite après redémarrage', imageProvider: 'auto' });
-  await waitFor('resumed job done', async () => (await api('GET', '/api/conversations/conv-test')).json?.state === 'idle'
-    && (await api('GET', '/api/conversations/conv-test')).json.messages.length > beforeRestart.messages.length + 2, 20000).catch(() => null);
+  r = await api('POST', `/api/conversations/${convId}/messages`, { text: 'suite après redémarrage', imageProvider: 'auto' });
+  await waitFor('resumed job done', async () => (await api('GET', `/api/conversations/${convId}`)).json?.state === 'idle'
+    && (await api('GET', `/api/conversations/${convId}`)).json.messages.length > beforeRestart.messages.length + 2, 20000).catch(() => null);
   const dump2 = fs.existsSync(dumpFile) ? JSON.parse(fs.readFileSync(dumpFile, 'utf8')) : null;
-  check('restart: next message resumes the Claude session (--resume)', dump2?.argv?.includes('--resume') && dump2.argv.includes('fake-session-conv-test'),
+  check('restart: next message resumes the Claude session (--resume)', dump2?.argv?.includes('--resume') && dump2.argv.includes(`fake-session-${convId}`),
     (dump2?.argv || []).join(' ').slice(0, 300));
 }
 

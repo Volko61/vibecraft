@@ -2,15 +2,14 @@ package dev.vibecraft.command;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 
 import dev.vibecraft.ai.AiJob;
 import dev.vibecraft.ai.ConversationStore;
 import dev.vibecraft.ai.Conversations;
+import dev.vibecraft.core.ModuleState;
 import io.papermc.paper.connection.PlayerGameConnection;
 import io.papermc.paper.dialog.Dialog;
 import io.papermc.paper.dialog.DialogResponseView;
@@ -20,7 +19,6 @@ import io.papermc.paper.registry.data.dialog.DialogBase;
 import io.papermc.paper.registry.data.dialog.action.DialogAction;
 import io.papermc.paper.registry.data.dialog.body.DialogBody;
 import io.papermc.paper.registry.data.dialog.input.DialogInput;
-import io.papermc.paper.registry.data.dialog.input.SingleOptionDialogInput;
 import io.papermc.paper.registry.data.dialog.input.TextDialogInput;
 import io.papermc.paper.registry.data.dialog.type.DialogType;
 import net.kyori.adventure.key.Key;
@@ -37,22 +35,35 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * In-game "Claude" interface built on the native dialog screens of the 26.3 client (Paper dialog API, no mod):
+ * In-game AI interface built on the native dialog screens of the 26.3 client (Paper dialog API, no mod). Every
+ * screen is titled {@link #APP_TITLE}; the audience never sees a product / provider name (only "l'IA").
  * <ul>
- *   <li>list: one button per conversation (= module: state icon, id, title; last line in the tooltip),
- *       "Nouvelle conversation", "Modules" (the chest menu);</li>
- *   <li>conversation: the recent messages rendered compactly (user / assistant text, thinking collapsed as
- *       "💭 réflexion…" with a button to expand, tool steps as short lines, status lines), a multiline text input
- *       and an image provider selector (Auto / OpenRouter / Meshy), buttons Envoyer / Arrêter / Rafraîchir /
- *       Retour. While a job runs the dialog is re-sent every ~2 s when the conversation changed (no text input then,
- *       so nothing typed is lost), and once more when it ends.</li>
+ *   <li>list: legend (green = done, orange = running, red = error) and one button per conversation (= module:
+ *       coloured dot, id, title; last line in the tooltip), then "Nouvelle conversation";</li>
+ *   <li>new: the request (multiline) and the "Images/3D : mode avancé" toggle (off = automatic image generator,
+ *       on = "meshy"); the module id is derived from the request ({@link Slug}, made unique by
+ *       {@link Conversations#freeId});</li>
+ *   <li>conversation: the recent messages rendered compactly (user / assistant text, thinking collapsed with a
+ *       button to expand, tool steps as short lines, status lines). While idle: a "Votre message" input + Envoyer
+ *       (follow-up in the same session). While a job runs: Arrêter, and the dialog is re-sent every ~2 s when the
+ *       conversation changed (no text input then, so nothing typed is lost), and once more when it ends.</li>
  * </ul>
  * Buttons send a custom click {@code vibecraft:claude} with {a: action, c: conversation} plus the input values;
  * handled in {@link PlayerCustomClickEvent} (hopped to the main thread). Escape = the exit action (close).
+ * <p>
+ * Note: the small warning icon next to the title is drawn by the vanilla client on every server-provided dialog
+ * ({@code DialogScreen.init} always adds it); servers cannot remove it.
  */
 public final class ClaudeDialogs implements Listener {
 
     static final Key KEY = Key.key("vibecraft", "claude");
+    static final String APP_TITLE = "Aywen recrée vos idées dans Minecraft";
+    /** Title purple (same family as the web dashboard accent). */
+    static final TextColor PURPLE = TextColor.color(0xc084fc);
+    static final TextColor GREEN = TextColor.color(0x55e07a);
+    static final TextColor ORANGE = TextColor.color(0xffa53d);
+    static final TextColor RED = TextColor.color(0xff5555);
+
     private static final int MAX_LIST = 24;
     private static final int MAX_MESSAGES = 8;
     private static final int MAX_LINES_PER_MESSAGE = 24;
@@ -73,13 +84,11 @@ public final class ClaudeDialogs implements Listener {
 
     private final JavaPlugin plugin;
     private final Conversations conv;
-    private final Consumer<Player> openModulesMenu;
     private final Map<UUID, View> views = new ConcurrentHashMap<>();
 
-    public ClaudeDialogs(JavaPlugin plugin, Conversations conv, Consumer<Player> openModulesMenu) {
+    public ClaudeDialogs(JavaPlugin plugin, Conversations conv) {
         this.plugin = plugin;
         this.conv = conv;
-        this.openModulesMenu = openModulesMenu;
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
         plugin.getServer().getScheduler().runTaskTimer(plugin, this::refreshLive, 40L, 40L);
     }
@@ -166,9 +175,8 @@ public final class ClaudeDialogs implements Listener {
         String a = get(r, "a");
         String c = get(r, "c");
         String text = get(r, "text");
-        String id = get(r, "id");
-        String provider = get(r, "provider");
-        Runnable task = () -> handle(p, a, c, text, id, provider);
+        Boolean advanced = bool(r, "advanced");
+        Runnable task = () -> handle(p, a, c, text, advanced);
         if (plugin.getServer().isPrimaryThread()) {
             task.run();
         } else {
@@ -187,7 +195,24 @@ public final class ClaudeDialogs implements Listener {
         }
     }
 
-    private void handle(Player p, String a, String c, String text, String newId, String provider) {
+    /** A boolean input: a byte tag as the client sends it, or "true" / "false" text; null if absent. */
+    private static Boolean bool(DialogResponseView r, String k) {
+        if (r == null) {
+            return null;
+        }
+        try {
+            Boolean b = r.getBoolean(k);
+            if (b != null) {
+                return b;
+            }
+        } catch (RuntimeException ignored) {
+            // not a byte tag
+        }
+        String t = get(r, k);
+        return t == null ? null : t.equals("true") || t.equals("1");
+    }
+
+    private void handle(Player p, String a, String c, String text, Boolean advanced) {
         if (!p.isOnline()) {
             return;
         }
@@ -208,8 +233,8 @@ public final class ClaudeDialogs implements Listener {
             return;
         }
         View v = view(p);
-        if (provider != null && provider.matches("auto|openrouter|meshy")) {
-            v.provider = provider;
+        if (advanced != null) {
+            v.provider = advanced ? "meshy" : "auto"; // standard = automatic choice, advanced = the 3D-capable generator
         }
         boolean validConv = c != null && conv.validId(c);
         switch (a) {
@@ -217,13 +242,10 @@ public final class ClaudeDialogs implements Listener {
             case "new" -> {
                 v.conv = null;
                 v.live = false;
-                p.showDialog(newDialog(v, null, "", text == null ? "" : text));
-            }
-            case "modules" -> {
-                v.live = false;
-                v.conv = null;
-                p.closeDialog();
-                openModulesMenu.accept(p);
+                if (advanced == null) {
+                    v.provider = "auto";
+                }
+                p.showDialog(newDialog(v, null, text == null ? "" : text));
             }
             case "open" -> {
                 if (validConv) {
@@ -253,38 +275,33 @@ public final class ClaudeDialogs implements Listener {
                     send(p, v, c, text, false);
                 }
             }
-            case "create" -> {
-                String id = newId == null ? "" : newId.strip().toLowerCase(Locale.ROOT).replace(' ', '-');
-                if (id.isEmpty()) {
-                    id = Slug.of(text == null ? "" : text, "conversation");
-                }
-                if (!conv.validId(id)) {
-                    p.showDialog(newDialog(v, "Identifiant invalide : minuscules, chiffres, - ou _ (40 max).", id, text == null ? "" : text));
-                    return;
-                }
-                send(p, v, id, text, true);
-            }
+            case "create" -> send(p, v, null, text, true);
             default -> openList(p);
         }
     }
 
-    private void send(Player p, View v, String id, String text, boolean fromNew) {
+    /** @param target the conversation, or null for a new one (id derived from the request, unique) */
+    private void send(Player p, View v, String target, String text, boolean fromNew) {
         String t = text == null ? "" : text.strip();
         String provider = v.provider;
         if (t.isEmpty()) {
             if (fromNew) {
-                p.showDialog(newDialog(v, "Écris d'abord ta demande.", id, ""));
+                p.showDialog(newDialog(v, "Écrivez d'abord votre demande.", ""));
             } else {
-                v.error = "Écris d'abord ta demande.";
-                openConversation(p, id);
+                v.error = "Écrivez d'abord votre message.";
+                openConversation(p, target);
             }
             return;
         }
         String by = p.getName();
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            String id = target;
             AiJob job = null;
             String err = null;
             try {
+                if (id == null) {
+                    id = conv.freeId(Slug.of(t, "demande"));
+                }
                 job = conv.send(id, t, provider, "", by);
             } catch (IllegalArgumentException | IllegalStateException e) {
                 err = e.getMessage();
@@ -292,16 +309,17 @@ public final class ClaudeDialogs implements Listener {
                 err = "erreur interne : " + e;
             }
             String error = err;
+            String sent = id;
             AiJob started = job;
             plugin.getServer().getScheduler().runTask(plugin, () -> {
                 if (!p.isOnline()) {
                     return;
                 }
                 if (error != null && fromNew) {
-                    p.showDialog(newDialog(v, error, id, t));
+                    p.showDialog(newDialog(v, error, t));
                     return;
                 }
-                v.conv = id;
+                v.conv = sent;
                 v.error = error;
                 v.draft = error == null ? "" : t;
                 if (started != null) {
@@ -323,65 +341,61 @@ public final class ClaudeDialogs implements Listener {
                 break;
             }
             String t = e.title().equals(e.id()) ? "" : " — " + Msg.cut(e.title(), 26);
-            Component label = Component.text(icon(e.state()) + " ", stateColor(e.state()))
+            TextColor col = entryColor(e.state(), e.moduleState());
+            Component label = Component.text("● ", col)
                     .append(Component.text(e.id(), NamedTextColor.WHITE))
                     .append(Component.text(t, NamedTextColor.GRAY));
             Component tip = Component.text(e.title(), NamedTextColor.WHITE)
                     .append(Component.newline())
-                    .append(Component.text(stateLabel(e.state()) + (e.generation() > 0 ? " · v" + e.generation() : ""), stateColor(e.state())))
+                    .append(Component.text(entryLabel(e.state(), e.moduleState()) + (e.generation() > 0 ? " · v" + e.generation() : ""), col))
                     .append(Component.newline())
                     .append(Component.text(Msg.cut(e.lastLine(), 120), NamedTextColor.GRAY));
             buttons.add(button(label, tip, 310, "open", e.id()));
         }
-        buttons.add(button(Component.text("➕ Nouvelle conversation", NamedTextColor.LIGHT_PURPLE),
-                Component.text("Demander une nouvelle fonctionnalité à Claude"), 150, "new", null));
-        buttons.add(button(Component.text("📦 Modules", NamedTextColor.AQUA),
-                Component.text("Le menu des modules (recharger, activer, erreurs…)"), 150, "modules", null));
+        buttons.add(button(Component.text("Nouvelle conversation", PURPLE).decorate(TextDecoration.BOLD),
+                Component.text("Faire une nouvelle demande à l'IA"), 310, "new", null));
         List<DialogBody> body = new ArrayList<>();
-        body.add(DialogBody.plainMessage(Component.text("Une conversation par module. Clique pour l'ouvrir.", NamedTextColor.GRAY), 320));
+        body.add(DialogBody.plainMessage(Component.text("Liste des demandes faites à l'IA :", NamedTextColor.GRAY), 320));
+        body.add(DialogBody.plainMessage(legend(), 320));
         if (!conv.ai().available()) {
-            body.add(DialogBody.plainMessage(Component.text("IA indisponible : " + Msg.cut(conv.ai().unavailableReason(), 160),
-                    NamedTextColor.RED), 320));
+            body.add(DialogBody.plainMessage(Component.text("IA indisponible : " + Msg.cut(conv.ai().unavailableReason(), 160), RED), 320));
         }
-        if (list.size() > MAX_LIST) {
+        if (list.isEmpty()) {
+            body.add(DialogBody.plainMessage(Component.text("Aucune demande pour l'instant.", NamedTextColor.DARK_GRAY), 320));
+        } else if (list.size() > MAX_LIST) {
             body.add(DialogBody.plainMessage(Component.text("… et " + (list.size() - MAX_LIST) + " autre(s) (voir le dashboard)",
                     NamedTextColor.DARK_GRAY), 320));
         }
-        DialogBase base = DialogBase.builder(title("Claude — conversations"))
-                .externalTitle(Component.text("Claude"))
-                .canCloseWithEscape(true)
-                .pause(false)
-                .afterAction(DialogBase.DialogAfterAction.WAIT_FOR_RESPONSE)
-                .body(body)
-                .build();
+        DialogBase base = base(body, List.of());
         return Dialog.create(b -> b.empty().base(base).type(DialogType.multiAction(buttons)
-                .exitAction(button(Component.text("Fermer"), null, 100, "close", null)).columns(2).build()));
+                .exitAction(button(Component.text("Fermer"), null, 100, "close", null)).columns(1).build()));
     }
 
-    private Dialog newDialog(View v, String error, String id, String text) {
+    /** "● vert = terminé  ● orange = en cours  ● rouge = erreur" with coloured dots. */
+    private static Component legend() {
+        return Component.text()
+                .append(Component.text("● ", GREEN)).append(Component.text("vert = terminé   ", NamedTextColor.GRAY))
+                .append(Component.text("● ", ORANGE)).append(Component.text("orange = en cours   ", NamedTextColor.GRAY))
+                .append(Component.text("● ", RED)).append(Component.text("rouge = erreur", NamedTextColor.GRAY))
+                .build();
+    }
+
+    private Dialog newDialog(View v, String error, String text) {
         List<DialogBody> body = new ArrayList<>();
-        body.add(DialogBody.plainMessage(Component.text("Décris la fonctionnalité : Claude crée le module et le code en direct.",
-                NamedTextColor.GRAY), 320));
+        body.add(DialogBody.plainMessage(Component.text("Décrivez votre demande d'ajout à l'IA", NamedTextColor.GRAY), 320));
         if (error != null) {
-            body.add(DialogBody.plainMessage(Component.text("⚠ " + error, NamedTextColor.RED), 320));
+            body.add(DialogBody.plainMessage(Component.text(error, RED), 320));
         }
         List<DialogInput> inputs = List.of(
-                DialogInput.text("id", Component.text("Identifiant du module (vide = d'après la demande)"))
-                        .width(300).maxLength(40).initial(id == null ? "" : id).build(),
-                DialogInput.text("text", Component.text("Ta demande"))
+                DialogInput.text("text", Component.text("Votre demande"))
                         .width(300).maxLength(4000).initial(text == null ? "" : text)
                         .multiline(TextDialogInput.MultilineOptions.create(12, 110)).build(),
-                providerInput(v.provider));
-        DialogBase base = DialogBase.builder(title("Nouvelle conversation"))
-                .canCloseWithEscape(true)
-                .pause(false)
-                .afterAction(DialogBase.DialogAfterAction.WAIT_FOR_RESPONSE)
-                .body(body)
-                .inputs(inputs)
-                .build();
+                advancedInput(v.provider));
+        DialogBase base = base(body, inputs);
         List<ActionButton> buttons = List.of(
-                button(Component.text("🚀 Envoyer à Claude", NamedTextColor.GREEN), null, 150, "create", null),
-                button(Component.text("← Retour"), null, 150, "list", null));
+                button(Component.text("Retour"), Component.text("Liste des demandes"), 150, "list", null),
+                button(Component.text("Envoyer", GREEN).decorate(TextDecoration.BOLD), Component.text("Envoyer la demande à l'IA"),
+                        150, "create", null));
         return Dialog.create(b -> b.empty().base(base).type(DialogType.multiAction(buttons)
                 .exitAction(button(Component.text("Fermer"), null, 100, "close", null)).columns(2).build()));
     }
@@ -389,19 +403,24 @@ public final class ClaudeDialogs implements Listener {
     private Dialog conversationDialog(View v, String state) {
         String id = v.conv;
         Conversations.Entry e = conv.entry(id).orElse(null);
+        ModuleState ms = e == null ? null : e.moduleState();
+        TextColor col = entryColor(state, ms);
         List<DialogBody> body = new ArrayList<>();
-        Component head = Component.text(icon(state) + " " + stateLabel(state), stateColor(state));
-        if (e != null && e.moduleState() != null) {
-            head = head.append(Component.text("   module " + Msg.stateLabel(e.moduleState()) + (e.generation() > 0 ? " v" + e.generation() : ""),
+        Component head = Component.text("● ", col)
+                .append(Component.text(id, NamedTextColor.WHITE))
+                .append(Component.text("   " + entryLabel(state, ms), col));
+        if (ms != null) {
+            head = head.append(Component.text("   module " + Msg.stateLabel(ms) + (e.generation() > 0 ? " v" + e.generation() : ""),
                     NamedTextColor.GRAY));
         }
         body.add(DialogBody.plainMessage(head, 400));
         if (v.error != null) {
-            body.add(DialogBody.plainMessage(Component.text("⚠ " + v.error, NamedTextColor.RED), 400));
+            body.add(DialogBody.plainMessage(Component.text(v.error, RED), 400));
         }
         List<ConversationStore.MessageView> msgs = conv.store().messages(id);
         if (msgs.isEmpty()) {
-            body.add(DialogBody.plainMessage(Component.text("Pas encore de message : écris ta demande ci-dessous.", NamedTextColor.DARK_GRAY), 400));
+            body.add(DialogBody.plainMessage(Component.text("Pas encore de message : écrivez votre demande ci-dessous.",
+                    NamedTextColor.DARK_GRAY), 400));
         } else if (msgs.size() > MAX_MESSAGES) {
             body.add(DialogBody.plainMessage(Component.text("… " + (msgs.size() - MAX_MESSAGES) + " message(s) plus ancien(s) (dashboard)",
                     NamedTextColor.DARK_GRAY), 400));
@@ -412,57 +431,58 @@ public final class ClaudeDialogs implements Listener {
         boolean busy = state.equals("running") || state.equals("queued");
         List<DialogInput> inputs = new ArrayList<>();
         if (!busy) {
-            inputs.add(DialogInput.text("text", Component.text("Nouveau message à Claude"))
+            inputs.add(DialogInput.text("text", Component.text("Votre message"))
                     .width(400).maxLength(4000).initial(v.draft == null ? "" : v.draft)
                     .multiline(TextDialogInput.MultilineOptions.create(10, 80)).build());
-            inputs.add(providerInput(v.provider));
+            inputs.add(advancedInput(v.provider));
         }
-        DialogBase base = DialogBase.builder(title("Claude — " + id))
-                .externalTitle(Component.text("Claude"))
+        DialogBase base = base(body, inputs);
+        List<ActionButton> buttons = new ArrayList<>();
+        buttons.add(button(Component.text("Retour"), Component.text("Liste des demandes"), 150, "list", null));
+        if (busy) {
+            buttons.add(button(Component.text("Arrêter", RED).decorate(TextDecoration.BOLD), Component.text("Arrêter le travail de l'IA"),
+                    150, "stop", id));
+        } else {
+            buttons.add(button(Component.text("Envoyer", GREEN).decorate(TextDecoration.BOLD),
+                    Component.text("Envoyer le message à l'IA (suite de la conversation)"), 150, "send", id));
+        }
+        buttons.add(button(Component.text(v.thinking ? "Masquer les réflexions" : "Voir les réflexions", NamedTextColor.WHITE),
+                null, 150, "think", id));
+        buttons.add(button(Component.text("Rafraîchir", NamedTextColor.GRAY), null, 150, "open", id));
+        return Dialog.create(b -> b.empty().base(base).type(DialogType.multiAction(buttons)
+                .exitAction(button(Component.text("Fermer"), null, 100, "close", null)).columns(2).build()));
+    }
+
+    private static DialogBase base(List<DialogBody> body, List<DialogInput> inputs) {
+        return DialogBase.builder(Component.text(APP_TITLE, PURPLE).decorate(TextDecoration.BOLD))
+                .externalTitle(Component.text(APP_TITLE))
                 .canCloseWithEscape(true)
                 .pause(false)
                 .afterAction(DialogBase.DialogAfterAction.WAIT_FOR_RESPONSE)
                 .body(body)
                 .inputs(inputs)
                 .build();
-        List<ActionButton> buttons = new ArrayList<>();
-        if (busy) {
-            buttons.add(button(Component.text("⏹ Arrêter", NamedTextColor.GOLD), Component.text("Arrêter la tâche de Claude"), 130, "stop", id));
-        } else {
-            buttons.add(button(Component.text("📨 Envoyer", NamedTextColor.GREEN), Component.text("Envoyer le message à Claude"), 130, "send", id));
-        }
-        buttons.add(button(Component.text("🔄 Rafraîchir"), null, 130, "open", id));
-        buttons.add(button(Component.text(v.thinking ? "💭 Masquer les réflexions" : "💭 Voir les réflexions", NamedTextColor.GRAY),
-                null, 130, "think", id));
-        buttons.add(button(Component.text("← Retour"), Component.text("Toutes les conversations"), 130, "list", null));
-        return Dialog.create(b -> b.empty().base(base).type(DialogType.multiAction(buttons)
-                .exitAction(button(Component.text("Fermer"), null, 100, "close", null)).columns(2).build()));
     }
 
-    private static SingleOptionDialogInput providerInput(String current) {
-        String cur = current == null ? "auto" : current;
-        return DialogInput.singleOption("provider", Component.text("Images / 3D"), List.of(
-                        SingleOptionDialogInput.OptionEntry.create("auto", Component.text("Auto"), cur.equals("auto")),
-                        SingleOptionDialogInput.OptionEntry.create("openrouter", Component.text("OpenRouter"), cur.equals("openrouter")),
-                        SingleOptionDialogInput.OptionEntry.create("meshy", Component.text("Meshy"), cur.equals("meshy"))))
-                .width(200).build();
+    /** Off = standard (automatic image generator), on = advanced (the generator that also makes 3D objects). */
+    private static DialogInput advancedInput(String provider) {
+        return DialogInput.bool("advanced", Component.text("Images/3D : mode avancé"))
+                .initial("meshy".equals(provider)).onTrue("true").onFalse("false").build();
     }
 
     /** One message as a compact multi-line component. */
     static Component render(ConversationStore.MessageView m, boolean thinking) {
         List<Component> lines = new ArrayList<>();
-        int hidden = 0;
         List<ConversationStore.BlockView> blocks = m.blocks();
         int from = Math.max(0, blocks.size() - MAX_LINES_PER_MESSAGE);
-        hidden = from;
-        if (hidden > 0) {
-            lines.add(Component.text("… " + hidden + " étape(s) plus tôt", NamedTextColor.DARK_GRAY));
+        if (from > 0) {
+            lines.add(Component.text("… " + from + " étape(s) plus tôt", NamedTextColor.DARK_GRAY));
         }
         for (ConversationStore.BlockView b : blocks.subList(from, blocks.size())) {
             Component line = switch (b.type()) {
                 case "text" -> m.role().equals("user")
-                        ? Component.text("👤 ", NamedTextColor.AQUA).append(Component.text(Msg.cut(b.text(), 400), NamedTextColor.WHITE))
-                        : Component.text("🤖 ", NamedTextColor.LIGHT_PURPLE)
+                        ? Component.text("Vous : ", NamedTextColor.AQUA).append(Component.text(Msg.cut(b.text(), 400), NamedTextColor.WHITE))
+                        : Component.text("IA : ", PURPLE)
                         .append(Component.text(Msg.cut(clean(b.text()), 600), NamedTextColor.WHITE));
                 case "thinking" -> thinking
                         ? Component.text("💭 " + Msg.cut(b.text(), 900), NamedTextColor.GRAY).decorate(TextDecoration.ITALIC)
@@ -506,34 +526,21 @@ public final class ClaudeDialogs implements Listener {
         return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
     }
 
-    private static Component title(String s) {
-        return Component.text(s, TextColor.color(0xc084fc)).decorate(TextDecoration.BOLD);
-    }
-
-    static String icon(String state) {
+    /** Red if the last job failed or the module failed to load, orange while running / queued, green otherwise. */
+    static TextColor entryColor(String state, ModuleState moduleState) {
         return switch (state) {
-            case "running" -> "⏳";
-            case "queued" -> "⌛";
-            case "failed" -> "✘";
-            default -> "●";
+            case "running", "queued" -> ORANGE;
+            case "failed" -> RED;
+            default -> moduleState == ModuleState.FAILED ? RED : GREEN;
         };
     }
 
-    static String stateLabel(String state) {
+    static String entryLabel(String state, ModuleState moduleState) {
         return switch (state) {
-            case "running" -> "Claude travaille…";
+            case "running" -> "l'IA travaille…";
             case "queued" -> "en file d'attente";
             case "failed" -> "dernière tâche échouée";
-            default -> "prêt";
-        };
-    }
-
-    private static TextColor stateColor(String state) {
-        return switch (state) {
-            case "running" -> NamedTextColor.YELLOW;
-            case "queued" -> NamedTextColor.GOLD;
-            case "failed" -> NamedTextColor.RED;
-            default -> NamedTextColor.GREEN;
+            default -> moduleState == ModuleState.FAILED ? "erreur au chargement du module" : "terminé";
         };
     }
 }

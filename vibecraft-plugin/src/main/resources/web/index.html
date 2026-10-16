@@ -4,59 +4,64 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
 <meta name="color-scheme" content="light dark">
-<title>VibeCraft</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 3v5M12 16v5M3 12h5M16 12h5M5.6 5.6l3.5 3.5M14.9 14.9l3.5 3.5M5.6 18.4l3.5-3.5M14.9 9.1l3.5-3.5' stroke='%23d97757' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+<title>Aywen × Minecraft</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="favicon.png">
 <style>
 :root {
-  --bg: #faf9f5;
-  --side: #f5f4ed;
+  --bg: #f7f7fb;
+  --side: #efeef7;
   --surface: #ffffff;
-  --raised: #fdfcf9;
-  --hover: rgba(31, 30, 29, .055);
-  --active: rgba(31, 30, 29, .09);
-  --text: #2b2a26;
-  --muted: #6f6d66;
-  --faint: #9a978e;
-  --border: rgba(31, 30, 29, .11);
-  --border-strong: rgba(31, 30, 29, .2);
-  --bubble: #f0eee6;
-  --code-bg: #f5f4ef;
-  --code-ink: #b4522f;
-  --accent: #d97757;
-  --accent-ink: #c0613f;
-  --accent-soft: rgba(217, 119, 87, .14);
+  --raised: #fbfbfe;
+  --hover: rgba(40, 30, 80, .055);
+  --active: rgba(40, 30, 80, .09);
+  --text: #22212b;
+  --muted: #64627a;
+  --faint: #9492a8;
+  --border: rgba(40, 30, 80, .11);
+  --border-strong: rgba(40, 30, 80, .2);
+  --bubble: #ede8fd;
+  --bubble-ink: #2a1f4d;
+  --code-bg: #f3f2f9;
+  --code-ink: #6d28d9;
+  --accent: #8b5cf6;
+  --accent-ink: #7c3aed;
+  --accent-soft: rgba(139, 92, 246, .15);
+  --logo-bg: linear-gradient(140deg, #a855f7, #7c3aed);
   --ok: #3f7d3a;
   --ok-soft: rgba(63, 125, 58, .1);
   --bad: #b53e2a;
   --bad-soft: rgba(181, 62, 42, .09);
   --warn: #a8700b;
-  --shadow: 0 .25rem 1.4rem rgba(40, 30, 10, .06), 0 .05rem .2rem rgba(40, 30, 10, .05);
+  --run: #e8890c;
+  --run-soft: rgba(232, 137, 12, .2);
+  --shadow: 0 .25rem 1.4rem rgba(40, 20, 90, .07), 0 .05rem .2rem rgba(40, 20, 90, .05);
   --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, Cambria, "Times New Roman", serif;
+  --serif: ui-sans-serif, system-ui, -apple-system, "Segoe UI Variable Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, "Cascadia Mono", "Cascadia Code", "SFMono-Regular", Menlo, Consolas, monospace;
   --side-w: 17.5rem;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #262624; --side: #1f1e1d; --surface: #30302e; --raised: #2b2b29;
+    --bg: #1a1922; --side: #14131b; --surface: #25232f; --raised: #201f29;
     --hover: rgba(255, 255, 255, .055); --active: rgba(255, 255, 255, .09);
-    --text: #f2f0e8; --muted: #a8a59b; --faint: #7d7a72;
+    --text: #efedf7; --muted: #aaa7bd; --faint: #7a7790;
     --border: rgba(255, 255, 255, .1); --border-strong: rgba(255, 255, 255, .18);
-    --bubble: #161615; --code-bg: #1d1d1b; --code-ink: #e8957a;
-    --accent-ink: #e58b6c; --accent-soft: rgba(217, 119, 87, .18);
+    --bubble: #33295a; --bubble-ink: #f1ecff; --code-bg: #17161e; --code-ink: #d8b4fe;
+    --accent: #a855f7; --accent-ink: #c084fc; --accent-soft: rgba(168, 85, 247, .22);
     --ok: #7cc06f; --ok-soft: rgba(124, 192, 111, .12); --bad: #f08672; --bad-soft: rgba(240, 134, 114, .12); --warn: #e0b04a;
     --shadow: 0 .25rem 1.4rem rgba(0, 0, 0, .25);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #262624; --side: #1f1e1d; --surface: #30302e; --raised: #2b2b29;
+  --bg: #1a1922; --side: #14131b; --surface: #25232f; --raised: #201f29;
   --hover: rgba(255, 255, 255, .055); --active: rgba(255, 255, 255, .09);
-  --text: #f2f0e8; --muted: #a8a59b; --faint: #7d7a72;
+  --text: #efedf7; --muted: #aaa7bd; --faint: #7a7790;
   --border: rgba(255, 255, 255, .1); --border-strong: rgba(255, 255, 255, .18);
-  --bubble: #161615; --code-bg: #1d1d1b; --code-ink: #e8957a;
-  --accent-ink: #e58b6c; --accent-soft: rgba(217, 119, 87, .18);
+  --bubble: #33295a; --bubble-ink: #f1ecff; --code-bg: #17161e; --code-ink: #d8b4fe;
+  --accent: #a855f7; --accent-ink: #c084fc; --accent-soft: rgba(168, 85, 247, .22);
   --ok: #7cc06f; --ok-soft: rgba(124, 192, 111, .12); --bad: #f08672; --bad-soft: rgba(240, 134, 114, .12); --warn: #e0b04a;
   --shadow: 0 .25rem 1.4rem rgba(0, 0, 0, .25);
   color-scheme: dark;
@@ -88,17 +93,23 @@ a { color: var(--accent-ink); }
   background: var(--side); border-right: 1px solid var(--border);
 }
 .side-top { padding: .7rem .7rem .3rem; display: flex; flex-direction: column; gap: .45rem; }
-.brand { display: flex; align-items: center; gap: .5rem; padding: .25rem .4rem .35rem; }
-.brand .ic { color: var(--accent); width: 1.35rem; height: 1.35rem; }
-.brand b { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; letter-spacing: -.01em; flex: 1; }
+.brand { display: flex; align-items: center; gap: .65rem; padding: .35rem .35rem .7rem; margin-bottom: .2rem; border-bottom: 1px solid var(--border); }
+.logo-tile {
+  width: 2.5rem; height: 2.5rem; border-radius: .8rem; flex: none; background: var(--logo-bg, var(--accent));
+  display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 .2rem .7rem var(--accent-soft);
+}
+.logo-tile img { width: 72%; height: 72%; display: block; }
+.brand-name { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.brand-name b { font-size: 1.02rem; font-weight: 700; letter-spacing: -.01em; }
+.brand-name small { font-size: .74rem; color: var(--muted); }
 .new-btn {
   display: flex; align-items: center; gap: .6rem; width: 100%;
-  padding: .45rem .5rem; border: 0; border-radius: .6rem; background: transparent; text-align: left;
+  padding: .45rem .5rem; border: 1px solid var(--border); border-radius: .7rem; background: var(--surface); text-align: left;
   font-size: .95rem; font-weight: 500;
 }
 .new-btn:hover { background: var(--hover); }
 .new-btn .plus {
-  width: 1.55rem; height: 1.55rem; border-radius: 50%; background: var(--accent); color: #fff;
+  width: 1.55rem; height: 1.55rem; border-radius: .45rem; background: var(--accent); color: #fff;
   display: inline-flex; align-items: center; justify-content: center;
 }
 .new-btn .plus .ic { width: .95rem; height: .95rem; }
@@ -110,13 +121,13 @@ a { color: var(--accent-ink); }
   color: var(--text); text-decoration: none; font-size: .9rem; min-width: 0;
 }
 .conv:hover { background: var(--hover); }
-.conv[aria-current="page"] { background: var(--active); }
+.conv[aria-current="page"] { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
 .conv-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dot { width: .5rem; height: .5rem; border-radius: 50%; flex: none; background: var(--faint); opacity: .45; }
-[data-state="running"] > .dot { background: var(--accent); opacity: 1; animation: pulse 1.4s ease-in-out infinite; }
-[data-state="queued"] > .dot { background: transparent; border: 1.5px solid var(--accent); opacity: 1; }
+.dot { width: .5rem; height: .5rem; border-radius: 50%; flex: none; background: var(--ok); opacity: .8; }
+[data-state="running"] > .dot { background: var(--run); opacity: 1; animation: pulse 1.4s ease-in-out infinite; }
+[data-state="queued"] > .dot { background: transparent; border: 1.5px solid var(--run); opacity: 1; }
 [data-state="failed"] > .dot { background: var(--bad); opacity: .9; }
-@keyframes pulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 var(--accent-soft); } 50% { transform: scale(1.15); box-shadow: 0 0 0 .3rem var(--accent-soft); } }
+@keyframes pulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 var(--run-soft); } 50% { transform: scale(1.15); box-shadow: 0 0 0 .3rem var(--run-soft); } }
 .mb { flex: none; font-size: .7rem; color: var(--faint); padding: .05rem .4rem; border-radius: .35rem; border: 1px solid transparent; }
 .mb.bad { color: var(--bad); border-color: var(--bad-soft); background: var(--bad-soft); }
 .mb.warn { color: var(--warn); }
@@ -166,7 +177,7 @@ a { color: var(--accent-ink); }
 .msg.empty { display: none; }
 .msg-u { align-items: flex-end; }
 .bubble {
-  max-width: min(85%, 40rem); background: var(--bubble); border-radius: 1.15rem; padding: .6rem 1rem;
+  max-width: min(85%, 40rem); background: var(--bubble); color: var(--bubble-ink, var(--text)); border-radius: 1rem 1rem .3rem 1rem; padding: .6rem 1rem;
   white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55;
 }
 .msg-u.local .bubble { opacity: .65; }
@@ -257,8 +268,8 @@ details[open] > summary .chev { transform: rotate(90deg); }
 
 /* welcome (new conversation) */
 .welcome { max-width: 48rem; margin: 0 auto; padding: 0 1.5rem 1.6rem; text-align: center; }
-.welcome h2 { font-family: var(--serif); font-weight: 400; font-size: 2.2rem; letter-spacing: -.015em; margin: 0; display: inline-flex; align-items: center; gap: .7rem; line-height: 1.2; }
-.welcome h2 .ic { color: var(--accent); width: 2.2rem; height: 2.2rem; }
+.welcome h2 { font-family: var(--serif); font-weight: 700; font-size: 2rem; letter-spacing: -.015em; margin: 0; display: inline-flex; align-items: center; gap: .7rem; line-height: 1.2; }
+.welcome h2 .logo-tile { width: 2.6rem; height: 2.6rem; }
 .welcome p { color: var(--muted); margin: .7rem 0 0; }
 .main.is-new .scroller { flex: 0 0 auto; margin-top: auto; overflow: visible; }
 .main.is-new .composer-wrap { margin-bottom: auto; }
@@ -273,7 +284,7 @@ details[open] > summary .chev { transform: rotate(90deg); }
 .composer-wrap { flex: none; width: 100%; max-width: 48rem; margin: 0 auto; padding: 0 1.25rem .9rem; }
 .notice { font-size: .85rem; color: var(--warn); text-align: center; margin: 0 0 .5rem; }
 .composer {
-  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 1.3rem; box-shadow: var(--shadow);
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: .9rem; box-shadow: var(--shadow);
   padding: .8rem .7rem .55rem 1rem; display: flex; flex-direction: column; gap: .45rem;
 }
 .composer:focus-within { border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong)); }
@@ -293,6 +304,14 @@ details[open] > summary .chev { transform: rotate(90deg); }
 .field input.invalid { border-color: var(--bad); color: var(--bad); }
 .field select { color: var(--muted); max-width: 11rem; }
 .field select option { background: var(--surface); color: var(--text); }
+.toggle { display: inline-flex; align-items: center; gap: .45rem; cursor: pointer; user-select: none; }
+.toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.toggle .sw { width: 2rem; height: 1.1rem; border-radius: 999px; background: var(--border-strong); position: relative; transition: background .15s; flex: none; }
+.toggle .sw::after { content: ""; position: absolute; top: .15rem; left: .15rem; width: .8rem; height: .8rem; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.toggle input:checked + .sw { background: var(--accent); }
+.toggle input:checked + .sw::after { transform: translateX(.9rem); }
+.toggle input:focus-visible + .sw { outline: 2px solid var(--accent); outline-offset: 2px; }
+.toggle input:disabled + .sw { opacity: .4; }
 .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; padding: .1rem; }
 .seg button { border: 0; background: transparent; color: var(--muted); border-radius: 999px; padding: .12rem .6rem; font-size: .78rem; }
 .seg button:hover { color: var(--text); }
@@ -397,7 +416,7 @@ details[open] > summary .chev { transform: rotate(90deg); }
   .thread { padding: .6rem 1rem 1.5rem; }
   .composer-wrap { padding: 0 .6rem .6rem; }
   .welcome h2 { font-size: 1.65rem; }
-  .welcome h2 .ic { width: 1.7rem; height: 1.7rem; }
+  .welcome h2 .logo-tile { width: 2.1rem; height: 2.1rem; }
   .bubble { max-width: 92%; }
   .top-title .sub { display: none; }
   .hide-sm { display: none !important; }
@@ -411,7 +430,8 @@ details[open] > summary .chev { transform: rotate(90deg); }
 <div class="app" id="app">
   <aside class="side" id="side" aria-label="Conversations">
     <div class="side-top">
-      <div class="brand"><span class="ic" data-icon="spark"></span><b>VibeCraft</b>
+      <div class="brand"><span class="logo-tile"><img src="logo.png" alt=""></span>
+        <span class="brand-name"><b>Aywen × Minecraft</b><small>Aywen recrée vos idées dans Minecraft</small></span>
         <button type="button" class="icon-btn only-mobile" id="btn-side-close" aria-label="Fermer le menu"><span class="ic" data-icon="close"></span></button>
       </div>
       <button type="button" class="new-btn" id="btn-new"><span class="plus"><span class="ic" data-icon="plus"></span></span>Nouvelle conversation</button>
@@ -438,8 +458,7 @@ details[open] > summary .chev { transform: rotate(90deg); }
 
     <div class="scroller" id="scroller">
       <div class="welcome" id="welcome">
-        <h2><span class="ic" data-icon="spark"></span><span>Que construit-on&nbsp;?</span></h2>
-        <p>Décrivez une fonctionnalité : Claude l'écrit et elle apparaît en jeu, sans redémarrer.</p>
+        <h2><span class="logo-tile"><img src="logo.png" alt=""></span><span>Que construit-on&nbsp;?</span></h2>
       </div>
       <div class="thread" id="thread" role="log" aria-live="off" hidden></div>
     </div>
@@ -451,18 +470,14 @@ details[open] > summary .chev { transform: rotate(90deg); }
         <textarea id="input" rows="1" placeholder="Décrivez la fonctionnalité à ajouter…" aria-label="Message"></textarea>
         <div class="bar">
           <label class="field" id="mod-field">Module <input id="mod-input" maxlength="40" spellcheck="false" autocapitalize="off" placeholder="mon-module" aria-describedby="hint"></label>
-          <span class="field">Images :
-            <span class="seg" role="radiogroup" aria-label="Fournisseur d'images" id="img-seg">
-              <button type="button" role="radio" data-p="auto" aria-checked="true" title="Choix automatique">Auto</button>
-              <button type="button" role="radio" data-p="openrouter" aria-checked="false">OpenRouter</button>
-              <button type="button" role="radio" data-p="meshy" aria-checked="false">Meshy AI</button>
-            </span>
-          </span>
+          <label class="field toggle" id="img-adv-wrap" title="Désactivé : mode standard (choix automatique). Activé : génération avancée d'images et d'objets 3D.">
+            <input type="checkbox" id="img-adv"><span class="sw"></span><span>Images/3D : mode avancé</span>
+          </label>
           <label class="field hide-sm"><select id="model" aria-label="Modèle">
             <option value="">Modèle par défaut</option>
-            <option value="opus">Opus</option>
-            <option value="sonnet">Sonnet</option>
-            <option value="haiku">Haiku</option>
+            <option value="opus">Modèle puissant</option>
+            <option value="sonnet">Modèle équilibré</option>
+            <option value="haiku">Modèle rapide</option>
           </select></label>
           <span class="grow"></span>
           <button type="submit" class="send" id="send" aria-label="Envoyer" title="Envoyer (Entrée)" disabled><span class="ic" data-icon="up"></span></button>
@@ -481,7 +496,7 @@ details[open] > summary .chev { transform: rotate(90deg); }
   <div class="drawer-head"><h2>Modules</h2><button type="button" class="icon-btn" id="drawer-close" aria-label="Fermer"><span class="ic" data-icon="close"></span></button></div>
   <div class="drawer-body">
     <div class="srv-box" id="srv-box"></div>
-    <div class="dsec"><h3 id="mod-h">Modules</h3><div id="mod-list"></div><div class="muted" id="mod-empty" hidden>Aucun module. Envoyez une demande : Claude le créera.</div></div>
+    <div class="dsec"><h3 id="mod-h">Modules</h3><div id="mod-list"></div><div class="muted" id="mod-empty" hidden>Aucun module. Envoyez une demande : l'IA le créera.</div></div>
     <div class="dsec"><h3 id="idea-h">Idées du public</h3><div id="idea-list"></div><div class="muted" id="idea-empty">Les joueurs proposent leurs idées en jeu avec <code>/idea &lt;texte&gt;</code>.</div></div>
     <div class="dsec"><button type="button" class="btn link" id="btn-token">Jeton d'accès…</button></div>
   </div>
@@ -522,7 +537,7 @@ details[open] > summary .chev { transform: rotate(90deg); }
     DISABLED: 'Désactivé volontairement', FAILED: 'Le dernier essai a échoué et aucune version ne tourne',
     TRIPPED: "Coupé par le disjoncteur (trop d'erreurs) : rechargez pour le réarmer"
   };
-  const CONV_LABEL = { running: 'Claude travaille', queued: "En file d'attente", failed: 'La dernière tâche a échoué', idle: '' };
+  const CONV_LABEL = { running: "L'IA travaille", queued: "En file d'attente", failed: 'La dernière tâche a échoué', idle: '' };
   const SUGGESTIONS = [
     'Fais pleuvoir des cochons quand un joueur saute',
     'Une commande /sapin qui fait pousser un sapin géant',
@@ -1213,7 +1228,7 @@ details[open] > summary .chev { transform: rotate(90deg); }
       thread.append(thread._empty);
     } else if (thread._empty) thread._empty.remove();
     if (busy) {
-      setText(working.lastChild, c.state === 'queued' ? "En file d'attente : une autre tâche se termine…" : 'Claude travaille…');
+      setText(working.lastChild, c.state === 'queued' ? "En file d'attente : une autre tâche se termine…" : "L'IA travaille…");
       thread.append(working);
     }
     if (wasStick) { scroller.scrollTop = scroller.scrollHeight; stick = true; }
@@ -1235,7 +1250,7 @@ details[open] > summary .chev { transform: rotate(90deg); }
     const c = current;
     const isNew = !selectedId;
     setText($('conv-title'), isNew ? 'Nouvelle conversation' : str(c && c.title) || selectedId);
-    document.title = isNew ? 'VibeCraft' : `${str(c && c.title) || selectedId} · VibeCraft`;
+    document.title = isNew ? 'Aywen × Minecraft' : `${str(c && c.title) || selectedId} · Aywen × Minecraft`;
     const sub = $('conv-sub');
     setText(sub, isNew ? '' : selectedId);
     setHidden(sub, isNew || !c || str(c.title) === selectedId);
@@ -1248,7 +1263,7 @@ details[open] > summary .chev { transform: rotate(90deg); }
       const label = modState ? `${STATE_LABEL[modState] || modState}${gen > 0 ? ` · v${gen}` : ''}` : 'module à créer';
       setText(ms, label);
       ms.className = `mstate${modState === 'ENABLED' ? ' ok' : modState === 'FAILED' || modState === 'TRIPPED' ? ' bad' : ''}`;
-      setAttr(ms, 'title', modState ? STATE_HELP[modState] || '' : "Le module sera créé par Claude à la première demande");
+      setAttr(ms, 'title', modState ? STATE_HELP[modState] || '' : "Le module sera créé par l'IA à la première demande");
     }
     setHidden($('btn-delete'), isNew);
   }
@@ -1429,19 +1444,19 @@ details[open] > summary .chev { transform: rotate(90deg); }
       else if (!ID_RE.test(id)) { ht = 'Identifiant invalide : minuscules, chiffres, - et _ (40 max), commence par une lettre ou un chiffre.'; hc = 'bad'; blocked = true; }
       else if (convById.has(id)) {
         const s = convById.get(id);
-        if (s.state === 'running' || s.state === 'queued') { ht = `Claude travaille déjà sur « ${id} » : attendez la fin ou arrêtez la tâche.`; hc = 'bad'; blocked = true; }
+        if (s.state === 'running' || s.state === 'queued') { ht = `L'IA travaille déjà sur « ${id} » : attendez la fin ou arrêtez la tâche.`; hc = 'bad'; blocked = true; }
         else { ht = `La conversation « ${id} » existe déjà : votre message y sera ajouté.`; hc = 'ok'; }
-      } else if (modulesById.has(id)) { ht = `Module existant « ${id} » : Claude reprend à partir de son code.`; hc = 'ok'; }
+      } else if (modulesById.has(id)) { ht = `Module existant « ${id} » : l'IA reprend à partir de son code.`; hc = 'ok'; }
       else { ht = `Nouveau module « ${id} » : il sera créé automatiquement.`; hc = 'ok'; }
-    } else if (busy) ht = c.state === 'queued' ? "En file d'attente…" : 'Claude travaille… vous pouvez préparer le message suivant.';
+    } else if (busy) ht = c.state === 'queued' ? "En file d'attente…" : "L'IA travaille… vous pouvez préparer le message suivant.";
     else ht = 'Entrée pour envoyer · Maj+Entrée pour aller à la ligne';
     if (sendError) { ht = sendError; hc = 'bad'; }
     setText(hint, ht);
     hint.className = hc ? `hint ${hc}` : 'hint';
     $('send').disabled = blocked;
-    // Claude availability
+    // AI availability
     const n = $('notice');
-    if (!claudeOk()) { setText(n, `Claude Code indisponible${providers.claude.reason ? ` : ${providers.claude.reason}` : ''}.`); setHidden(n, false); }
+    if (!claudeOk()) { setText(n, `IA indisponible${providers.claude.reason ? ` : ${providers.claude.reason}` : ''}.`); setHidden(n, false); }
     else setHidden(n, true);
     renderProviders();
     updateComposerH();
@@ -1451,29 +1466,22 @@ details[open] > summary .chev { transform: rotate(90deg); }
     if (p === 'auto') return true;
     return !!(providers && providers[p] && providers[p].available);
   }
+  // "Images/3D : mode avancé": off = "auto" (standard), on = "meshy" (advanced images + 3D). No provider names in the UI.
+  if (imageProvider !== 'meshy') imageProvider = 'auto';
   function renderProviders() {
-    if (!providerOk(imageProvider) && providers) imageProvider = 'auto';
-    for (const b of $('img-seg').querySelectorAll('button')) {
-      const p = b.dataset.p;
-      const ok = providerOk(p);
-      const known = !!providers;
-      setAttr(b, 'aria-checked', p === imageProvider ? 'true' : 'false');
-      setAttr(b, 'aria-disabled', known && !ok ? 'true' : null);
-      let tip = 'Claude choisit selon la demande';
-      if (p === 'openrouter') tip = ok ? `Textures 2D via OpenRouter${providers && providers.openrouter && providers.openrouter.imageModel ? ` (${providers.openrouter.imageModel})` : ''}` : "OpenRouter n'est pas configuré (clé « openrouter » dans secrets.yml)";
-      if (p === 'meshy') tip = ok ? 'Modèles 3D via Meshy AI' : "Meshy AI n'est pas configuré (clé « meshy » dans secrets.yml)";
-      setAttr(b, 'title', tip);
-    }
+    const box = $('img-adv');
+    const advOk = providerOk('meshy') || !providers;
+    if (!advOk && imageProvider === 'meshy') imageProvider = 'auto';
+    box.checked = imageProvider === 'meshy';
+    box.disabled = !advOk;
+    setAttr($('img-adv-wrap'), 'title', advOk
+      ? "Désactivé : mode standard (choix automatique). Activé : génération avancée d'images et d'objets 3D."
+      : "Mode avancé non configuré sur ce serveur (clé manquante dans secrets.yml).");
   }
-  $('img-seg').addEventListener('click', (e) => {
-    const b = e.target.closest('button');
-    if (!b) return;
-    const p = b.dataset.p;
-    if (providers && !providerOk(p)) { toast(b.title, 'info'); return; }
-    imageProvider = p;
-    storage.set(K.img, p);
+  $('img-adv').addEventListener('change', (e) => {
+    imageProvider = e.target.checked ? 'meshy' : 'auto';
+    storage.set(K.img, imageProvider);
     renderProviders();
-    if (e.detail > 0) input.focus(); // mouse click: back to typing (keyboard users keep their place)
   });
   const modelSel = $('model');
   modelSel.value = storage.get(K.model) || '';
@@ -1554,7 +1562,7 @@ details[open] > summary .chev { transform: rotate(90deg); }
       autoGrow();
       if (isNew) current = prevCurrent;
       else if (current) { current.messages = current.messages.filter((m) => m !== local); current.state = 'idle'; loadConversation(id); }
-      sendError = e.status === 409 ? `Claude travaille déjà sur « ${id} » : ${errorText(e)}`
+      sendError = e.status === 409 ? `L'IA travaille déjà sur « ${id} » : ${errorText(e)}`
         : e.status === 503 ? `Indisponible : ${errorText(e)}` : `Envoi impossible : ${errorText(e)}`;
       toast(sendError, 'error');
       renderAll();
@@ -1628,7 +1636,7 @@ details[open] > summary .chev { transform: rotate(90deg); }
       h('div', null, h('b', { text: [str(s.name), str(s.version)].filter(Boolean).join(' ') || 'Serveur Minecraft' })),
       h('div', { text: `${t1 == null ? '—' : nf1.format(t1)} TPS${tps.length > 1 ? ` (5 min : ${nf1.format(Math.min(20, tps[1]))}, 15 min : ${nf1.format(Math.min(20, tps[2] || tps[1]))})` : ''}` }),
       h('div', { text: `${players == null ? '—' : players} / ${num(s.max) || '—'} joueurs${num(s.uptimeMs) > 0 ? ` · en ligne depuis ${fmtDur(num(s.uptimeMs))}` : ''}` }),
-      h('div', { text: st.ai && st.ai.available === false ? `Claude Code indisponible${st.ai.reason ? ` : ${st.ai.reason}` : ''}` : 'Claude Code prêt' }));
+      h('div', { text: st.ai && st.ai.available === false ? `IA indisponible${st.ai.reason ? ` : ${st.ai.reason}` : ''}` : "IA prête" }));
     const enabled = mods.filter((m) => m.state === 'ENABLED').length;
     setText($('mod-h'), `Modules · ${enabled} actif${enabled > 1 ? 's' : ''} / ${mods.length}`);
     reconcile($('mod-list'), mods.slice().sort((a, b) => a.id.localeCompare(b.id, 'fr')), (m) => m.id, createModView, updateModView);
@@ -1796,7 +1804,7 @@ details[open] > summary .chev { transform: rotate(90deg); }
     v.busy = true; updIdea(v);
     try {
       await api('POST', `/api/ideas/${enc(v.id)}/accept?module=${enc(mod)}`, null, 20000);
-      toast(`Idée #${v.id} envoyée à Claude → ${mod}`, 'ok');
+      toast(`Idée #${v.id} envoyée à l'IA → ${mod}`, 'ok');
       openDrawer(false);
       navigate(mod);
       listLoop.now();

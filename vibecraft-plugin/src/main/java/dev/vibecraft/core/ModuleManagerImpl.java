@@ -576,11 +576,28 @@ public final class ModuleManagerImpl implements ModuleManager {
         }
     }
 
+    /**
+     * Completes a reload future once the IO queued so far has run (single FIFO io thread): when the answer arrives
+     * (API, /vibe), .vibe/build.log and .vibe/status.json already describe this reload (an AI reads them right after).
+     */
     private void completeAsync(CompletableFuture<ReloadResult> f, ReloadResult r) {
+        Runnable complete = () -> {
+            try {
+                notifier.execute(() -> f.complete(r));
+            } catch (RejectedExecutionException e) {
+                f.complete(r);
+            }
+        };
         try {
-            notifier.execute(() -> f.complete(r));
+            io.execute(() -> {
+                try {
+                    flushStatus();
+                } finally {
+                    complete.run();
+                }
+            });
         } catch (RejectedExecutionException e) {
-            f.complete(r);
+            complete.run();
         }
     }
 
@@ -1080,7 +1097,7 @@ public final class ModuleManagerImpl implements ModuleManager {
                 }
             }
             for (org.bukkit.NamespacedKey k : stale) {
-                Bukkit.removeRecipe(k, false);
+                Bukkit.removeRecipe(k);
                 recipesDirty = true;
             }
         } catch (Throwable t) {

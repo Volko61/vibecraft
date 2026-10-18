@@ -38,10 +38,15 @@ import java.util.regex.Pattern;
  */
 public final class AiJobEngine implements AiJobService {
 
-    /** Configuration (see {@code ai.*} in config.yml). */
+    /**
+     * Configuration (see {@code ai.*} in config.yml).
+     *
+     * @param idleTimeout a job is stopped after that long without any activity (hang guard, ai.timeout-seconds)
+     * @param maxDuration hard limit on a job's total duration (ai.max-duration-seconds); zero = none
+     */
     public record Settings(boolean enabled, String claudePath, List<String> commandOverride, String model,
                            String permissionMode, List<String> allowedTools, boolean restrictTools,
-                           int maxConcurrentJobs, Duration timeout, boolean resumeSessions,
+                           int maxConcurrentJobs, Duration idleTimeout, Duration maxDuration, boolean resumeSessions,
                            File workspaceDir, File modulesDir, String apiBaseUrl, String apiToken,
                            String effort, double maxBudgetUsd, boolean checkAuth, List<String> extraArgs,
                            Map<String, String> extraEnv) {
@@ -511,7 +516,7 @@ public final class AiJobEngine implements AiJobService {
         String model = job.options.model().isEmpty() ? settings.model() : job.options.model();
         ClaudeRunner.Request req = new ClaudeRunner.Request(c.commandPrefix(), settings.workspaceDir(), prompt,
                 model, settings.permissionMode(), settings.allowedTools(), tools, resume,
-                settings.timeout(), env, extra, job.moduleId);
+                settings.idleTimeout(), settings.maxDuration(), env, extra, job.moduleId);
         ClaudeRunner runner = new ClaudeRunner(req, line -> progress(job, line));
         Transcript t = transcript;
         if (t != null) {
@@ -627,7 +632,13 @@ public final class AiJobEngine implements AiJobService {
                 }
                 case TIMED_OUT -> {
                     state = AiJobState.FAILED;
-                    finalLine = "⏰ Temps limite dépassé (" + settings.timeout().toSeconds() + " s) : IA arrêtée";
+                    finalLine = "⏰ Durée maximale atteinte (" + human(settings.maxDuration()) + ") : IA arrêtée."
+                            + (o.realActivity() && settings.resumeSessions()
+                            ? " Envoyez « continue » pour qu'elle reprenne où elle en était." : "");
+                }
+                case STALLED -> {
+                    state = AiJobState.FAILED;
+                    finalLine = "⏰ L'IA ne donnait plus signe de vie depuis " + human(settings.idleTimeout()) + " : arrêtée";
                 }
                 case LAUNCH_FAILED -> {
                     state = AiJobState.FAILED;
@@ -914,6 +925,12 @@ public final class AiJobEngine implements AiJobService {
             return new AiJob(id, moduleId, prompt, requestedBy, state, startedAt, endedAt, List.copyOf(progress),
                     result, sessionId, cost);
         }
+    }
+
+    /** "15 min", "90 s". */
+    private static String human(Duration d) {
+        long s = d == null ? 0 : d.toSeconds();
+        return s >= 60 && s % 60 == 0 ? s / 60 + " min" : s + " s";
     }
 
     private static String redact(String s) {

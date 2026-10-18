@@ -1,6 +1,7 @@
 package dev.vibecraft.command;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -19,6 +20,7 @@ import io.papermc.paper.registry.data.dialog.DialogBase;
 import io.papermc.paper.registry.data.dialog.action.DialogAction;
 import io.papermc.paper.registry.data.dialog.body.DialogBody;
 import io.papermc.paper.registry.data.dialog.input.DialogInput;
+import io.papermc.paper.registry.data.dialog.input.SingleOptionDialogInput;
 import io.papermc.paper.registry.data.dialog.input.TextDialogInput;
 import io.papermc.paper.registry.data.dialog.type.DialogType;
 import net.kyori.adventure.key.Key;
@@ -40,9 +42,9 @@ import org.bukkit.plugin.java.JavaPlugin;
  * <ul>
  *   <li>list: legend (green = done, orange = running, red = error) and one button per conversation (= module:
  *       coloured dot, id, title; last line in the tooltip), then "Nouvelle conversation";</li>
- *   <li>new: the request (multiline) and the "Images/3D : mode avancé" toggle (off = automatic image generator,
- *       on = "meshy"); the module id is derived from the request ({@link Slug}, made unique by
- *       {@link Conversations#freeId});</li>
+ *   <li>new: the request (multiline, no line limit so long texts can be pasted), the "Images/3D : mode avancé"
+ *       toggle (off = automatic image generator, on = "meshy") and the model choice (same as the dashboard); the
+ *       module id is derived from the request ({@link Slug}, made unique by {@link Conversations#freeId});</li>
  *   <li>conversation: the recent messages rendered compactly (user / assistant text, thinking collapsed with a
  *       button to expand, tool steps as short lines, status lines). While idle: a "Votre message" input + Envoyer
  *       (follow-up in the same session). While a job runs: Arrêter, and the dialog is re-sent every ~2 s when the
@@ -68,6 +70,15 @@ public final class ClaudeDialogs implements Listener {
     private static final int MAX_MESSAGES = 8;
     private static final int MAX_LINES_PER_MESSAGE = 24;
     private static final long LIVE_MAX_MS = 20 * 60_000L;
+    /** Longest request the AI engine accepts (AiJobEngine); the dialog response stays far below the client's payload limit. */
+    private static final int MAX_TEXT = 8000;
+    /**
+     * Claude models offered in the dialogs (same choices as the web dashboard, no product names): id -> label.
+     * {@link #DEFAULT_MODEL} = ai.model of config.yml.
+     */
+    private static final String DEFAULT_MODEL = "default";
+    private static final Map<String, String> MODELS = orderedMap(DEFAULT_MODEL, "Modèle par défaut",
+            "opus", "Modèle puissant", "sonnet", "Modèle équilibré", "haiku", "Modèle rapide");
 
     /** What a player currently sees. */
     private static final class View {
@@ -76,6 +87,7 @@ public final class ClaudeDialogs implements Listener {
         boolean live;         // shown while a job ran: refresh on change
         boolean thinking;     // thinking blocks expanded
         String provider = "auto";
+        String model = DEFAULT_MODEL; // key of MODELS
         String error;
         String draft = "";
         long openedAt = System.currentTimeMillis();
@@ -176,11 +188,12 @@ public final class ClaudeDialogs implements Listener {
         String c = get(r, "c");
         String text = get(r, "text");
         Boolean advanced = bool(r, "advanced");
+        String model = get(r, "model");
         // Buttons use WAIT_FOR_RESPONSE: the client shows "En attente du serveur" until we send a dialog back,
         // so every path must answer quickly, even on errors.
         Runnable task = () -> {
             try {
-                handle(p, a, c, text, advanced);
+                handle(p, a, c, text, advanced, model);
             } catch (RuntimeException ex) {
                 plugin.getLogger().warning("dialog action " + a + " failed: " + ex);
                 try {
@@ -225,7 +238,7 @@ public final class ClaudeDialogs implements Listener {
         return t == null ? null : t.equals("true") || t.equals("1");
     }
 
-    private void handle(Player p, String a, String c, String text, Boolean advanced) {
+    private void handle(Player p, String a, String c, String text, Boolean advanced, String model) {
         if (!p.isOnline()) {
             return;
         }
@@ -251,6 +264,9 @@ public final class ClaudeDialogs implements Listener {
         View v = view(p);
         if (advanced != null) {
             v.provider = advanced ? "meshy" : "auto"; // standard = automatic choice, advanced = the 3D-capable generator
+        }
+        if (model != null && MODELS.containsKey(model)) {
+            v.model = model; // kept for the player's next requests, like the dashboard's choice
         }
         boolean validConv = c != null && conv.validId(c);
         switch (a) {
@@ -334,6 +350,7 @@ public final class ClaudeDialogs implements Listener {
     private void send(Player p, View v, String target, String text, boolean fromNew) {
         String t = text == null ? "" : text.strip();
         String provider = v.provider;
+        String model = DEFAULT_MODEL.equals(v.model) ? "" : v.model;
         if (t.isEmpty()) {
             if (fromNew) {
                 p.showDialog(newDialog(v, "Écrivez d'abord votre demande.", ""));
@@ -353,7 +370,7 @@ public final class ClaudeDialogs implements Listener {
                 if (id == null) {
                     id = conv.freeId(Slug.of(t, "demande"));
                 }
-                job = conv.send(id, t, provider, "", by);
+                job = conv.send(id, t, provider, model, by);
             } catch (IllegalArgumentException | IllegalStateException e) {
                 err = e.getMessage();
             } catch (RuntimeException e) {
@@ -462,10 +479,9 @@ public final class ClaudeDialogs implements Listener {
             body.add(DialogBody.plainMessage(Component.text(error, RED), 320));
         }
         List<DialogInput> inputs = List.of(
-                DialogInput.text("text", Component.text("Votre demande"))
-                        .width(300).maxLength(4000).initial(text == null ? "" : text)
-                        .multiline(TextDialogInput.MultilineOptions.create(12, 110)).build(),
-                advancedInput(v.provider));
+                textInput("Votre demande", 300, 110, text),
+                advancedInput(v.provider),
+                modelInput(v.model, 300));
         DialogBase base = base(body, inputs);
         List<ActionButton> buttons = List.of(
                 button(Component.text("Retour"), Component.text("Liste des demandes"), 150, "list", null),
@@ -506,10 +522,9 @@ public final class ClaudeDialogs implements Listener {
         boolean busy = state.equals("running") || state.equals("queued");
         List<DialogInput> inputs = new ArrayList<>();
         if (!busy) {
-            inputs.add(DialogInput.text("text", Component.text("Votre message"))
-                    .width(400).maxLength(4000).initial(v.draft == null ? "" : v.draft)
-                    .multiline(TextDialogInput.MultilineOptions.create(10, 80)).build());
+            inputs.add(textInput("Votre message", 400, 80, v.draft));
             inputs.add(advancedInput(v.provider));
+            inputs.add(modelInput(v.model, 400));
         }
         DialogBase base = base(body, inputs);
         List<ActionButton> buttons = new ArrayList<>();
@@ -541,10 +556,37 @@ public final class ClaudeDialogs implements Listener {
                 .build();
     }
 
+    /**
+     * The request box. No line limit (maxLines null, the box scrolls): with one, the vanilla client silently
+     * refuses any paste that would wrap past the last line, so long requests could not be pasted at all.
+     */
+    private static DialogInput textInput(String label, int width, int height, String initial) {
+        return DialogInput.text("text", Component.text(label))
+                .width(width).maxLength(MAX_TEXT).initial(initial == null ? "" : initial)
+                .multiline(TextDialogInput.MultilineOptions.create(null, height)).build();
+    }
+
     /** Off = standard (automatic image generator), on = advanced (the generator that also makes 3D objects). */
     private static DialogInput advancedInput(String provider) {
         return DialogInput.bool("advanced", Component.text("Images/3D : mode avancé"))
                 .initial("meshy".equals(provider)).onTrue("true").onFalse("false").build();
+    }
+
+    /** Model of the next request (button cycling through {@link #MODELS}); the value comes back as "model". */
+    private static DialogInput modelInput(String model, int width) {
+        List<SingleOptionDialogInput.OptionEntry> entries = new ArrayList<>();
+        for (Map.Entry<String, String> m : MODELS.entrySet()) {
+            entries.add(SingleOptionDialogInput.OptionEntry.create(m.getKey(), Component.text(m.getValue()), m.getKey().equals(model)));
+        }
+        return DialogInput.singleOption("model", Component.text("Modèle de l'IA"), entries).width(width).build();
+    }
+
+    private static Map<String, String> orderedMap(String... kv) {
+        Map<String, String> m = new LinkedHashMap<>();
+        for (int i = 0; i + 1 < kv.length; i += 2) {
+            m.put(kv[i], kv[i + 1]);
+        }
+        return java.util.Collections.unmodifiableMap(m);
     }
 
     /** One message as a compact multi-line component. */

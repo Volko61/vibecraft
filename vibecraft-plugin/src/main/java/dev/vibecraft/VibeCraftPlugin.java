@@ -10,6 +10,7 @@ import dev.vibecraft.ai.JobOptions;
 import dev.vibecraft.web.ConversationRoutes;
 import dev.vibecraft.command.IdeaCommand;
 import dev.vibecraft.command.VibeCommand;
+import dev.vibecraft.core.ModuleEvent;
 import dev.vibecraft.core.ModuleManager;
 import dev.vibecraft.core.ModuleManagerImpl;
 import dev.vibecraft.ext.Extensions;
@@ -39,6 +40,14 @@ public final class VibeCraftPlugin extends JavaPlugin {
         ideas = new IdeaQueueImpl(this);
         ai = new ClaudeJobService(this, modules);
         new Notifier(this, modules, ai).register();
+        // A module disabled by hand (API, /vibe, menu, or a .vibe/disabled marker created by hand) is an emergency
+        // stop: the AI working on it is stopped too (it would reload or re-enable the module otherwise).
+        AiJobService aiJobs = ai;
+        modules.addListener(e -> {
+            if (e != null && e.type() == ModuleEvent.Type.DISABLED && e.moduleId() != null) {
+                aiJobs.stop(e.moduleId());
+            }
+        });
 
         Conversations conversations = null;
         if (ai instanceof ClaudeJobService cjs) {

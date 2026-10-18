@@ -30,8 +30,9 @@ import java.util.regex.Pattern;
  *   <li>not logged in (FAKE_CLAUDE_LOGGED_IN=0) -> the real synthetic "Not logged in · Please run /login" run.</li>
  * </ul>
  * It actually writes the module file into modules/&lt;id&gt;/ and really calls the reload endpoint found in the prompt.
- * Scenario keywords in the request: SLEEP n (spawns a child + grandchild process, then waits n s),
- * COMPILE_ERROR_FIRST (first version does not compile), TEST_COMMAND, CRASH (exit 3 without result).
+ * Scenario keywords in the request: SLEEP n (spawns a child + grandchild process, then waits n s silently),
+ * BUSY n (prints a text message every second for n s), COMPILE_ERROR_FIRST (first version does not compile),
+ * TEST_COMMAND, CRASH (exit 3 without result).
  * State lives in $FAKE_CLAUDE_HOME (sessions/, calls.log, pids-&lt;module&gt;.txt).
  */
 public final class FakeClaude {
@@ -156,6 +157,15 @@ public final class FakeClaude {
                 pause(250);
             }
             toolResult(id, "", false);
+        }
+
+        Matcher bm = Pattern.compile("BUSY (\\d+)").matcher(request);
+        if (bm.find()) {
+            int secs = Integer.parseInt(bm.group(1));
+            for (int i = 1; i <= secs; i++) {
+                pause(1000);
+                text("Étape " + i + "/" + secs + "…");
+            }
         }
 
         String cls = pascal(module) + "Module";

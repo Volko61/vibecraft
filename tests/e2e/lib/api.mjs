@@ -28,12 +28,12 @@ export class VibeApi {
    * Raw request. Returns {status, body, ms, contentType}; never throws on HTTP status (throws on network errors / timeouts).
    * @param {string} method
    * @param {string} path      e.g. /api/status
-   * @param {string|null} [body]  plain-text body (UTF-8)
+   * @param {string|Uint8Array|null} [body]  plain-text body (UTF-8), or raw bytes (then give contentType)
    */
-  async raw(method, path, body = null, { timeoutMs, accept = 'application/json' } = {}) {
+  async raw(method, path, body = null, { timeoutMs, accept = 'application/json', contentType } = {}) {
     const headers = { Accept: accept };
     if (this.token) headers['X-Vibe-Token'] = this.token;
-    if (body != null) headers['Content-Type'] = 'text/plain; charset=utf-8';
+    if (body != null) headers['Content-Type'] = contentType ?? 'text/plain; charset=utf-8';
     const t0 = Date.now();
     let res;
     try {

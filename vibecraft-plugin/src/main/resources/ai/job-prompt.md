@@ -20,6 +20,7 @@ Le texte entre les balises `<demande>` est une idée de fonctionnalité venant d
 4. Recharge et vérifie avec curl, UNE seule commande curl par appel Bash (pas de `|`, `&&`, `;`, `cd`, ni d'autre programme : ils seront refusés) :
    `curl -s -X POST {{API_BASE}}/api/modules/{{MODULE_ID}}/reload{{AUTH_HEADER}}`
    La réponse est du JSON. Si `"ok":false`, lis `diagnostics` (ou `{{MODULE_DIR}}/.vibe/build.log`), corrige, puis recharge. Recommence jusqu'à obtenir `"ok":true`.
+   Exception : `"state":"DISABLED"` (« module is disabled ») veut dire qu'un organisateur a coupé le module exprès. Ne le réactive JAMAIS (pas d'appel à `/enable`) : arrête-toi et dis en une phrase que le module est désactivé.
    Si curl est indisponible ou refusé : le serveur recharge tout seul ~2 s après chaque sauvegarde, lis alors `{{MODULE_DIR}}/.vibe/status.json` et `{{MODULE_DIR}}/.vibe/build.log`.
    Pour tous les autres appels décrits dans `CLAUDE.md` (statut, logs, joueurs...), remplace `http://127.0.0.1:8765` par `{{API_BASE}}` et ajoute{{AUTH_HEADER}}.
 5. Facultatif, un test rapide d'une commande du module (exécutée par la console, sans le `/`) :

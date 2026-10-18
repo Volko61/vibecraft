@@ -1066,16 +1066,17 @@ public final class ModuleContextImpl implements ModuleContext {
             throw new IllegalArgumentException("recipe must be Keyed (ShapedRecipe, ShapelessRecipe, FurnaceRecipe...)");
         }
         NamespacedKey key = keyed.getKey();
+        // (the 2-argument overloads are deprecated since 26.3: their resendRecipes flag is ignored)
         if (Bukkit.getRecipe(key) != null) {
-            Bukkit.removeRecipe(key, false);
+            Bukkit.removeRecipe(key);
         }
-        if (!Bukkit.addRecipe(recipe, false)) {
+        if (!Bukkit.addRecipe(recipe)) {
             throw new IllegalArgumentException("could not add recipe " + key);
         }
         add(new Registration("recipe", key.toString()) {
             @Override
             void undo() {
-                Bukkit.removeRecipe(key, false);
+                Bukkit.removeRecipe(key);
                 host.recipesChanged();
             }
         });

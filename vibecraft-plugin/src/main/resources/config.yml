@@ -51,9 +51,14 @@ ai:
     - Grep
     - Bash(curl:*)
   max-concurrent-jobs: 4
+  # Hang guard: a job is stopped after this long WITHOUT ANY ACTIVITY (no message, no step, no tool call).
+  # A job that keeps working is never cut by it, only by max-duration-seconds.
   timeout-seconds: 900
-  # Show AI progress lines to everyone (true) or only to ops (false).
-  broadcast-progress: true
+  # Hard limit on the total duration of a job (0 = no limit). Big requests can take a while: keep it generous.
+  max-duration-seconds: 3600
+  # Show what the AI is doing (chat lines + action bar) to every player (true) or only to players with
+  # vibecraft.notify, i.e. ops (false). Replaces the old "broadcast-progress" key, which is no longer read.
+  progress-to-everyone: false
   # Keep one Claude conversation per module so follow-up requests have context.
   resume-sessions: true
   # Optional Claude Code MCP config for AI jobs (JSON: {"mcpServers": {...}}), absolute or relative to the

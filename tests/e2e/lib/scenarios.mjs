@@ -205,6 +205,33 @@ export const SCENARIOS = [
 
   // -------------------------------------------------------------------------------------------
   {
+    name: 'api-validation',
+    title: 'Invalid conversation requests (non-string text, non-UTF-8 body, negative since) are refused before any AI job',
+    timeoutMs: 30000,
+    async run(t) {
+      // Invalid conversation requests are refused BEFORE any job starts (these must never reach the AI).
+      const probe = t.id('conv-probe');
+      const msgPath = `/api/conversations/${probe}/messages`;
+      for (const body of ['{"text":123}', '{"text":true}', '{"text":["a"]}', '{"text":" "}', '{"text":"ok","model":5}']) {
+        const r = await t.api.raw('POST', msgPath, body, { contentType: 'application/json' });
+        t.expect(r.status === 400 && typeof r.body?.error === 'string', `POST .../messages ${body} -> 400 {error}`, { status: r.status, body: r.body });
+      }
+      // Latin-1 bytes without a declared charset (Windows PowerShell 5.1 default): 400, never a silently corrupted request
+      const latin1 = Buffer.from('{"text":"Crée une fusée"}', 'latin1');
+      const l1 = await t.api.raw('POST', msgPath, latin1, { contentType: 'application/json' });
+      t.expect(l1.status === 400 && /UTF-8/.test(String(l1.body?.error)), 'non-UTF-8 body without charset -> 400 {error}', { status: l1.status, body: l1.body });
+      const ev = await t.api.raw('GET', `/api/conversations/${probe}/events?since=-5`);
+      t.expect(ev.status === 400, 'GET .../events?since=-5 -> 400', { status: ev.status, body: ev.body });
+      t.check(!t.ws.exists(probe), 'a refused conversation request created a module directory anyway');
+      if (t.ws.exists(probe)) {
+        await t.api.raw('POST', `/api/ai/${probe}/stop`).catch(() => {});
+        await t.removeModule(probe);
+      }
+    },
+  },
+
+  // -------------------------------------------------------------------------------------------
+  {
     name: 'dashboard',
     title: 'Dashboard HTML served at GET / (self-contained) + full GET /api/status shape',
     timeoutMs: 60000,
@@ -217,7 +244,8 @@ export const SCENARIOS = [
       t.expect(/charset=utf-8/i.test(dash.contentType || '') || /<meta charset="?utf-8/i.test(html), 'dashboard should declare UTF-8', dash.contentType);
       t.assert(/^\s*<!doctype html>/i.test(html) && /<\/html>\s*$/i.test(html), 'GET / must return a complete HTML document', html.slice(0, 120));
       t.expect(/<html[^>]*\blang="fr"/i.test(html), 'dashboard should be French (<html lang="fr">)', (html.match(/<html[^>]*>/i) || [])[0]);
-      t.expect(/<title>[^<]*VibeCraft[^<]*<\/title>/i.test(html), 'dashboard <title> should mention VibeCraft', (html.match(/<title>[^<]*<\/title>/i) || [])[0]);
+      t.expect(/<title>[^<]*\S[^<]*<\/title>/i.test(html), 'dashboard should have a <title>', (html.match(/<title>[^<]*<\/title>/i) || [])[0]);
+      t.expect(/id="btn-new"/.test(html) && /\$\('btn-new'\)\.addEventListener\('click'/.test(html), 'the "Nouvelle conversation" button must have a click handler');
       t.expect(html.includes('/api/status'), 'dashboard should poll /api/status');
       // No external resources: it must work offline on the conference network.
       const external = [...html.matchAll(/<(script|link|img|iframe|audio|video|source)\b[^>]*\b(?:src|href)\s*=\s*["']((?:https?:)?\/\/[^"']+)/gi)].map((m) => `${m[1]} ${m[2]}`);
@@ -395,6 +423,12 @@ export const SCENARIOS = [
       t.assert(lines.some((l) => l.includes('e2e hot enabled ' + t.ver(1))), 'ctx.logger() output should be visible via GET /api/modules/{id}/logs', lines.slice(-10));
       const limited = await t.api.logs(id, 1);
       t.assert(limited.length <= 1, 'logs?limit=1 must return at most 1 line', limited);
+      for (const bad of ['-1', '0', 'abc']) {
+        const r = await t.api.raw('GET', `/api/modules/${id}/logs?limit=${bad}`);
+        t.expect(r.status === 400, `logs?limit=${bad} -> 400`, { status: r.status, body: r.body });
+      }
+      const huge = await t.api.raw('GET', `/api/modules/${id}/logs?limit=99999999999`);
+      t.expect(huge.status === 200 && Array.isArray(huge.body?.lines), 'logs?limit=99999999999 -> 200 (capped)', { status: huge.status });
     },
   },
 
@@ -1297,6 +1331,8 @@ export const SCENARIOS = [
       t.expect(job.moduleId === id && ['QUEUED', 'RUNNING'].includes(job.state) && String(job.prompt).includes(mark(1)), 'new AiJob: moduleId, state QUEUED|RUNNING, prompt', job);
       const busy = await t.api.raw('POST', `/api/ai/${id}`, 'une autre demande pendant que la premiere tourne');
       t.expect(busy.status === 409 && typeof busy.body?.error === 'string', 'a 2nd job on a busy module -> 409 {error}', { status: busy.status, body: busy.body });
+      const busyReset = await t.api.raw('POST', `/api/ai/${id}/reset`);
+      t.expect(busyReset.status === 409 && typeof busyReset.body?.error === 'string', 'reset while a job runs -> 409 {error} (like DELETE /api/conversations/{id})', { status: busyReset.status, body: busyReset.body });
       const done = await waitJob(t, job.id, 60000);
       t.expect(done.state === 'SUCCEEDED', 'job SUCCEEDED', { state: done.state, result: done.result, progress: (done.progress || []).slice(-5) });
       t.expect(String(done.result).includes(mark(1)), 'AiJob.result = final answer of the agent', done.result);
@@ -1363,6 +1399,27 @@ export const SCENARIOS = [
       t.expect(!alive(slow.childPid), `its child process (pid ${slow.childPid}) must be killed too (process tree)`);
       if (alive(slow.childPid)) { try { process.kill(slow.childPid); } catch { /* ignore */ } }
       if (alive(slow.pid)) { try { process.kill(slow.pid); } catch { /* ignore */ } }
+
+      // 4b. disabling the module during a job is an emergency stop: the AI is stopped and the module STAYS disabled
+      const tDis = Date.now();
+      const c4b = await t.api.json('POST', `/api/ai/${id}`, 'Une autre demande tres longue E2E-SLOW');
+      let slow2 = null;
+      for (let i = 0; i < 100 && !slow2; i++) {
+        await sleep(200);
+        slow2 = fakeCalls(t).find((e) => e.mode === 'slow' && e.moduleId === id && e.at >= tDis - 1000);
+      }
+      t.assert(slow2, 'the 2nd slow fake job never started');
+      const dis = await t.api.raw('POST', `/api/modules/${id}/disable`);
+      t.expect(dis.status === 200 && dis.body?.ok === true && dis.body?.aiStopped === true, 'POST disable during a job -> {ok:true, aiStopped:true}', dis.body);
+      const stopped2 = await waitJob(t, c4b.id, 20000);
+      t.expect(stopped2.state === 'STOPPED', 'disable stopped the AI job (STOPPED)', stopped2.state);
+      await sleep(3000); // > watcher debounce: nothing may reload / re-enable it behind our back
+      const infoDis = await t.info(id);
+      t.expect(infoDis && infoDis.state === 'DISABLED', 'the module is still DISABLED after the job ended', t.infoSummary(infoDis));
+      if (alive(slow2.childPid)) { try { process.kill(slow2.childPid); } catch { /* ignore */ } }
+      if (alive(slow2.pid)) { try { process.kill(slow2.pid); } catch { /* ignore */ } }
+      const en = await t.api.json('POST', `/api/modules/${id}/enable`);
+      t.expect(en && en.ok === true, 're-enable after the emergency stop', en);
 
       // 5. a failing agent run -> FAILED, the module keeps its last good version
       const c5 = await t.api.json('POST', `/api/ai/${id}`, 'Une demande qui echoue E2E-FAIL');

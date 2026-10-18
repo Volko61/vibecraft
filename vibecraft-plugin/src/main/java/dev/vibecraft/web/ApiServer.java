@@ -5,8 +5,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.management.ManagementFactory;
+import java.math.BigInteger;
 import java.net.InetSocketAddress;
 import java.net.URLDecoder;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
@@ -37,6 +42,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import dev.vibecraft.ai.AiJob;
 import dev.vibecraft.ai.AiJobService;
+import dev.vibecraft.ai.AiJobState;
 import dev.vibecraft.command.Msg;
 import dev.vibecraft.command.Slug;
 import dev.vibecraft.core.ModuleInfo;
@@ -448,8 +454,10 @@ public final class ApiServer {
                 case "disable" -> {
                     requireMethod(method, "POST");
                     requireModule(id);
+                    // the emergency stop must also stop the AI working on the module, or it reloads / re-enables it
+                    boolean aiStopped = ai.stop(id);
                     return modules.disable(id).copy().orTimeout(DISABLE_TIMEOUT_S, TimeUnit.SECONDS)
-                            .thenApply(okFlag -> new Resp(200, Map.of("ok", Boolean.TRUE.equals(okFlag))));
+                            .thenApply(okFlag -> new Resp(200, Map.of("ok", Boolean.TRUE.equals(okFlag), "aiStopped", aiStopped)));
                 }
                 case "create" -> {
                     requireMethod(method, "POST");
@@ -471,7 +479,7 @@ public final class ApiServer {
                 case "logs" -> {
                     requireMethod(method, "GET");
                     requireModule(id);
-                    int limit = intParam(call.query().get("limit"), 200, 1, 5000);
+                    int limit = intParam("limit", call.query().get("limit"), 200, 1, 5000);
                     return ok(Map.of("lines", modules.logs(id, limit)));
                 }
                 default -> {
@@ -506,6 +514,10 @@ public final class ApiServer {
                 }
                 case "reset" -> {
                     requireMethod(method, "POST");
+                    if (ai.job(id).map(AiJob::state).filter(s -> s == AiJobState.RUNNING || s == AiJobState.QUEUED).isPresent()) {
+                        // same rule as DELETE /api/conversations/{id}: the running job would go on with a forgotten session
+                        throw new ApiException(409, "une IA travaille encore sur " + id + " : arrêtez-la d'abord");
+                    }
                     ai.resetConversation(id);
                     return ok(Map.of("ok", true));
                 }
@@ -828,15 +840,65 @@ public final class ApiServer {
         throw unknownModule(id);
     }
 
-    private static int intParam(String raw, int def, int min, int max) {
+    /** {@code def} if absent; 400 if not a number or below {@code min}; capped at {@code max}. */
+    private static int intParam(String name, String raw, int def, int min, int max) {
         if (raw == null || raw.isBlank()) {
             return def;
         }
+        BigInteger v;
         try {
-            return Math.max(min, Math.min(max, Integer.parseInt(raw.strip())));
+            v = new BigInteger(raw.strip());
         } catch (NumberFormatException e) {
-            throw new ApiException(400, "invalid number '" + Msg.cut(raw, 20) + "'");
+            throw new ApiException(400, "invalid " + name + " '" + Msg.cut(raw, 20) + "': expected a whole number");
         }
+        if (v.compareTo(BigInteger.valueOf(min)) < 0) {
+            throw new ApiException(400, "invalid " + name + " " + Msg.cut(v.toString(), 20) + ": must be at least " + min);
+        }
+        return v.compareTo(BigInteger.valueOf(max)) > 0 ? max : v.intValue();
+    }
+
+    /**
+     * The request body as text: in the charset of the {@code Content-Type} header if one is declared (e.g. Windows
+     * PowerShell 5.1 sends Latin-1), else UTF-8. Bytes that are not valid in that charset are a 400, never silently
+     * replaced by U+FFFD (the AI would get a corrupted request).
+     */
+    static String decode(byte[] bytes, String contentType) {
+        Charset cs = StandardCharsets.UTF_8;
+        String declared = charsetOf(contentType);
+        if (declared != null) {
+            try {
+                cs = Charset.forName(declared);
+            } catch (IllegalArgumentException e) {
+                throw new ApiException(415, "unsupported charset '" + Msg.cut(declared, 30) + "' in Content-Type: send UTF-8");
+            }
+        }
+        try {
+            return cs.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes)).toString();
+        } catch (CharacterCodingException e) {
+            throw new ApiException(400, declared == null
+                    ? "request body is not valid UTF-8: encode it in UTF-8, or declare its charset"
+                            + " (Content-Type: application/json; charset=...)"
+                    : "request body is not valid " + cs.name() + " (charset declared in Content-Type)");
+        }
+    }
+
+    /** The {@code charset} parameter of a Content-Type header, or null. */
+    private static String charsetOf(String contentType) {
+        if (contentType == null) {
+            return null;
+        }
+        for (String part : contentType.split(";")) {
+            String p = part.strip();
+            if (p.regionMatches(true, 0, "charset=", 0, 8)) {
+                String v = p.substring(8).strip();
+                if (v.length() >= 2 && v.startsWith("\"") && v.endsWith("\"")) {
+                    v = v.substring(1, v.length() - 1).strip();
+                }
+                return v.isEmpty() ? null : v;
+            }
+        }
+        return null;
     }
 
     // ------------------------------------------------------------------ static files
@@ -918,10 +980,8 @@ public final class ApiServer {
                     if (bytes.length > MAX_BODY) {
                         throw new ApiException(413, "request body too large (max " + MAX_BODY + " bytes)");
                     }
-                    body = new String(bytes, StandardCharsets.UTF_8);
-                    if (body.startsWith("﻿")) {
-                        body = body.substring(1);
-                    }
+                    String text = decode(bytes, exchange.getRequestHeaders().getFirst("Content-Type"));
+                    body = text.startsWith("﻿") ? text.substring(1) : text;
                 }
             }
             return body;

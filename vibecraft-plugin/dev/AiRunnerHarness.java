@@ -272,16 +272,34 @@ public final class AiRunnerHarness {
         check("after reset: no --resume, new session", !args11.contains("--resume") && !f11.sessionId().equals(f1.sessionId()), args11);
         check("job(id) returns the most recent job", e.job("alpha").map(AiJob::id).orElse("").equals(f11.id()), "");
 
-        // 12. timeout
+        // 12. inactivity timeout (a hung tool: nothing printed)
         AiJobEngine et = engine(fakeCommand(), new File(workspace, "sessions-timeout.yml"), 2, Duration.ofSeconds(4), true, env);
         long tt = System.currentTimeMillis();
         et.start("slowpoke", "SLEEP 600", "harness");
         List<Long> tpids = waitPids(fakeHome, "slowpoke", 3, 20);
         AiJob f12 = waitDone(et, "slowpoke", 60);
-        check("timeout: FAILED with ⏰ after ~4 s", f12.state() == AiJobState.FAILED && last(f12).startsWith("⏰")
-                && System.currentTimeMillis() - tt < 20_000, last(f12) + " after " + (System.currentTimeMillis() - tt) + " ms");
-        check("timeout: process tree killed", tpids.stream().noneMatch(AiRunnerHarness::alive), aliveList(tpids));
+        check("idle timeout: FAILED with ⏰ after ~4 s without output", f12.state() == AiJobState.FAILED && last(f12).startsWith("⏰")
+                && last(f12).contains("signe de vie") && System.currentTimeMillis() - tt < 20_000,
+                last(f12) + " after " + (System.currentTimeMillis() - tt) + " ms");
+        check("idle timeout: process tree killed", tpids.stream().noneMatch(AiRunnerHarness::alive), aliveList(tpids));
         et.shutdown();
+
+        // 12b. a job that keeps working is NOT cut by the inactivity limit, however long it takes
+        AiJobEngine eb = engine(fakeCommand(), new File(workspace, "sessions-busy.yml"), 2, Duration.ofSeconds(3), Duration.ZERO, true, env);
+        AiJob f12b = run(eb, "busybee", "BUSY 8", 60);
+        check("idle timeout: a job printing every second for 8 s survives a 3 s inactivity limit",
+                f12b.state() == AiJobState.SUCCEEDED, f12b.state() + " " + last(f12b));
+        eb.shutdown();
+
+        // 12c. ...but the total limit stops it
+        AiJobEngine ec = engine(fakeCommand(), new File(workspace, "sessions-max.yml"), 2, Duration.ofSeconds(3), Duration.ofSeconds(5), true, env);
+        long tc = System.currentTimeMillis();
+        AiJob f12c = run(ec, "marathon", "BUSY 60", 60);
+        long tcMs = System.currentTimeMillis() - tc;
+        check("max duration: a busy job is stopped with ⏰ after ~5 s", f12c.state() == AiJobState.FAILED
+                && last(f12c).startsWith("⏰ Durée maximale") && last(f12c).contains("continue") && tcMs >= 4_500 && tcMs < 20_000,
+                last(f12c) + " after " + tcMs + " ms");
+        ec.shutdown();
 
         // 13. not logged in -> unavailable with a helpful reason
         Map<String, String> envOut = new HashMap<>(env);
@@ -347,7 +365,7 @@ public final class AiRunnerHarness {
         // the exact argv built by ClaudeRunner, launched by ProcessBuilder (no shell): does the real CLI parse it as intended?
         ClaudeRunner.Request req = new ClaudeRunner.Request(cli.commandPrefix(), workspace, "Réponds juste OK.", "haiku", "acceptEdits",
                 List.of("Read", "Write", "Edit", "MultiEdit", "Glob", "Grep", "Bash(curl:*)"),
-                List.of("Read", "Write", "Edit", "MultiEdit", "Glob", "Grep", "Bash"), null, Duration.ofSeconds(60),
+                List.of("Read", "Write", "Edit", "MultiEdit", "Glob", "Grep", "Bash"), null, Duration.ofSeconds(60), Duration.ZERO,
                 ClaudeCli.childEnv(System.getenv(), Map.of()), List.of("--permission-prompts", "none", "--strict-mcp-config"), "argv");
         List<String> argv = ClaudeRunner.buildCommand(req);
         System.out.println("  argv: " + String.join(" ", argv.subList(1, argv.size())));
@@ -510,8 +528,10 @@ public final class AiRunnerHarness {
         check("locator: explicit missing path -> not found", l3.binary().isEmpty(), String.valueOf(l3));
 
         check("prompt template renders all placeholders", !PromptTemplate.load(AiRunnerHarness.class.getClassLoader())
-                .render(Map.of("MODULE_ID", "x", "MODULE_DIR", "modules/x", "MODULE_DIR_ABS", "/x", "PACKAGE", "vibe.x",
-                        "API_BASE", "http://h", "AUTH_HEADER", "", "REQUEST", "r", "REQUESTED_BY", "p", "CONVERSATION_NOTE", "n"))
+                .render(Map.ofEntries(Map.entry("MODULE_ID", "x"), Map.entry("MODULE_DIR", "modules/x"),
+                        Map.entry("MODULE_DIR_ABS", "/x"), Map.entry("PACKAGE", "vibe.x"), Map.entry("API_BASE", "http://h"),
+                        Map.entry("AUTH_HEADER", ""), Map.entry("REQUEST", "r"), Map.entry("REQUESTED_BY", "p"),
+                        Map.entry("CONVERSATION_NOTE", "n"), Map.entry("IMAGE_PROVIDER", "auto"), Map.entry("IMAGE_PROVIDER_NOTE", "i")))
                 .contains("{{"), "");
     }
 
@@ -525,9 +545,15 @@ public final class AiRunnerHarness {
         return List.of(java, "-Xshare:auto", "-XX:TieredStopAtLevel=1", "-cp", cp, "FakeClaude");
     }
 
-    static AiJobEngine engine(List<String> command, File sessions, int max, Duration timeout, boolean checkAuth, Map<String, String> env) {
+    static AiJobEngine engine(List<String> command, File sessions, int max, Duration idleTimeout, boolean checkAuth, Map<String, String> env) {
+        return engine(command, sessions, max, idleTimeout, Duration.ZERO, checkAuth, env);
+    }
+
+    static AiJobEngine engine(List<String> command, File sessions, int max, Duration idleTimeout, Duration maxDuration,
+                              boolean checkAuth, Map<String, String> env) {
         AiJobEngine.Settings s = new AiJobEngine.Settings(true, "auto", command, command == null ? "haiku" : "",
-                "acceptEdits", List.of("Read", "Write", "Edit", "MultiEdit", "Glob", "Grep", "Bash(curl:*)"), true, max, timeout, true,
+                "acceptEdits", List.of("Read", "Write", "Edit", "MultiEdit", "Glob", "Grep", "Bash(curl:*)"), true, max,
+                idleTimeout, maxDuration, true,
                 workspace, new File(workspace, "modules"), "http://127.0.0.1:" + API_PORT, "", "", 0,
                 checkAuth, List.of(), env);
         return new AiJobEngine(s, log, new SessionStore(sessions, log), PromptTemplate.load(AiRunnerHarness.class.getClassLoader()),

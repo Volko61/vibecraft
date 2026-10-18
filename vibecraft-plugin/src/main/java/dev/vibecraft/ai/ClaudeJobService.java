@@ -21,7 +21,8 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * Bukkit adapter of {@link AiJobEngine}: reads {@code ai.*} / {@code api.*} from config.yml, stores
+ * Bukkit adapter of {@link AiJobEngine}: reads {@code ai.*} / {@code api.*} from config.yml ({@code ai.timeout-seconds}
+ * = time without any activity before a job is stopped, {@code ai.max-duration-seconds} = total limit), stores
  * conversations in {@code plugins/VibeCraft/ai-sessions.yml}, scaffolds missing modules through the
  * {@link ModuleManager}. All the logic (queue, processes, stream parsing) lives in Bukkit-free classes.
  *
@@ -62,7 +63,8 @@ public final class ClaudeJobService implements AiJobService {
             return key == null ? Map.of() : Map.of("OPENROUTER_API_KEY", key);
         });
         AiJobEngine.setRedactor(SecretStore::scrub);
-        int timeout = c.getInt("ai.timeout-seconds", 900);
+        int timeout = c.getInt("ai.timeout-seconds", 900); // without any activity
+        int maxDuration = c.getInt("ai.max-duration-seconds", 3600); // in total, 0 = no limit
         AiJobEngine.Settings s = new AiJobEngine.Settings(
                 c.getBoolean("ai.enabled", true),
                 c.getString("ai.claude-path", "auto"),
@@ -73,6 +75,7 @@ public final class ClaudeJobService implements AiJobService {
                 c.getBoolean("ai.restrict-tools", true),
                 c.getInt("ai.max-concurrent-jobs", 4),
                 Duration.ofSeconds(timeout > 0 ? timeout : 900),
+                Duration.ofSeconds(Math.max(0, maxDuration)),
                 c.getBoolean("ai.resume-sessions", true),
                 workspace,
                 modulesDir,

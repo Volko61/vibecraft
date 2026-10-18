@@ -221,7 +221,9 @@ CREATED, REMOVED). Listener exceptions are caught.
 ## 5. HTTP API (INTERFACE) — `com.sun.net.httpserver`, bound to `api.host:api.port`
 
 All JSON (Gson, records serialize as objects, `serializeNulls`). If `api.token` is set, require header
-`X-Vibe-Token`. CORS not needed (same origin). Bodies are UTF-8 plain text unless stated.
+`X-Vibe-Token`. CORS not needed (same origin). Bodies are UTF-8 plain text unless stated; a `charset` declared in
+`Content-Type` is honoured (e.g. `charset=iso-8859-1`, Windows PowerShell 5.1), and bytes invalid in that charset
+(UTF-8 when none is declared) are a 400, never silently replaced. Bad query numbers (`limit=-1`, `since=-5`) are a 400.
 Requests with a `Host` other than 127.0.0.1 / localhost / [::1] / `api.host` (DNS rebinding), with an
 `Origin` other than this server (cross-site pages) or with `Sec-Fetch-Site: cross-site|same-site` (other sites and other
 localhost ports, also for GETs without Origin) get 403; curl (no Origin, no fetch metadata) and the dashboard keep working.
@@ -239,15 +241,15 @@ Bukkit calls happen on the main thread (`Bukkit.getScheduler().callSyncMethod` o
 | `GET /api/modules/{id}` | | `ModuleInfo` or 404 `{error}` |
 | `POST /api/modules/{id}/reload` | | `ReloadResult` (waits up to 120 s) |
 | `POST /api/modules/{id}/enable` | | `ReloadResult` |
-| `POST /api/modules/{id}/disable` | | `{ok}` |
+| `POST /api/modules/{id}/disable` | | `{ok, aiStopped}` (emergency stop: also stops the module's AI job, which would otherwise reload / re-enable it) |
 | `POST /api/modules/{id}/create` | description (optional) | `{ok, created}` (does not wait for load) |
-| `GET /api/modules/{id}/logs?limit=200` | | `{lines:[..]}` |
+| `GET /api/modules/{id}/logs?limit=200` | | `{lines:[..]}` (`limit` 1..5000, larger is capped) |
 | `POST /api/command` | command line (leading `/` optional) | `{ok, output:[lines]}` run as console via `Server#createCommandSender(feedback)` on main thread, waits ≤10 s, plain-text output |
 | `GET /api/players` | | `[{name,uuid,world,x,y,z,gameMode,health,op}]` |
 | `GET /api/ai` | | `[AiJob]` |
 | `POST /api/ai/{id}` | prompt | `AiJob` (201) / 409 `{error}` if busy / 503 if unavailable |
 | `POST /api/ai/{id}/stop` | | `{ok}` |
-| `POST /api/ai/{id}/reset` | | `{ok}` (forget conversation) |
+| `POST /api/ai/{id}/reset` | | `{ok}` (forget conversation; 409 while a job runs, like `DELETE /api/conversations/{id}`) |
 | `GET /api/ideas` | | `[Idea]` |
 | `POST /api/ideas` | text | `Idea` |
 | `POST /api/ideas/{n}/accept?module=<id>` | | `AiJob` (starts AI job with the idea text) |
@@ -255,7 +257,7 @@ Bukkit calls happen on the main thread (`Bukkit.getScheduler().callSyncMethod` o
 | `GET /api/conversations` | | `[{id, title, state, updatedAt, lastLine, moduleState, generation}]` newest first (every conversation + every module; `state` idle/running/queued/failed, `title` = first request cut to 60 or the id) |
 | `GET /api/conversations/{id}` | | `{id, title, state, moduleState, generation, messages:[{id, role: user/assistant/system, at, blocks:[{type: text/thinking/tool_use/tool_result/status, text?, name?, input?, ok?}]}]}` |
 | `GET /api/conversations/{id}/events?since=N` | | `{messages, state, count}`: the client's last message again (the assistant message being streamed) + the new ones |
-| `POST /api/conversations/{id}/messages` | JSON `{text, imageProvider: auto/openrouter/meshy, model?}` | 201 `{jobId}` (same 400/409/413/503 as `POST /api/ai/{id}`; creates the module) |
+| `POST /api/conversations/{id}/messages` | JSON `{text, imageProvider: auto/openrouter/meshy, model?}` (strings: anything else is a 400) | 201 `{jobId}` (same 400/409/413/503 as `POST /api/ai/{id}`; creates the module) |
 | `POST /api/conversations/{id}/stop` | | `{ok}` |
 | `DELETE /api/conversations/{id}` | | `{ok, deleted}` (transcript + Claude session forgotten, module files kept; 409 while a job runs) |
 | `GET /api/providers` | | `{openrouter:{available, imageModel}, meshy:{available}, claude:{available, reason}}` |
@@ -276,8 +278,9 @@ Messages in **French**, colourful (MiniMessage), concise.
 In-game Claude interface (`command/ClaudeDialogs`, native 26.3 dialog screens through Paper's dialog API, no mod):
 conversations list (state icon, id, title; last line as tooltip) + "Nouvelle conversation" + "Modules" (chest menu);
 a conversation shows its last messages compactly (user / assistant text, thinking collapsed "💭 réflexion…" with an
-expand button, tool steps, status lines), a multiline input, an image provider selector (Auto / OpenRouter / Meshy),
-buttons Envoyer / Arrêter / Rafraîchir / Retour. Buttons are `minecraft:dynamic/custom` actions `vibecraft:claude`
+expand button, tool steps, status lines), a multiline input (8000 chars, no line limit: with one the client silently
+refuses a paste that would wrap past the last line), the "Images/3D : mode avancé" toggle, a model selector (same
+choices as the dashboard: default / puissant / équilibré / rapide), buttons Envoyer / Arrêter / Rafraîchir / Retour. Buttons are `minecraft:dynamic/custom` actions `vibecraft:claude`
 with `{a, c}` + the inputs, handled in `PlayerCustomClickEvent` on the main thread. While a job runs the dialog is
 re-sent every ~2 s when the conversation changed (no text input then, so nothing typed is lost), once more at the
 end, then never again (no spam); Escape = the exit action (stops refreshing). Also opened with sneak + right click
@@ -288,16 +291,20 @@ notifies ops with a clickable `[Accepter]`.
 
 Notifier: on RELOADED → everyone (if `notify.broadcast-reloads`): `✔ <id> v<gen> chargé à chaud`;
 FAILED/ROLLED_BACK/TRIPPED/RUNTIME_ERROR → players with `vibecraft.notify` (+ console) with a short
-reason; AI progress lines → everyone or ops (`ai.broadcast-progress`), prefixed `[🤖 <id>]`, throttled
+reason; AI progress lines → players with `vibecraft.notify` (ops) only, or everyone with
+`ai.progress-to-everyone: true` (the old `ai.broadcast-progress` key is no longer read), prefixed `[🤖 <id>]`, throttled
 (≤ 1 line / 1.5 s / job, drop the excess but always deliver the final line). Also an action bar while
-a job runs. All Bukkit calls on the main thread.
+a job runs (same audience). All Bukkit calls on the main thread.
 
 ## 7. AI jobs (AI)
 
 `ClaudeJobService` runs Claude Code headless:
 * Binary: `ai.claude-path` or auto-detect (PATH `claude`/`claude.exe`, then newest
   `%APPDATA%/Claude/claude-code/<version>/<hash>/claude.exe`).
-* One job per module at a time, `max-concurrent-jobs` in parallel (others QUEUED), timeout.
+* One job per module at a time, `max-concurrent-jobs` in parallel (others QUEUED). Two time limits: `timeout-seconds`
+  (default 900) without ANY activity on stdout (hung CLI / tool), and `max-duration-seconds` (default 3600, 0 = none) in
+  total; a job that keeps working is only stopped by the second, and the next message resumes its conversation.
+* Disabling a module (API, `/vibe disable`, menu, `.vibe/disabled` marker) stops its AI job: it is the emergency stop.
 * Working directory: the workspace root (`modules-dir/..`, contains CLAUDE.md). Prompt passed on
   **stdin** (avoid Windows quoting issues), flags: `-p --output-format stream-json --verbose
   --permission-mode <cfg> --allowedTools <cfg...> [--model <cfg>] [--resume <session>]`.

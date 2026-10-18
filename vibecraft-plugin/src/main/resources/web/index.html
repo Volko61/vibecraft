@@ -1022,6 +1022,11 @@ details[open] > summary .chev { transform: rotate(90deg); }
     setHidden($('conv-empty'), convs.length > 0);
     setCls($('btn-new'), 'on', !selectedId);
   }
+  $('btn-new').addEventListener('click', () => {
+    if (mobile()) openSide(false);
+    navigate(null);
+    $('input').focus({ preventScroll: true });
+  });
 
   // ======================================================================
   // Thread rendering

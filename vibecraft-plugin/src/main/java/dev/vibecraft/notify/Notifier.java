@@ -334,8 +334,13 @@ public final class Notifier {
         console(c);
     }
 
+    /**
+     * Who sees the AI at work (chat lines + action bar): players with vibecraft.notify, or everyone with
+     * {@code ai.progress-to-everyone: true}. (The old key {@code ai.broadcast-progress}, true in every config.yml
+     * written before, is deliberately no longer read: players without permission must not see the AI by default.)
+     */
     private Predicate<Player> aiAudience() {
-        boolean everyone = plugin.getConfig().getBoolean("ai.broadcast-progress", true);
+        boolean everyone = plugin.getConfig().getBoolean("ai.progress-to-everyone", false);
         return everyone ? p -> true : p -> p.hasPermission(NOTIFY_PERM);
     }
 

@@ -193,7 +193,7 @@ public final class VibeCommand implements TabExecutor {
         helpLine(sender, "info", " <id>", "détails d'un module");
         helpLine(sender, "reload", " <id|all>", "recompiler à chaud");
         helpLine(sender, "enable", " <id>", "réactiver un module");
-        helpLine(sender, "disable", " <id>", "désactiver un module");
+        helpLine(sender, "disable", " <id>", "désactiver un module (arrête aussi son IA)");
         helpLine(sender, "errors", " <id>", "erreurs et diagnostics");
         helpLine(sender, "logs", " <id> [lignes]", "derniers logs");
         helpLine(sender, "new", " <id> [description]", "créer un module vide");
@@ -445,6 +445,17 @@ public final class VibeCommand implements TabExecutor {
         if (!exists(id)) {
             known(sender, id);
             return;
+        }
+        // emergency stop: the AI working on the module is stopped too, or it would reload / re-enable it
+        boolean aiStopped;
+        try {
+            aiStopped = ai.stop(id);
+        } catch (RuntimeException e) {
+            aiStopped = false;
+            plugin.getLogger().log(Level.WARNING, "/vibe disable " + id + ": cannot stop the AI job", e);
+        }
+        if (aiStopped) {
+            send(sender, Msg.pmm("<gold>⏹</gold> Tâche IA de <white><id></white> arrêtée.", Msg.text("id", id)));
         }
         whenDone(sender, () -> modules.disable(id), 60, (ok, err) -> {
             if (err != null) {
@@ -707,6 +718,12 @@ public final class VibeCommand implements TabExecutor {
     }
 
     private void reset(CommandSender sender, String id) {
+        if (activeJobs().containsKey(id)) {
+            // the running job would go on with a conversation that was just forgotten
+            error(sender, "Une IA travaille encore sur <white><id></white> : arrête-la d'abord. <btn>", Msg.text("id", id),
+                    Msg.comp("btn", Msg.button("Arrêter", NamedTextColor.GOLD, "/vibe stop " + id, "Arrêter la tâche en cours")));
+            return;
+        }
         async(() -> {
             ai.resetConversation(id);
             return Boolean.TRUE;

@@ -31,6 +31,8 @@ rm -rf "$OUT/classes"
 mkdir -p "$OUT/classes"
 find src/main/java -name '*.java' > "$OUT/sources.txt"
 
+# Keep the code free of deprecation warnings (use the replacement API): to print one, javac needs the deprecated
+# method's org.jetbrains.annotations classes, which server/libraries does not have -> "cannot access NotNull" error.
 "$JDK_BIN/javac" -encoding UTF-8 --release 25 -g -parameters -Xlint:all,-serial,-processing,-options,-classfile \
   -d "$OUT/classes" -cp "$CP" "@$OUT/sources.txt"
 

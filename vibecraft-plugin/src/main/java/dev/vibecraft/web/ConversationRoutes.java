@@ -23,7 +23,7 @@ import dev.vibecraft.web.ApiExtensions.Reply;
  * GET    /api/conversations                       [{id, title, state, updatedAt, lastLine, moduleState, generation}] newest first
  * GET    /api/conversations/{id}                  {id, title, state, moduleState, generation, messages:[{id, role, at, blocks:[...]}]}
  * GET    /api/conversations/{id}/events?since=N   {messages:[new or updated], state, count}
- * POST   /api/conversations/{id}/messages         {text, imageProvider: auto|openrouter|meshy, model?} -> 201 {jobId}
+ * POST   /api/conversations/{id}/messages         {text, imageProvider: auto|openrouter|meshy, model?} (strings) -> 201 {jobId}
  * POST   /api/conversations/{id}/stop             {ok}
  * DELETE /api/conversations/{id}                  {ok, deleted} (conversation + Claude session forgotten, module files kept)
  * GET    /api/providers                           {openrouter:{available, imageModel}, meshy:{available}, claude:{available, reason}}
@@ -106,9 +106,12 @@ public final class ConversationRoutes {
                     int since;
                     try {
                         String q = r.query().get("since");
-                        since = q == null || q.isBlank() ? 0 : Math.max(0, Integer.parseInt(q.strip()));
+                        since = q == null || q.isBlank() ? 0 : Integer.parseInt(q.strip());
                     } catch (NumberFormatException e) {
-                        return done(Reply.error(400, "invalid since (number of messages the client has)"));
+                        since = -1;
+                    }
+                    if (since < 0) {
+                        return done(Reply.error(400, "invalid since: expected the number of messages the client has (0 or more)"));
                     }
                     Map<String, Object> m = new LinkedHashMap<>();
                     m.put("messages", messages(conv.store().since(id, since)));
@@ -146,6 +149,12 @@ public final class ConversationRoutes {
             o = el.getAsJsonObject();
         } catch (com.google.gson.JsonParseException e) {
             return Reply.error(400, "invalid JSON body (expected {\"text\": \"...\", \"imageProvider\": \"auto\"})");
+        }
+        for (String k : List.of("text", "imageProvider", "model")) {
+            JsonElement e = o.get(k);
+            if (e != null && !e.isJsonNull() && !(e.isJsonPrimitive() && e.getAsJsonPrimitive().isString())) {
+                return Reply.error(400, "\"" + k + "\" must be a string");
+            }
         }
         String text = str(o, "text");
         String by = r.query().get("by");
@@ -218,9 +227,10 @@ public final class ConversationRoutes {
         return out;
     }
 
+    /** The string value of {@code k}, or null if absent / null / not a string. */
     private static String str(JsonObject o, String k) {
         JsonElement e = o.get(k);
-        return e != null && e.isJsonPrimitive() ? e.getAsString() : null;
+        return e != null && e.isJsonPrimitive() && e.getAsJsonPrimitive().isString() ? e.getAsString() : null;
     }
 
     private static String cut(String s) {

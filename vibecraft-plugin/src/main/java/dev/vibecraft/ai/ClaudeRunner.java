@@ -23,18 +23,25 @@ import java.util.function.Consumer;
  * Runs ONE headless Claude Code process ({@code claude -p --output-format stream-json --verbose ...})
  * and blocks until it ends. No shell: the command is launched directly, the prompt is written to stdin
  * (UTF-8) and stdin is closed. stdout is parsed by a {@link StreamTranslator} on a reader thread,
- * stderr is kept (last lines). {@link #stop()} and the timeout kill the whole process tree.
+ * stderr is kept (last lines). {@link #stop()} and the two time limits (inactivity, total duration) kill the
+ * whole process tree.
  * Pure JDK + Gson (no Bukkit): usable from the dev harness.
  */
 public final class ClaudeRunner {
 
-    /** Everything needed to launch one process. */
+    /**
+     * Everything needed to launch one process.
+     *
+     * @param idleTimeout the process is killed after that long without any stdout line (hung CLI); null / zero = never
+     * @param maxDuration the process is killed after that long in total; null / zero = never
+     */
     public record Request(List<String> commandPrefix, File workDir, String prompt, String model, String permissionMode,
-                          List<String> allowedTools, List<String> tools, String resumeSessionId, Duration timeout,
-                          Map<String, String> env, List<String> extraArgs, String moduleId) {
+                          List<String> allowedTools, List<String> tools, String resumeSessionId, Duration idleTimeout,
+                          Duration maxDuration, Map<String, String> env, List<String> extraArgs, String moduleId) {
     }
 
-    public enum End { COMPLETED, STOPPED, TIMED_OUT, LAUNCH_FAILED }
+    /** {@code TIMED_OUT}: {@code maxDuration} reached; {@code STALLED}: nothing printed for {@code idleTimeout}. */
+    public enum End { COMPLETED, STOPPED, TIMED_OUT, STALLED, LAUNCH_FAILED }
 
     /** What happened. {@code result} is null if the process never printed a result line. */
     public record Outcome(End end, int exitCode, StreamTranslator.Final result, String sessionId, boolean realActivity,
@@ -59,6 +66,9 @@ public final class ClaudeRunner {
     private volatile Process process;
     private volatile boolean stopRequested;
     private volatile boolean timedOut;
+    private volatile boolean stalled;
+    /** Time of the last stdout line (= the conversation moved on). */
+    private volatile long lastActivity;
     private final CountDownLatch killDone = new CountDownLatch(1);
     private volatile Consumer<String> rawSink;
 
@@ -125,6 +135,7 @@ public final class ClaudeRunner {
             return outcome(End.LAUNCH_FAILED, -1, tr, String.valueOf(e.getMessage()), t0);
         }
         process = p;
+        lastActivity = System.currentTimeMillis();
         if (stopRequested) { // stop() raced with start()
             killTree(p.toHandle());
         }
@@ -146,11 +157,20 @@ public final class ClaudeRunner {
 
         int exit = -1;
         try {
-            long ms = req.timeout() == null || req.timeout().isZero() ? Long.MAX_VALUE : req.timeout().toMillis();
-            if (!p.waitFor(ms, TimeUnit.MILLISECONDS)) {
-                timedOut = true;
+            long idleMs = millis(req.idleTimeout());
+            long maxMs = millis(req.maxDuration());
+            while (!p.waitFor(250, TimeUnit.MILLISECONDS)) {
+                long now = System.currentTimeMillis();
+                if (now - t0 >= maxMs) {
+                    timedOut = true;
+                } else if (now - lastActivity >= idleMs) {
+                    stalled = true;
+                } else {
+                    continue;
+                }
                 killTree(p.toHandle());
                 p.waitFor(10, TimeUnit.SECONDS);
+                break;
             }
             if (!p.isAlive()) {
                 exit = p.exitValue();
@@ -167,8 +187,12 @@ public final class ClaudeRunner {
             tick.cancel(false);
         }
         tr.finish();
-        End end = stopRequested ? End.STOPPED : timedOut ? End.TIMED_OUT : End.COMPLETED;
+        End end = stopRequested ? End.STOPPED : timedOut ? End.TIMED_OUT : stalled ? End.STALLED : End.COMPLETED;
         return outcome(end, exit, tr, null, t0);
+    }
+
+    private static long millis(Duration d) {
+        return d == null || d.isZero() || d.isNegative() ? Long.MAX_VALUE : d.toMillis();
     }
 
     /** Kill the process tree (idempotent; safe from any thread). Returns once the tree is gone (max ~3 s). */
@@ -239,6 +263,7 @@ public final class ClaudeRunner {
         try (BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = r.readLine()) != null) {
+                lastActivity = System.currentTimeMillis();
                 try {
                     tr.accept(line);
                     Consumer<String> raw = rawSink;

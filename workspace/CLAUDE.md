@@ -116,7 +116,7 @@ If your prompt gives another API base URL or an `X-Vibe-Token` header, use them 
 | run a server command as the console | `curl -s -X POST http://127.0.0.1:8765/api/command --data "say hi"` |
 | online players | `curl -s http://127.0.0.1:8765/api/players` |
 | scaffold a new module (optional) | `curl -s -X POST http://127.0.0.1:8765/api/modules/<id>/create --data "description"` |
-| re-enable a disabled module | `curl -s -X POST http://127.0.0.1:8765/api/modules/<id>/enable` |
+| re-enable a disabled module (ONLY if a person explicitly asks you to: see `"DISABLED"` below) | `curl -s -X POST http://127.0.0.1:8765/api/modules/<id>/enable` |
 | resource pack status + asset problems (`issues`) | `curl -s http://127.0.0.1:8765/api/pack` |
 | generate a texture with AI (ASSETS.md section 2) | `curl -s -X POST http://127.0.0.1:8765/api/modules/<id>/textures -d '{"path":"assets/<ns>/textures/item/x.png","prompt":"..."}'` |
 | which image / 3D providers have a key | `curl -s http://127.0.0.1:8765/api/providers` |
@@ -131,7 +131,9 @@ Reload answer:
 - `ok:true`: your new code runs (`generation` N). Warnings in `diagnostics` can be ignored.
 - `ok:false, rolledBack:true`: the previous version is still running. Fix and reload.
 - `state:"FAILED"`: nothing runs (first version broken). `"TRIPPED"`: circuit breaker (too many runtime
-  errors, see logs / `.vibe/errors.log`); fix and reload to re-arm. `"DISABLED"`: use the enable endpoint.
+  errors, see logs / `.vibe/errors.log`); fix and reload to re-arm. `"DISABLED"` (`error: "module is disabled"`):
+  an organizer turned the module off on purpose (emergency stop). NEVER re-enable it yourself: stop working
+  and say in your final answer that the module is disabled and must be re-enabled by an organizer.
 - reload works as soon as the folder holds your `.java` file (no need to wait for the watcher); 404 = no such folder.
 - `GET /api/modules/<id>` also returns `lastError`, `runtimeErrorCount`, `recentErrors`, `commands`,
   `listeners`, `tasks`, `msPerTick`. Files: `.vibe/build.log` (compiler output), `.vibe/errors.log`

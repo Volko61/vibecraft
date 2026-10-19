@@ -22,6 +22,16 @@ Prérequis : un JDK 25 dans `runtime/jdk-25/` et Paper 26.3 dans `server/paper.j
 
 Pour coder avec Claude Desktop : ouvrir une session sur le dossier `workspace/` (une session par module). Les IA y lisent [`workspace/CLAUDE.md`](workspace/CLAUDE.md) et [`workspace/ASSETS.md`](workspace/ASSETS.md).
 
+## Héberger sur un VPS Linux
+
+Pour un serveur joignable de partout (Ubuntu, systemd), en root sur le VPS :
+
+```bash
+git clone https://github.com/Volko61/vibecraft.git /opt/vibecraft && /opt/vibecraft/deploy/linux/install.sh
+```
+
+Détails, administration (`vibecraft logs`, `vibecraft cmd op <pseudo>`, `vibecraft update`) et sécurité : [docs/DEPLOY-VPS.md](docs/DEPLOY-VPS.md).
+
 ## Contenu du dépôt
 
 | Dossier | Rôle |
@@ -31,6 +41,7 @@ Pour coder avec Claude Desktop : ouvrir une session sur le dossier `workspace/` 
 | `tests/` | tests de bout en bout (bot mineflayer), corpus de red-team |
 | `proxy/` | filet de sécurité Velocity + limbo |
 | `scripts/` | lancement du serveur |
+| `deploy/linux/` | installation sur un VPS Linux (systemd, pare-feu) |
 | `docs/` | architecture détaillée |
 
 ## Sécurité pour une conférence

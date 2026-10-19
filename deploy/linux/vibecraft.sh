@@ -23,7 +23,7 @@ case "${1:-}" in
     ;;
   update)
     sudo -u "$USER_NAME" -H git -C "$ROOT" pull --ff-only
-    sudo -u "$USER_NAME" -H "$ROOT/vibecraft-plugin/build.sh"
+    sudo -u "$USER_NAME" -H bash "$ROOT/vibecraft-plugin/build.sh"
     exec systemctl restart vibecraft.service
     ;;
   claude-login) exec sudo -u "$USER_NAME" -H bash -lc 'PATH="$HOME/.local/bin:$PATH" claude auth login' ;;

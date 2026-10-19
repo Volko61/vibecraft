@@ -111,7 +111,7 @@ chmod 640 /etc/default/vibecraft
 chown "root:$USER_NAME" /etc/default/vibecraft
 
 say "Compilation du plugin"
-as_user "$ROOT/vibecraft-plugin/build.sh"
+as_user bash "$ROOT/vibecraft-plugin/build.sh"
 
 if [ "${SKIP_CLAUDE:-0}" != 1 ] && [ ! -x "$USER_HOME/.local/bin/claude" ]; then
   say "Claude Code (pour /vibe ai)"

@@ -27,11 +27,23 @@ Write-Host "  Dashboard           : http://127.0.0.1:8765/" -ForegroundColor Gra
 Write-Host "  Arrêt               : tape 'stop' dans cette console" -ForegroundColor Gray
 Write-Host ""
 
+# /reset (map + modules effacés) arrête le serveur après avoir écrit ce fichier : on le relance alors tout seul
+# (le plugin consomme le fichier au démarrage suivant).
+$resetMarker = Join-Path $server "plugins\VibeCraft\reset.pending"
+
 Push-Location $server
 try {
-    & $java "-Xms1G" "-Xmx$Memory" "-XX:+UseG1GC" "-XX:+ParallelRefProcEnabled" "-XX:MaxGCPauseMillis=200" `
-        "-XX:+UnlockExperimentalVMOptions" "-XX:+DisableExplicitGC" "-XX:+AlwaysPreTouch" `
-        "-jar" "paper.jar" "--nogui"
+    while ($true) {
+        $started = Get-Date
+        & $java "-Xms1G" "-Xmx$Memory" "-XX:+UseG1GC" "-XX:+ParallelRefProcEnabled" "-XX:MaxGCPauseMillis=200" `
+            "-XX:+UnlockExperimentalVMOptions" "-XX:+DisableExplicitGC" "-XX:+AlwaysPreTouch" `
+            "-jar" "paper.jar" "--nogui"
+        # Relance seulement pour un /reset demandé pendant CE démarrage (jamais en boucle si le plugin ne le consomme pas).
+        if (-not ((Test-Path $resetMarker) -and (Get-Item $resetMarker).LastWriteTime -gt $started)) { break }
+        Write-Host ""
+        Write-Host "  Remise a zero demandee (/reset) : redemarrage sur une nouvelle map..." -ForegroundColor Magenta
+        Write-Host ""
+    }
 }
 finally {
     Pop-Location

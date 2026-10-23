@@ -216,10 +216,10 @@ public final class Policy {
         return forbiddenCommandLine(commandLine, true);
     }
 
-    /** Commands that stop / reload the server, disconnect or promote players, or change who may join. */
+    /** Commands that stop / reload / wipe the server, disconnect or promote players, or change who may join. */
     private static final Set<String> ADMIN_COMMANDS = Set.of("stop", "restart", "reload", "rl", "op", "deop", "kick",
             "ban", "ban-ip", "pardon", "pardon-ip", "whitelist", "transfer", "save-off", "setidletimeout", "tick", "debug",
-            "jfr", "perf");
+            "jfr", "perf", "reset");
     private static final Set<String> HOST_COMMANDS = Set.of("vibe", "vc");
 
     /**

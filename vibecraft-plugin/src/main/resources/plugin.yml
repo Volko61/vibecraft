@@ -10,6 +10,10 @@ commands:
     usage: /vibe help
     aliases: [vc]
     permission: vibecraft.admin
+  reset:
+    description: Back to a blank server - new map (new seed), no module, no AI conversation, no idea. Restarts the server.
+    usage: /reset [confirm [seed] | cancel]
+    permission: vibecraft.admin
   idea:
     description: Suggest a feature to the live coders.
     usage: /idea <your idea>

@@ -9,6 +9,7 @@ import dev.vibecraft.ai.Conversations;
 import dev.vibecraft.ai.JobOptions;
 import dev.vibecraft.web.ConversationRoutes;
 import dev.vibecraft.command.IdeaCommand;
+import dev.vibecraft.command.ResetCommand;
 import dev.vibecraft.command.VibeCommand;
 import dev.vibecraft.core.ModuleEvent;
 import dev.vibecraft.core.ModuleManager;
@@ -17,6 +18,7 @@ import dev.vibecraft.ext.Extensions;
 import dev.vibecraft.ideas.IdeaQueue;
 import dev.vibecraft.ideas.IdeaQueueImpl;
 import dev.vibecraft.notify.Notifier;
+import dev.vibecraft.reset.FreshStart;
 import dev.vibecraft.web.ApiServer;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -30,6 +32,11 @@ public final class VibeCraftPlugin extends JavaPlugin {
     private ApiServer api;
     private Extensions extensions;
     private ConversationRoutes conversationRoutes;
+
+    @Override
+    public void onLoad() {
+        FreshStart.applyPending(this); // /reset: before the worlds, the modules and the stores are loaded
+    }
 
     @Override
     public void onEnable() {
@@ -69,6 +76,11 @@ public final class VibeCraftPlugin extends JavaPlugin {
         PluginCommand ideaCmd = Objects.requireNonNull(getCommand("idea"));
         ideaCmd.setExecutor(idea);
         ideaCmd.setTabCompleter(idea);
+
+        ResetCommand reset = new ResetCommand(this, modules, ai);
+        PluginCommand resetCmd = Objects.requireNonNull(getCommand("reset"));
+        resetCmd.setExecutor(reset);
+        resetCmd.setTabCompleter(reset);
 
         modules.start();
         extensions.start(); // hot resource pack, OpenRouter, Meshy, texture / 3D generation, /api/pack...

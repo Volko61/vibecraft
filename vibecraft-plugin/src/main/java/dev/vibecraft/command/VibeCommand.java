@@ -205,6 +205,10 @@ public final class VibeCommand implements TabExecutor {
         helpLine(sender, "accept", " <n> [id]", "envoyer une idée à l'IA");
         helpLine(sender, "dismiss", " <n>", "ignorer une idée");
         helpLine(sender, "dashboard", "", "lien du tableau de bord");
+        Component reset = Component.text("/reset", NamedTextColor.RED)
+                .clickEvent(ClickEvent.runCommand("/reset"))
+                .hoverEvent(HoverEvent.showText(Component.text("Demande une confirmation avant d'effacer", NamedTextColor.GRAY)));
+        send(sender, Msg.mm(" <cmd> <dark_gray>—</dark_gray> <gray>tout effacer : nouvelle map, plus aucun module</gray>", Msg.comp("cmd", reset)));
     }
 
     private void helpLine(CommandSender sender, String sub, String argsHint, String desc) {

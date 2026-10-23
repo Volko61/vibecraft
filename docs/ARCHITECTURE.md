@@ -172,7 +172,7 @@ Every module class is rewritten before definition:
    `net.minecraft.network.Connection`, `PlayerList`: a module could disconnect players through them), reading `System.in`, and module classes
    extending `ChunkGenerator` / `BiomeProvider` / `BlockPopulator` (the chunk system crashes the server on any
    error). Command lines dispatched by modules (and by the HTTP API, minus `/vibe`) are checked by
-   `Policy.forbiddenCommandLine`: stop, restart, reload, op, deop, kick, ban*, pardon*, whitelist, transfer,
+   `Policy.forbiddenCommandLine`: stop, restart, reload, reset, op, deop, kick, ban*, pardon*, whitelist, transfer,
    save-off, tick, debug... also inside `execute ... run`.
 5. Uncaught `StackOverflowError` / exceptions / errors from guarded calls are caught, logged with the
    module id and the module's own stack frames, recorded (ModuleInfo.recentErrors, errors.log) and
@@ -288,6 +288,19 @@ holding a compass (`ui.compass-opens-claude`) and from the chest menu ("Claude" 
 
 `/idea <text>` (perm `vibecraft.idea`, everyone): adds to the queue (cooldown), thanks the player,
 notifies ops with a clickable `[Accepter]`.
+
+`/reset [confirm [seed] | cancel]` (perm `vibecraft.admin`, `reset/FreshStart`): back to a blank server. `/reset` lists
+what will be erased with `[Tout effacer]` / `[Choisir la seed…]` / `[Annuler]`; `/reset confirm [seed]` (within 60 s,
+random seed by default) stops the AI jobs, writes `level-seed` to `server.properties` and the marker
+`plugins/VibeCraft/reset.pending` (seed + names of the loaded worlds), shows a 5 s countdown title to everyone, then
+stops the server (`/reset cancel` during the countdown deletes the marker). The main world cannot be unloaded live,
+so the wipe happens in `onLoad` of the next start, before any world / module / store is loaded: the marker is
+deleted first (no wipe if it cannot be, so a reset never repeats), then the world folders (`<level-name>`,
+`_nether`, `_the_end` and the recorded worlds; player data and advancements go with them), `workspace/modules/*`
+(dot-files kept), `workspace/data/*`, `conversations/`, `ai-sessions.yml` and `ideas.yml`. Kept: config.yml,
+secrets.yml, ops / whitelist / bans, other plugins. A modules-dir / data-dir that contains the server directory is
+never wiped. Restart: `scripts/start-server.ps1` relaunches when the marker was written during that run,
+`proxy/run-main-forever.ps1` always does (players wait in the limbo); otherwise start the server by hand.
 
 Notifier: on RELOADED → everyone (if `notify.broadcast-reloads`): `✔ <id> v<gen> chargé à chaud`;
 FAILED/ROLLED_BACK/TRIPPED/RUNTIME_ERROR → players with `vibecraft.notify` (+ console) with a short

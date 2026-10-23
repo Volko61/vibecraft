@@ -41,7 +41,7 @@ Variables utiles : `VIBECRAFT_MEMORY=6G` (mémoire max), `UPGRADE_PAPER=1`, `SKI
 | N'importe quelle commande console | `sudo vibecraft cmd <commande>` |
 | Arrêter / démarrer / état | `sudo vibecraft stop` / `start` / `status` |
 | Mettre à jour le jeu (git pull + build + redémarrage) | `sudo vibecraft update` |
-| Connecter Claude Code (`/vibe ai`) | `sudo vibecraft claude-login` |
+| Connecter l'IA à son compte (`/vibe ai`), une fois | `sudo vibecraft ai-login` |
 | Mémoire, clés API | `/etc/default/vibecraft` puis `sudo vibecraft restart` |
 
 **Se connecter** : Multijoueur → Ajouter un serveur → l'IP du VPS (ou un nom de domaine qui pointe dessus).
@@ -57,6 +57,23 @@ ssh -L 8765:127.0.0.1:8765 root@<ip-du-vps>
 
 **Clés** OpenRouter / Meshy : dans `/etc/default/vibecraft` (`OPENROUTER_API_KEY=...`, `MESHY_API_KEY=...`) ou
 dans `server/plugins/VibeCraft/secrets.yml`.
+
+## Connecter l'IA (`/vibe ai`)
+
+Tant que Claude Code n'est pas connecté, le jeu affiche « IA indisponible : l'IA n'est pas encore connectée à son
+compte ». Sur le VPS :
+
+```bash
+sudo vibecraft ai-login
+```
+
+La commande affiche un lien : ouvre-le dans le navigateur de ton PC, connecte-toi, puis colle le code
+affiché dans le terminal. L'IA se réactive toute seule dans les 10 secondes, sans redémarrer le serveur
+(la console, `sudo vibecraft logs`, affiche alors `[AI] Claude Code auth: ...`).
+
+Autre possibilité : une clé API ou un jeton dans `/etc/default/vibecraft` (`ANTHROPIC_API_KEY=...`, ou
+`CLAUDE_CODE_OAUTH_TOKEN=...` obtenu avec `sudo -u vibecraft -H ~vibecraft/.local/bin/claude setup-token`),
+puis `sudo vibecraft restart`.
 
 ## Console du service
 

@@ -173,7 +173,8 @@ public final class AiJobEngine implements AiJobService {
             return "outil IA introuvable sur la machine du serveur (réglage ai.claude-path, détails dans la console)";
         }
         if (auth == ClaudeCli.Auth.NOT_LOGGED_IN) {
-            return "l'IA n'est pas connectée : connexion à faire une fois dans un terminal sur la machine du serveur (détails dans la console)";
+            return "l'IA n'est pas encore connectée à son compte. L'admin doit le faire une fois sur la machine du serveur "
+                    + "(serveur Linux : sudo vibecraft ai-login ; sinon : voir la console). Elle se réactive toute seule ensuite.";
         }
         return "";
     }
@@ -654,7 +655,8 @@ public final class AiJobEngine implements AiJobService {
                     } else {
                         state = AiJobState.FAILED;
                         if (o.authFailed()) {
-                            finalLine = "🔑 L'IA n'est pas connectée : connexion à refaire sur la machine du serveur (voir la console), puis réessaie";
+                            finalLine = "🔑 L'IA n'est plus connectée à son compte : l'admin doit refaire la connexion sur la machine du serveur "
+                                    + "(serveur Linux : sudo vibecraft ai-login ; sinon : voir la console), puis réessaie";
                         } else if (o.apiError() != null && o.apiError().contains("rate_limit")) {
                             finalLine = "⏳ Limite d'utilisation de l'IA atteinte : réessaie plus tard";
                         } else if (fin != null) {
@@ -845,7 +847,8 @@ public final class AiJobEngine implements AiJobService {
                 ClaudeCli c = cli;
                 String bin = c == null || c.binary() == null ? "claude" : c.binary().getPath();
                 log.warning("[AI] Claude Code is not logged in (" + source + "). Run once in a terminal: \"" + bin
-                        + "\" auth login  (or set ANTHROPIC_API_KEY / CLAUDE_CODE_OAUTH_TOKEN before starting the server)");
+                        + "\" auth login  as the user running the server (Linux deploy: sudo vibecraft ai-login), or set "
+                        + "ANTHROPIC_API_KEY / CLAUDE_CODE_OAUTH_TOKEN before starting the server. The AI turns on by itself once logged in.");
             } else {
                 log.info("[AI] Claude Code auth: " + state + " (" + source + ")");
             }

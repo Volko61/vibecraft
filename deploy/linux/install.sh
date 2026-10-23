@@ -145,6 +145,6 @@ cat <<DONE
   Se donner les droits :             sudo vibecraft cmd op <ton pseudo>
   Connexion Minecraft (26.3) :       $ip  (port $MC_PORT)
   Dashboard, depuis ton PC :         ssh -L 8765:127.0.0.1:8765 <user>@$ip  puis http://127.0.0.1:8765/
-  Brancher Claude Code (/vibe ai) :  sudo vibecraft claude-login
+  Connecter l'IA (/vibe ai) :      sudo vibecraft ai-login
   Mise à jour du jeu :               sudo vibecraft update
 DONE

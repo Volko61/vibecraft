@@ -4,7 +4,7 @@
 #   vibecraft logs                              console du serveur en direct (Ctrl+C pour quitter)
 #   vibecraft cmd <commande...>                 commande console, ex. : vibecraft cmd op MonPseudo
 #   vibecraft update                            git pull + recompilation du plugin + redémarrage
-#   vibecraft claude-login                      connecter Claude Code (pour /vibe ai)
+#   vibecraft ai-login                          connecter l'IA (Claude Code) à son compte, une fois (alias : claude-login)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)"
 USER_NAME="$(stat -c %U "$ROOT")"
@@ -26,6 +26,6 @@ case "${1:-}" in
     sudo -u "$USER_NAME" -H bash "$ROOT/vibecraft-plugin/build.sh"
     exec systemctl restart vibecraft.service
     ;;
-  claude-login) exec sudo -u "$USER_NAME" -H bash -lc 'PATH="$HOME/.local/bin:$PATH" claude auth login' ;;
+  ai-login|claude-login) exec sudo -u "$USER_NAME" -H bash -lc 'PATH="$HOME/.local/bin:$PATH" claude auth login' ;;
   *) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

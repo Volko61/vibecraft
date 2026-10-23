@@ -29,13 +29,12 @@ import org.bukkit.scheduler.BukkitTask;
  *
  * <p>Listener callbacks arrive on arbitrary threads: they only enqueue. A main-thread task
  * (every tick) drains the queue and talks to Bukkit; it also refreshes the action bar of running
- * AI jobs once per second. AI progress lines are throttled to one line per 1.5 s per job (excess
- * lines are dropped; the final line of a job is always delivered).
+ * AI jobs once per second (module id + elapsed time). AI jobs only reach the chat when they end, as one short
+ * line ("[id] ✔ terminé (1:15)" / "[id] ✘ erreur"), the details in its tooltip.
  */
 public final class Notifier {
 
     private static final String NOTIFY_PERM = "vibecraft.notify";
-    private static final long PROGRESS_INTERVAL_MS = 1500;
     private static final int ACTION_BAR_PERIOD_TICKS = 20;
 
     private final JavaPlugin plugin;
@@ -142,26 +141,10 @@ public final class Notifier {
         try {
             long now = System.currentTimeMillis();
             String text = Msg.cut(line, 150);
-            boolean[] send = {false};
-            boolean[] first = {false};
-            active.compute(job.moduleId(), (k, old) -> {
-                if (old == null || !old.job().id().equals(job.id())) {
-                    first[0] = true;
-                    send[0] = true;
-                    return new Active(job, text, now, now);
-                }
-                if (now - old.lastSentAt() >= PROGRESS_INTERVAL_MS) {
-                    send[0] = true;
-                    return new Active(job, text, now, now);
-                }
-                return new Active(job, text, old.lastSentAt(), now);
-            });
-            if (first[0]) {
-                queue.add(() -> announceStart(job));
-            }
-            if (send[0] && !text.isEmpty()) {
-                queue.add(() -> deliverProgress(job, text));
-            }
+            active.compute(job.moduleId(), (k, old) -> old == null || !old.job().id().equals(job.id())
+                    ? new Active(job, text, now, now) : new Active(job, text, old.lastSentAt(), now));
+            // Chat gets only the outcome (deliverFinished): progress lines filled half the screen. The action bar
+            // shows the running jobs; the details stay in the Claude dialog and the dashboard.
         } catch (Throwable ignored) {
             // never throw into the AI service
         }
@@ -179,17 +162,6 @@ public final class Notifier {
         }
     }
 
-    private void announceStart(AiJob job) {
-        String by = job.requestedBy() == null || job.requestedBy().isBlank() ? "" : " (" + job.requestedBy() + ")";
-        toAiAudience(Msg.mm("<dark_aqua>[🤖 <id>]</dark_aqua> <aqua>🚀 nouvelle demande<by> :</aqua> <white>« <prompt> »</white>",
-                Msg.text("id", job.moduleId()), Msg.text("by", by), Msg.text("prompt", Msg.cut(job.prompt(), 120))));
-    }
-
-    private void deliverProgress(AiJob job, String line) {
-        toAiAudience(Msg.mm("<dark_aqua>[🤖 <id>]</dark_aqua> <gray><line></gray>",
-                Msg.text("id", job.moduleId()), Msg.text("line", line)));
-    }
-
     private void deliverFinished(AiJob job) {
         String id = job.moduleId();
         long took = job.startedAt() > 0 && job.endedAt() >= job.startedAt() ? job.endedAt() - job.startedAt() : 0;
@@ -198,19 +170,22 @@ public final class Notifier {
         Component line;
         switch (state) {
             case SUCCEEDED -> {
-                String result = job.result() == null || job.result().isBlank() ? "terminé" : Msg.cut(job.result(), 220);
-                line = Msg.mm("<dark_aqua>[🤖 <id>]</dark_aqua> <green>✔</green> <white><result></white> <dark_gray>(<time>)</dark_gray>",
-                        Msg.text("id", id), Msg.text("result", result), Msg.text("time", ("fini" + time).strip()));
+                // one short line; the AI's summary is in the tooltip
+                String result = job.result() == null || job.result().isBlank() ? "terminé" : Msg.cut(job.result(), 400);
+                line = Msg.mm("<hover:show_text:'<gray><result>'><dark_aqua>[<id>]</dark_aqua> <green>✔ terminé</green>"
+                                + "<dark_gray><time></dark_gray></hover>",
+                        Msg.text("id", id), Msg.text("result", result), Msg.text("time", time));
             }
-            case STOPPED -> line = Msg.mm("<dark_aqua>[🤖 <id>]</dark_aqua> <gold>⏹ arrêté<time></gold>",
+            case STOPPED -> line = Msg.mm("<dark_aqua>[<id>]</dark_aqua> <gold>⏹ arrêté</gold><dark_gray><time></dark_gray>",
                     Msg.text("id", id), Msg.text("time", time));
             default -> {
                 String why = job.result();
                 if ((why == null || why.isBlank()) && job.progress() != null && !job.progress().isEmpty()) {
                     why = job.progress().get(job.progress().size() - 1);
                 }
-                line = Msg.mm("<dark_aqua>[🤖 <id>]</dark_aqua> <red>✘ échec<time></red> <gray><why></gray> <btn>",
-                        Msg.text("id", id), Msg.text("time", time), Msg.text("why", why == null ? "" : "— " + Msg.cut(why, 160)),
+                line = Msg.mm("<hover:show_text:'<gray><why>'><dark_aqua>[<id>]</dark_aqua> <red>✘ erreur</red>"
+                                + "<dark_gray><time></dark_gray></hover> <btn>",
+                        Msg.text("id", id), Msg.text("time", time), Msg.text("why", why == null || why.isBlank() ? "erreur" : Msg.cut(why, 400)),
                         Msg.comp("btn", Msg.suggest("Relancer", NamedTextColor.AQUA, "/vibe ai " + id + " ",
                                 "Relancer l'IA sur " + id)));
             }
@@ -268,9 +243,8 @@ public final class Notifier {
         Component bar;
         if (jobs.size() == 1) {
             Active a = jobs.get(0);
-            bar = Msg.mm("<aqua>🤖 <white><id></white> <gray><time></gray></aqua> <dark_gray>—</dark_gray> <gray><line></gray>",
-                    Msg.text("id", a.job().moduleId()), Msg.text("time", elapsed(a.job(), now)),
-                    Msg.text("line", Msg.cut(a.lastLine(), 60)));
+            bar = Msg.mm("<aqua>🤖 <white><id></white> <gray><time></gray></aqua>",
+                    Msg.text("id", a.job().moduleId()), Msg.text("time", elapsed(a.job(), now)));
         } else {
             StringBuilder sb = new StringBuilder();
             for (Active a : jobs) {

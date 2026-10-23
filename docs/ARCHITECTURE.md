@@ -304,9 +304,10 @@ never wiped. Restart: `scripts/start-server.ps1` relaunches when the marker was 
 
 Notifier: on RELOADED → everyone (if `notify.broadcast-reloads`): `✔ <id> v<gen> chargé à chaud`;
 FAILED/ROLLED_BACK/TRIPPED/RUNTIME_ERROR → players with `vibecraft.notify` (+ console) with a short
-reason; AI progress lines → players with `vibecraft.notify` (ops) only, or everyone with
-`ai.progress-to-everyone: true` (the old `ai.broadcast-progress` key is no longer read), prefixed `[🤖 <id>]`, throttled
-(≤ 1 line / 1.5 s / job, drop the excess but always deliver the final line). Also an action bar while
+reason; AI jobs reach the chat only when they end, as one short line `[<id>] ✔ terminé en 1:15` /
+`[<id>] ⏹ arrêté` / `[<id>] ✘ erreur [Relancer]` (the AI's summary / the error in the tooltip), sent to players with
+`vibecraft.notify` (ops) only, or everyone with `ai.progress-to-everyone: true`. Progress lines are not sent to the
+chat (they filled half the screen; they stay in the Claude dialog and the dashboard). Action bar while
 a job runs (same audience). All Bukkit calls on the main thread.
 
 ## 7. AI jobs (AI)

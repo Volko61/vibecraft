@@ -1,0 +1,30 @@
+# Installé par deploy/linux/install.sh (les @...@ sont remplacés à l'installation).
+[Unit]
+Description=VibeCraft (serveur Minecraft Paper 26.3 live-coding)
+Wants=network-online.target
+After=network-online.target vibecraft.socket
+Requires=vibecraft.socket
+
+[Service]
+Type=simple
+User=@USER@
+Group=@USER@
+WorkingDirectory=@ROOT@/server
+EnvironmentFile=-/etc/default/vibecraft
+# claude (installeur natif) va dans ~/.local/bin : le plugin le cherche dans le PATH (ai.claude-path: auto).
+Environment=PATH=@HOME@/.local/bin:/usr/local/bin:/usr/bin:/bin
+Sockets=vibecraft.socket
+StandardInput=socket
+StandardOutput=journal
+StandardError=journal
+ExecStart=@ROOT@/scripts/start-server.sh
+# Arrêt propre : "stop" dans la console (sauvegarde du monde), puis on attend la fin de la JVM.
+ExecStop=/bin/sh -c 'echo stop > /run/vibecraft.stdin; while kill -0 "$MAINPID" 2>/dev/null; do sleep 1; done'
+TimeoutStopSec=120
+SuccessExitStatus=0 143
+Restart=always
+RestartSec=10
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

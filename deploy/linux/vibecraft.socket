@@ -1,0 +1,12 @@
+# Console du serveur : tout ce qui est écrit dans /run/vibecraft.stdin arrive sur l'entrée standard de Paper.
+# Exemple : echo "op MonPseudo" | sudo tee /run/vibecraft.stdin   (ou : sudo vibecraft cmd op MonPseudo)
+[Unit]
+Description=Console VibeCraft (FIFO stdin)
+PartOf=vibecraft.service
+
+[Socket]
+ListenFIFO=/run/vibecraft.stdin
+SocketUser=@USER@
+SocketGroup=@USER@
+SocketMode=0660
+RemoveOnStop=true

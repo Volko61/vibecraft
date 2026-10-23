@@ -10,6 +10,7 @@ import dev.vibecraft.ai.JobOptions;
 import dev.vibecraft.web.ConversationRoutes;
 import dev.vibecraft.command.IdeaCommand;
 import dev.vibecraft.command.ResetCommand;
+import dev.vibecraft.command.VibeClock;
 import dev.vibecraft.command.VibeCommand;
 import dev.vibecraft.core.ModuleEvent;
 import dev.vibecraft.core.ModuleManager;
@@ -81,6 +82,10 @@ public final class VibeCraftPlugin extends JavaPlugin {
         PluginCommand resetCmd = Objects.requireNonNull(getCommand("reset"));
         resetCmd.setExecutor(reset);
         resetCmd.setTabCompleter(reset);
+
+        if (getConfig().getBoolean("ui.clock-opens-vibe", true)) {
+            new VibeClock(this, vibe::openClaude).register(); // clock in the inventory of ops: right click = /vibe
+        }
 
         modules.start();
         extensions.start(); // hot resource pack, OpenRouter, Meshy, texture / 3D generation, /api/pack...

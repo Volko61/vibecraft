@@ -77,6 +77,8 @@ ui:
   vibe-opens: claude
   # Sneak + right click with a compass opens the Claude dialog (players with vibecraft.admin).
   compass-opens-claude: true
+  # Players with vibecraft.admin get a "Montre VibeCraft" (clock): right click opens /vibe.
+  clock-opens-vibe: true
 
 ideas:
   enabled: true

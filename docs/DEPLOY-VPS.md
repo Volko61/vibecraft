@@ -48,7 +48,18 @@ Variables utiles : `VIBECRAFT_MEMORY=6G` (mémoire max), `UPGRADE_PAPER=1`, `SKI
 Les textures des modules sont servies sur le port 8766 à l'adresse que le joueur a tapée
 (`resource-pack.public-host: auto`).
 
-**Dashboard** depuis ton PC, par un tunnel SSH (il n'est jamais exposé sur Internet) :
+**Dashboard** sur Internet, protégé par un mot de passe :
+
+```bash
+sudo vibecraft dashboard MonMotDePasse   # ouvre http://<ip-du-vps>:8765/ (pare-feu + redémarrage)
+sudo vibecraft dashboard off             # le referme
+```
+
+Le navigateur demande le mot de passe à la première visite (bouton « Jeton d'accès… » pour le changer) ; c'est
+`api.token` + `api.public: true` dans `server/plugins/VibeCraft/config.yml`. HTTP simple (pas de HTTPS) : prends un
+mot de passe qui ne sert nulle part ailleurs.
+
+Ou, sans l'ouvrir sur Internet, depuis ton PC par un tunnel SSH :
 
 ```bash
 ssh -L 8765:127.0.0.1:8765 root@<ip-du-vps>

@@ -26,6 +26,10 @@ api:
   port: 8765
   # If non-empty, every /api request must send the header "X-Vibe-Token: <token>" (the dashboard asks for it).
   token: ""
+  # true = dashboard reachable from the Internet at http://<ip-of-the-server>:<port>/ (open the port in the firewall).
+  # Requires a token above: it is the dashboard password (asked once, remembered by the browser). Plain HTTP:
+  # pick a password used nowhere else.
+  public: false
 
 notify:
   # Tell everyone in chat when a module is (re)loaded - nice for live demos.

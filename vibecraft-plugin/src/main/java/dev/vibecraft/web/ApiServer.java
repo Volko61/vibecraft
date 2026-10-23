@@ -89,6 +89,8 @@ public final class ApiServer {
     private volatile boolean stopping;
     private byte[] token = new byte[0];
     private String host;
+    /** api.public: reachable from the Internet (any Host / same-origin), only with a password (api.token). */
+    private boolean publicAccess;
     private int port;
     private boolean autoReload = true;
 
@@ -106,6 +108,13 @@ public final class ApiServer {
         autoReload = plugin.getConfig().getBoolean("auto-reload", true);
         String tok = plugin.getConfig().getString("api.token", "");
         token = tok == null ? new byte[0] : tok.strip().getBytes(StandardCharsets.UTF_8);
+        publicAccess = plugin.getConfig().getBoolean("api.public", false);
+        if (publicAccess && token.length == 0) {
+            plugin.getLogger().severe("api.public: true needs a password (api.token): dashboard kept on 127.0.0.1 only");
+            publicAccess = false;
+        } else if (publicAccess && (host == null || host.isBlank() || host.startsWith("127.") || host.equals("localhost"))) {
+            host = "0.0.0.0"; // every interface (127.0.0.1 included: the AI agents keep using it)
+        }
 
         // Slow / half-open clients must not hold the request threads forever (they would stall the dashboard
         // and the AI agents' curl calls): the JDK server closes connections whose request is not read within
@@ -139,7 +148,7 @@ public final class ApiServer {
             plugin.getLogger().warning("API: cannot schedule status snapshots: " + e);
         }
         plugin.getLogger().info("HTTP API + dashboard on http://" + displayHost() + ":" + port + "/"
-                + (token.length > 0 ? " (token required)" : ""));
+                + (token.length > 0 ? " (token required)" : "") + (publicAccess ? " - PUBLIC (port " + port + " on every interface)" : ""));
     }
 
     /** Stop accepting requests, answer in-flight ones with 503 and release the port. */
@@ -286,6 +295,9 @@ public final class ApiServer {
         if (h == null) {
             return false;
         }
+        if (publicAccess) {
+            return true; // reached by IP / domain name; every /api call needs the password anyway
+        }
         String x = h.toLowerCase(Locale.ROOT);
         if (x.equals("127.0.0.1") || x.equals("localhost") || x.equals("[::1]") || x.equals("::1")) {
             return true;
@@ -331,7 +343,8 @@ public final class ApiServer {
                 if (rest.endsWith("/")) {
                     rest = rest.substring(0, rest.length() - 1);
                 }
-                ok = rest.endsWith(":" + port) && allowedHostName(hostPart(rest));
+                ok = rest.endsWith(":" + port) && allowedHostName(hostPart(rest))
+                        && (!publicAccess || hostHeader == null || rest.equalsIgnoreCase(hostHeader.strip()));
             }
             if (!ok) {
                 return "cross-origin request refused (Origin " + Msg.cut(origin, 60) + ")";
